@@ -1,0 +1,27 @@
+{
+  "name": "campusconnect",
+  "version": "1.0.0",
+  "description": "A platform to connect students, faculty, and campus communities.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd backend && node server.js",
+    "client": "cd frontend && npm run dev"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Virajkoli/CampusConnect.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Virajkoli/CampusConnect/issues"
+  },
+  "homepage": "https://github.com/Virajkoli/CampusConnect#readme",
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
