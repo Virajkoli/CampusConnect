@@ -9,6 +9,7 @@ import Discussions from "./pages/Discussions";
 import Notes from "./pages/Notes";
 import Chat from "./pages/Chats";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AuthPage from "./Components/AuthPage"; // import the AuthPage component
 
 function App() {
   return (
@@ -16,9 +17,12 @@ function App() {
       <Navbar />
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
 
+        {/* Routes for login and signup */}
+        <Route path="/login" element={<AuthPage />} />
+        <Route path="/signup" element={<AuthPage />} />
+
+        {/* Protected Routes */}
         <Route
           path="/profile"
           element={
@@ -65,4 +69,3 @@ function App() {
 }
 
 export default App;
-
