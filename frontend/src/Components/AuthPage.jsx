@@ -19,7 +19,7 @@ export default function AuthPage() {
       if (isLogin) {
         await loginWithEmailPassword(email, password);
       } else {
-        await signUpWithEmailPassword(email, password);
+        await signUpWithEmailPassword(email, password,name);
       }
       navigate("/"); // Redirect after login ? Signup
     } catch (err) {
@@ -128,6 +128,7 @@ export default function AuthPage() {
             <motion.button
               whileHover={{ scale: 1.05 }}
               type="submit"
+              
               className="w-full bg-purple-500 text-white py-2 rounded-xl hover:bg-purple-600 transition"
             >
               Sign Up
