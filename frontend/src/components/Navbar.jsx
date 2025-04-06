@@ -2,8 +2,11 @@ import { Link } from "react-router-dom";
 import { auth } from "../firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 function Navbar() {
+  const navigate = useNavigate();
+
   const [user] = useAuthState(auth);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
@@ -11,11 +14,12 @@ function Navbar() {
 
   const handleLogout = () => {
     auth.signOut();
+    navigate("/login");
     setIsDropdownOpen(false);
   };
 
   return (
-    <nav className="flex justify-between items-center px-6 py-4 bg-blue-600 text-white relative">
+    <nav className="flex justify-between items-center px-6 py-4 bg-transparent text-black relative">
       <h1 className="text-xl font-bold">CampusConnect</h1>
 
       <div className="flex items-center space-x-6">
@@ -77,8 +81,7 @@ function Navbar() {
           </>
         ) : (
           <>
-            <Link to="/login">Login</Link>
-            <Link to="/signup">Signup</Link>
+            <Link to="/login">Login / Signup</Link>
           </>
         )}
       </div>

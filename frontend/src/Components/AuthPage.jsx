@@ -1,8 +1,62 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { signUpWithEmailPassword, loginWithEmailPassword } from "../firebase"; // Import Firebase functions
+import { useNavigate } from "react-router-dom";
 
 export default function AuthPage() {
+  const navigate = useNavigate();
+
   const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState(""); // To collect name for signup
+  const [error, setError] = useState(""); // To handle errors
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      if (isLogin) {
+        await loginWithEmailPassword(email, password);
+        navigate("/"); // Redirect after login
+      } else {
+        await signUpWithEmailPassword(email, password);
+
+        // Switch to login mode
+        setIsLogin(true);
+        setEmail(""); // Clear email & password fields
+        setPassword("");
+        setName("");
+
+        // Show a message prompting login
+        {
+          error && (
+            <p
+              className={`text-center font-medium ${
+                error.includes("successfully")
+                  ? "text-green-600"
+                  : "text-red-500"
+              }`}
+            >
+              {error}
+            </p>
+          );
+        }
+      }
+    } catch (err) {
+      {
+        error && (
+          <p
+            className={`text-center font-medium ${
+              error.includes("successfully") ? "text-green-600" : "text-red-500"
+            }`}
+          >
+            {error}
+          </p>
+        );
+      }
+    }
+  };
 
   return (
     <motion.div
@@ -15,7 +69,7 @@ export default function AuthPage() {
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.6, type: "spring", stiffness: 100 }}
-        className="bg-white/60 rounded-2xl shadow-2xl p-8 w-full max-w-md backdrop-blur-md" // Changed to bg-white/60 and added backdrop-blur-md
+        className="bg-white/60 rounded-2xl shadow-2xl p-8 w-full max-w-md backdrop-blur-md"
       >
         <div className="flex justify-center mb-6">
           <motion.button
@@ -37,27 +91,34 @@ export default function AuthPage() {
             Sign Up
           </motion.button>
         </div>
-
+        {error && <p className="text-red-500 text-center">{error}</p>}{" "}
+        {/* Display error message */}
         {isLogin ? (
           <motion.form
             initial={{ x: -20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ duration: 0.4 }}
             className="space-y-4"
+            onSubmit={handleSubmit} // Handle form submission
           >
             <h2 className="text-2xl font-bold text-center">Welcome Back</h2>
             <input
               type="email"
               placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
             <input
               type="password"
               placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
             <motion.button
               whileHover={{ scale: 1.05 }}
+              type="submit"
               className="w-full bg-blue-500 text-white py-2 rounded-xl hover:bg-blue-600 transition"
             >
               Login
@@ -69,6 +130,7 @@ export default function AuthPage() {
             animate={{ x: 0, opacity: 1 }}
             transition={{ duration: 0.4 }}
             className="space-y-4"
+            onSubmit={handleSubmit} // Handle form submission
           >
             <h2 className="text-2xl font-bold text-center">
               Create an Account
@@ -76,20 +138,27 @@ export default function AuthPage() {
             <input
               type="text"
               placeholder="Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               className="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400"
             />
             <input
               type="email"
               placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400"
             />
             <input
               type="password"
               placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400"
             />
             <motion.button
               whileHover={{ scale: 1.05 }}
+              type="submit"
               className="w-full bg-purple-500 text-white py-2 rounded-xl hover:bg-purple-600 transition"
             >
               Sign Up
