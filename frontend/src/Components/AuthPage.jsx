@@ -15,7 +15,7 @@ export default function AuthPage() {
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.6, type: "spring", stiffness: 100 }}
-        className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md"
+        className="bg-white/60 rounded-2xl shadow-2xl p-8 w-full max-w-md backdrop-blur-md" // Changed to bg-white/60 and added backdrop-blur-md
       >
         <div className="flex justify-center mb-6">
           <motion.button
