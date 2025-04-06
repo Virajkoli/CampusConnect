@@ -4,7 +4,9 @@ import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Profile from "./pages/Profile";
+import EditProfile from "./pages/EditProfile";
 import Announcements from "./pages/Announcements";
+import ChangePassword from "./pages/ChangePassword";
 import Discussions from "./pages/Discussions";
 import Notes from "./pages/Notes";
 import Chat from "./pages/Chats";
@@ -31,6 +33,25 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        <Route
+          path="/change-password"
+          element={
+            <ProtectedRoute>
+              <ChangePassword />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/edit-profile"
+          element={
+            <ProtectedRoute>
+              <EditProfile />
+            </ProtectedRoute>
+          }
+        />
+
         <Route
           path="/announcements"
           element={

@@ -37,7 +37,9 @@ function Profile() {
             className="w-24 h-24 rounded-full border-2 border-blue-500"
           />
           <div className="text-center sm:text-left">
-            <h2 className="text-xl font-semibold text-gray-800">{user?.displayName || "Not Provided"}</h2>
+            <h2 className="text-xl font-semibold text-gray-800">
+              {user?.displayName || "Not Provided"}
+            </h2>
             <p className="text-gray-600">{user?.email}</p>
           </div>
         </div>
@@ -101,10 +103,16 @@ function Profile() {
 
         {/* Settings */}
         <div className="flex flex-wrap gap-4 justify-center mt-4">
-          <button className="bg-yellow-400 text-white px-4 py-2 rounded-lg font-medium hover:bg-yellow-500">
+          <button
+            onClick={() => navigate("/edit-profile")}
+            className="bg-yellow-400 text-white px-4 py-2 rounded-lg font-medium hover:bg-yellow-500"
+          >
             Edit Profile
           </button>
-          <button className="bg-blue-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-600">
+          <button
+            onClick={() => navigate("/change-password")}
+            className="bg-blue-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-600"
+          >
             Change Password
           </button>
           <button
