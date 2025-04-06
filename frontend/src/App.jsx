@@ -1,11 +1,15 @@
+import AuthPage from './Components/Auth.jsx'
+
 function App() {
   return (
     <>
       <div className="container flex justify-center h-screen align-middle">
-        <h1 className="text-5xl">CampusConnect</h1>
+        
+          <AuthPage />
       </div>
     </>
   );
 }
 
 export default App;
+
