@@ -18,43 +18,12 @@ export default function AuthPage() {
     try {
       if (isLogin) {
         await loginWithEmailPassword(email, password);
-        navigate("/"); // Redirect after login
       } else {
         await signUpWithEmailPassword(email, password);
-
-        // Switch to login mode
-        setIsLogin(true);
-        setEmail(""); // Clear email & password fields
-        setPassword("");
-        setName("");
-
-        // Show a message prompting login
-        {
-          error && (
-            <p
-              className={`text-center font-medium ${
-                error.includes("successfully")
-                  ? "text-green-600"
-                  : "text-red-500"
-              }`}
-            >
-              {error}
-            </p>
-          );
-        }
       }
+      navigate("/"); // Redirect after login ? Signup
     } catch (err) {
-      {
-        error && (
-          <p
-            className={`text-center font-medium ${
-              error.includes("successfully") ? "text-green-600" : "text-red-500"
-            }`}
-          >
-            {error}
-          </p>
-        );
-      }
+      setError(err.message);
     }
   };
 
