@@ -28,21 +28,22 @@ function ChangePassword() {
     }
 
     try {
-      // Re-authenticate before changing password
       const credential = EmailAuthProvider.credential(user.email, currentPassword);
       await reauthenticateWithCredential(user, credential);
-
-      // Change password
+    
       await updatePassword(user, newPassword);
-      setSuccess("Password updated successfully!");
-      setTimeout(() => navigate("/profile"), 2000);
+    
+      // ✅ Optional: Logout after password update
+      await auth.signOut();
+      navigate("/login"); // redirect to login page
     } catch (err) {
       setError(err.message);
     }
+    
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-tr from-purple-200 to-blue-100 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-tr from-purple-600 to-blue-500 px-4">
       <div className="bg-white p-8 rounded-xl shadow-lg max-w-md w-full">
         <h2 className="text-2xl font-bold text-center text-blue-800 mb-6">🔒 Change Password</h2>
 
