@@ -43,7 +43,7 @@ function EditProfile() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center p-6">
       <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg">
         <h1 className="text-2xl font-bold text-blue-700 mb-6 text-center">✏️ Edit Profile</h1>
         <form onSubmit={handleUpdate} className="space-y-4">
@@ -53,7 +53,7 @@ function EditProfile() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-600"
               required
             />
           </div>
@@ -64,7 +64,7 @@ function EditProfile() {
               type="text"
               value={photoURL}
               onChange={(e) => setPhotoURL(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
