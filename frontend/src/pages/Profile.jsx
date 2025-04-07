@@ -1,20 +1,24 @@
 import { useEffect, useState } from "react";
 import { auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
+import defaultProfile from "../assets/pallavi.jpg";
 
 function Profile() {
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+    const fetchUser = async () => {
+      const currentUser = auth.currentUser;
       if (currentUser) {
-        setUser(currentUser);
+        await currentUser.reload(); // 💥 force update from server
+        setUser(auth.currentUser); // ✅ updated user object
       } else {
         navigate("/login");
       }
-    });
-    return () => unsubscribe();
+    };
+
+    fetchUser();
   }, [navigate]);
 
   const handleLogout = async () => {
@@ -30,12 +34,13 @@ function Profile() {
         </h1>
 
         {/* Profile Picture and Basic Info */}
-        <div className="flex flex-col sm:flex-row items-center gap-6 mb-8">
+        <div className="flex-col sm:flex-row items-center gap-6 mb-8">
           <img
-            src={user?.photoURL || "https://via.placeholder.com/150"}
+            className="h-20 w-20 rounded-full object-cover"
+            src={user?.photoURL}
             alt="Profile"
-            className="w-24 h-24 rounded-full border-2 border-blue-500"
           />
+
           <div className="text-center sm:text-left">
             <h2 className="text-xl font-semibold text-gray-800">
               {user?.displayName || "Not Provided"}

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { signUpWithEmailPassword, loginWithEmailPassword } from "../firebase"; // Import Firebase functions
+import { signUpWithEmailPassword, loginWithEmailPassword } from "../firebase";
 import { useNavigate } from "react-router-dom";
 
 export default function AuthPage() {
@@ -9,19 +9,18 @@ export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState(""); // To collect name for signup
-  const [error, setError] = useState(""); // To handle errors
+  const [name, setName] = useState("");
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     try {
       if (isLogin) {
         await loginWithEmailPassword(email, password);
       } else {
-        await signUpWithEmailPassword(email, password,name);
+        await signUpWithEmailPassword(email, password, name);
       }
-      navigate("/"); // Redirect after login ? Signup
+      navigate("/");
     } catch (err) {
       setError(err.message);
     }
@@ -60,15 +59,15 @@ export default function AuthPage() {
             Sign Up
           </motion.button>
         </div>
-        {error && <p className="text-red-500 text-center">{error}</p>}{" "}
-        {/* Display error message */}
+        {error && <p className="text-red-500 text-center">{error}</p>}
+
         {isLogin ? (
           <motion.form
             initial={{ x: -20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ duration: 0.4 }}
             className="space-y-4"
-            onSubmit={handleSubmit} // Handle form submission
+            onSubmit={handleSubmit}
           >
             <h2 className="text-2xl font-bold text-center">Welcome Back</h2>
             <input
@@ -85,6 +84,18 @@ export default function AuthPage() {
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
+
+            {/* ✅ Forgot Password link added here */}
+            <p className="text-right text-sm">
+              <button
+                type="button"
+                onClick={() => navigate("/reset-password")}
+                className="text-blue-600 hover:underline"
+              >
+                Forgot Password?
+              </button>
+            </p>
+
             <motion.button
               whileHover={{ scale: 1.05 }}
               type="submit"
@@ -99,7 +110,7 @@ export default function AuthPage() {
             animate={{ x: 0, opacity: 1 }}
             transition={{ duration: 0.4 }}
             className="space-y-4"
-            onSubmit={handleSubmit} // Handle form submission
+            onSubmit={handleSubmit}
           >
             <h2 className="text-2xl font-bold text-center">
               Create an Account
@@ -128,7 +139,6 @@ export default function AuthPage() {
             <motion.button
               whileHover={{ scale: 1.05 }}
               type="submit"
-              
               className="w-full bg-purple-500 text-white py-2 rounded-xl hover:bg-purple-600 transition"
             >
               Sign Up

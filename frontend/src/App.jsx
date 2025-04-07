@@ -1,8 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
-import Login from "./pages/Login";
-import Signup from "./pages/Signup";
 import Profile from "./pages/Profile";
 import EditProfile from "./pages/EditProfile";
 import Announcements from "./pages/Announcements";
@@ -11,12 +9,13 @@ import Discussions from "./pages/Discussions";
 import Notes from "./pages/Notes";
 import Chat from "./pages/Chats";
 import ProtectedRoute from "./components/ProtectedRoute";
-import AuthPage from "./Components/AuthPage"; // import the AuthPage component
-
+import AuthPage from "./Components/AuthPage"; 
+import ResetPassword from "./pages/ResetPassword";// import the AuthPage component
 function App() {
   return (
     <Router>
       <Navbar />
+
       <Routes>
         <Route path="/" element={<Home />} />
 
@@ -32,6 +31,14 @@ function App() {
               <Profile />
             </ProtectedRoute>
           }
+        />
+        <Route 
+          path="/reset-password" 
+          element={
+            <ProtectedRoute>
+              <ResetPassword />
+            </ProtectedRoute>
+        } 
         />
 
         <Route
