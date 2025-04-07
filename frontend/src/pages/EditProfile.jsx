@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
+import { updateProfile } from "firebase/auth";
+
 
 function EditProfile() {
   const [user, setUser] = useState(null);
@@ -23,17 +25,24 @@ function EditProfile() {
   const handleUpdate = async (e) => {
     e.preventDefault();
     if (!user) return;
-
+  
     setLoading(true);
     try {
-      await user.updateProfile({
+      // 👇 yeh line sahi jagah hai!
+      await updateProfile(auth.currentUser, {
         displayName: name,
         photoURL: photoURL,
       });
-
-      // Force refresh currentUser (optional safety)
+      
+  
+      // 👇 Yeh ensure karega ke latest data mil jaaye
       await auth.currentUser.reload();
-
+      const updatedUser = auth.currentUser;
+  
+      setUser(updatedUser);
+      setName(updatedUser.displayName || "");
+      setPhotoURL(updatedUser.photoURL || "");
+  
       setLoading(false);
       navigate("/profile");
     } catch (error) {
@@ -41,6 +50,7 @@ function EditProfile() {
       setLoading(false);
     }
   };
+  
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center p-6">
