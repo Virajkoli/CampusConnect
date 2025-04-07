@@ -1,4 +1,10 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import Profile from "./pages/Profile";
@@ -9,13 +15,33 @@ import Discussions from "./pages/Discussions";
 import Notes from "./pages/Notes";
 import Chat from "./pages/Chats";
 import ProtectedRoute from "./components/ProtectedRoute";
-import AuthPage from "./Components/AuthPage"; 
-import ResetPassword from "./pages/ResetPassword";// import the AuthPage component
+import AuthPage from "./Components/AuthPage";
+import ResetPassword from "./pages/ResetPassword";
+import ResetConfirm from "./pages/ResetConfirm";
+import { useEffect } from "react";
+
+function FirebaseRedirectHandler() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const mode = params.get("mode");
+    const oobCode = params.get("oobCode");
+
+    if (mode === "resetPassword" && oobCode) {
+      navigate(`/reset-password-confirm?oobCode=${oobCode}`);
+    }
+  }, [location, navigate]);
+
+  return null;
+}
+
 function App() {
   return (
     <Router>
       <Navbar />
-
+      <FirebaseRedirectHandler />
       <Routes>
         <Route path="/" element={<Home />} />
 
@@ -32,14 +58,9 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route 
-          path="/reset-password" 
-          element={
-            <ProtectedRoute>
-              <ResetPassword />
-            </ProtectedRoute>
-        } 
-        />
+        <Route path="/reset-password" element={<ResetPassword />} />
+
+        <Route path="/reset-password-confirm" element={<ResetConfirm />} />
 
         <Route
           path="/change-password"
