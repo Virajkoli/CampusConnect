@@ -15,9 +15,13 @@ import Discussions from "./pages/Discussions";
 
 import Chat from "./pages/Chats";
 import ProtectedRoute from "./components/ProtectedRoute";
-import AuthPage from "./Components/AuthPage";
+import AuthPage from "./components/AuthPage";
 import ResetPassword from "./pages/ResetPassword";
 import ResetConfirm from "./pages/ResetConfirm";
+
+import AdminAuthPage from "./pages/AdminAuthPage";
+import StudentAuthPage from "./pages/StudentAuthPage";
+
 import { useEffect } from "react";
 
 function FirebaseRedirectHandler() {
@@ -58,6 +62,26 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        <Route
+          path="/auth/student"
+          element={
+           
+              <StudentAuthPage />
+            
+          }
+        />
+
+        <Route
+          path="/auth/admin"
+          element={
+            
+              <AdminAuthPage/>
+            
+          }
+        />
+
+      
         <Route path="/reset-password" element={<ResetPassword />} />
 
         <Route path="/reset-password-confirm" element={<ResetConfirm />} />
