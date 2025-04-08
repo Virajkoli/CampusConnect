@@ -12,7 +12,7 @@ import EditProfile from "./pages/EditProfile";
 import Announcements from "./pages/Announcements";
 import ChangePassword from "./pages/ChangePassword";
 import Discussions from "./pages/Discussions";
-import Notes from "./pages/Notes";
+
 import Chat from "./pages/Chats";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AuthPage from "./Components/AuthPage";
@@ -96,14 +96,7 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/notes"
-          element={
-            <ProtectedRoute>
-              <Notes />
-            </ProtectedRoute>
-          }
-        />
+    
         <Route
           path="/chat"
           element={
