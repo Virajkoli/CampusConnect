@@ -10,7 +10,8 @@ import Notes from "./pages/Notes";
 import Chat from "./pages/Chats";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AuthPage from "./Components/AuthPage"; 
-import ResetPassword from "./pages/ResetPassword";// import the AuthPage component
+import ResetPassword from "./pages/ChangePassword";// import the AuthPage component
+import About from "./pages/About";
 function App() {
   return (
     <Router>
@@ -18,6 +19,7 @@ function App() {
 
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/about" element={<About />} />
 
         {/* Routes for login and signup */}
         <Route path="/login" element={<AuthPage />} />

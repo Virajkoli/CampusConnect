@@ -24,6 +24,7 @@ function Navbar() {
 
       <div className="flex items-center space-x-6">
         <Link to="/">Home</Link>
+        <Link to="/about">About</Link>
 
         {user ? (
           <>

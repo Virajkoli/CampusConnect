@@ -23,5 +23,9 @@
   "homepage": "https://github.com/Virajkoli/CampusConnect#readme",
   "devDependencies": {
     "concurrently": "^9.1.2"
+  },
+  "dependencies": {
+    "gsap": "^3.12.7",
+    "react-icons": "^5.5.0"
   }
 }
