@@ -1,5 +1,5 @@
+// firebase.js
 import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
 import {
   getAuth,
   GoogleAuthProvider,
@@ -7,29 +7,24 @@ import {
   signInWithEmailAndPassword,
   updateProfile,
 } from "firebase/auth";
-import { getFirestore } from "@firebase/firestore";
+import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBqhlUsTMQid5fBO4YMZdXi32Iymv2u-w4",
-  authDomain: "campusconnect-c1fbd.firebaseapp.com",
-  projectId: "campusconnect-c1fbd",
-  storageBucket: "campusconnect-c1fbd.firebasestorage.app",
-  messagingSenderId: "716973984569",
-  appId: "1:716973984569:web:9ea868906eaf3458a4f6e8",
-  measurementId: "G-S8L26RWM7S",
+  apiKey: "AIzaSyAaqKQWQuQZyPnrUieCUkRh3GrfKqucdOw",
+  authDomain: "campus-connect-9e92e.firebaseapp.com",
+  projectId: "campus-connect-9e92e",
+  storageBucket: "campus-connect-9e92e.appspot.com",
+  messagingSenderId: "268286454476",
+  appId: "1:268286454476:web:a70a7e0f77ceef75d3b069",
+  
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
-const firestore = getFirestore(app);
-export const db = getFirestore(app);
-
 export const auth = getAuth(app);
+export const firestore = getFirestore(app);
 export const provider = new GoogleAuthProvider();
-export { firestore };
 
-export const signUpWithEmailPassword = async (email, password,name) => {
+export const signUpWithEmailPassword = async (email, password, name) => {
   const userCredential = await createUserWithEmailAndPassword(auth, email, password);
   await updateProfile(userCredential.user, { displayName: name });
   return userCredential;
@@ -37,4 +32,12 @@ export const signUpWithEmailPassword = async (email, password,name) => {
 
 export const loginWithEmailPassword = (email, password) => {
   return signInWithEmailAndPassword(auth, email, password);
+};
+export const createTeacherAccount = async (email, password, name) => {
+  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+
+  // Name set karna
+  await updateProfile(userCredential.user, { displayName: name });
+
+  return userCredential;
 };
