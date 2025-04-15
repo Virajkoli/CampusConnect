@@ -13,8 +13,8 @@ export default function ResetPassword() {
     e.preventDefault();
     try {
       await sendPasswordResetEmail(auth, email, {
-        url: "http://localhost:3000/reset-password-confirm", // your confirm page
-        handleCodeInApp: true,
+        url: "http://localhost:5173/reset-password-confirmm",
+        handleCodeInApp: true, // ✅ MUST be true
       });
       setMessage("Password reset link sent to your email!");
     } catch (err) {

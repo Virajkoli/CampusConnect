@@ -5,24 +5,29 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import Navbar from "./components/Navbar";
+import { useEffect } from "react";
+
+import Navbar from "./Components/Navbar";
+import ProtectedRoute from "./Components/ProtectedRoute";
+import AdminRoute from "./Components/AdminRoute";
+import TeacherRoute from "./Components/TeacherRoute";
+
 import Home from "./pages/Home";
 import Profile from "./pages/Profile";
 import EditProfile from "./pages/EditProfile";
 import Announcements from "./pages/Announcements";
 import ChangePassword from "./pages/ChangePassword";
 import Discussions from "./pages/Discussions";
-
 import Chat from "./pages/Chats";
-import ProtectedRoute from "./components/ProtectedRoute";
 import AuthPage from "./components/AuthPage";
 import ResetPassword from "./pages/ResetPassword";
 import ResetConfirm from "./pages/ResetConfirm";
-
+import AdminDashboard from "./pages/AdminDashboard";
 import AdminAuthPage from "./pages/AdminAuthPage";
 import StudentAuthPage from "./pages/StudentAuthPage";
-
-import { useEffect } from "react";
+import UserManagement from "./pages/UserManagement";
+import TeacherAuthPage from "./pages/TeacherAuthPage";
+import TeacherDashboard from "./pages/TeacherDashboard";
 
 function FirebaseRedirectHandler() {
   const location = useLocation();
@@ -49,9 +54,16 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
 
-        {/* Routes for login and signup */}
+        {/* Authentication */}
         <Route path="/login" element={<AuthPage />} />
         <Route path="/signup" element={<AuthPage />} />
+        <Route path="/auth/student" element={<StudentAuthPage />} />
+        <Route path="/auth/admin" element={<AdminAuthPage />} />
+        <Route path="/auth/teacher" element={<TeacherAuthPage />} />
+
+        {/* Password Reset */}
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/reset-password-confirm" element={<ResetConfirm />} />
 
         {/* Protected Routes */}
         <Route
@@ -62,39 +74,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
-        <Route
-          path="/auth/student"
-          element={
-           
-              <StudentAuthPage />
-            
-          }
-        />
-
-        <Route
-          path="/auth/admin"
-          element={
-            
-              <AdminAuthPage/>
-            
-          }
-        />
-
-      
-        <Route path="/reset-password" element={<ResetPassword />} />
-
-        <Route path="/reset-password-confirm" element={<ResetConfirm />} />
-
-        <Route
-          path="/change-password"
-          element={
-            <ProtectedRoute>
-              <ChangePassword />
-            </ProtectedRoute>
-          }
-        />
-
         <Route
           path="/edit-profile"
           element={
@@ -103,7 +82,14 @@ function App() {
             </ProtectedRoute>
           }
         />
-
+        <Route
+          path="/change-password"
+          element={
+            <ProtectedRoute>
+              <ChangePassword />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/announcements"
           element={
@@ -120,13 +106,33 @@ function App() {
             </ProtectedRoute>
           }
         />
-    
         <Route
           path="/chat"
           element={
             <ProtectedRoute>
               <Chat />
             </ProtectedRoute>
+          }
+        />
+
+        {/* Admin Routes */}
+        <Route
+          path="/admin-dashboard"
+          element={
+            <AdminRoute>
+              <AdminDashboard />
+            </AdminRoute>
+          }
+        />
+        <Route path="/admin-adduser" element={<UserManagement />} />
+
+        {/* Teacher Routes */}
+        <Route
+          path="/teacher-dashboard"
+          element={
+            <TeacherRoute>
+              <TeacherDashboard />
+            </TeacherRoute>
           }
         />
       </Routes>

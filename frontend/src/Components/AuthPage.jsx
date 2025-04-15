@@ -13,12 +13,18 @@ export default function AuthPage() {
     >
       <div className="bg-white/80 p-10 rounded-2xl shadow-xl backdrop-blur-md text-center space-y-6">
         <h2 className="text-2xl font-bold">Select Your Role</h2>
-        <div className="flex justify-center gap-6">
+        <div className="flex justify-center gap-6 flex-wrap">
           <button
             onClick={() => navigate("/auth/student")}
             className="bg-blue-500 text-white px-6 py-2 rounded-xl hover:bg-blue-600 transition"
           >
             Student
+          </button>
+          <button
+            onClick={() => navigate("/auth/teacher")}
+            className="bg-green-500 text-white px-6 py-2 rounded-xl hover:bg-green-600 transition"
+          >
+            Teacher
           </button>
           <button
             onClick={() => navigate("/auth/admin")}

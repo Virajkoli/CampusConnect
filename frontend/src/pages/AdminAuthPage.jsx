@@ -1,8 +1,8 @@
 // AdminAuthPage.jsx
 import { useState } from "react";
-import { motion } from "framer-motion";
-import { loginWithEmailPassword } from "../firebase";
 import { useNavigate } from "react-router-dom";
+import { loginWithEmailPassword, auth } from "../firebase";
+import { motion } from "framer-motion";
 
 export default function AdminAuthPage() {
   const navigate = useNavigate();
@@ -12,26 +12,35 @@ export default function AdminAuthPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
+
     try {
       await loginWithEmailPassword(email, password);
-      navigate("/admin-dashboard");
+      const user = auth.currentUser;
+
+      if (user) {
+        // FORCE TOKEN REFRESH to get latest claims
+        const tokenResult = await user.getIdTokenResult(true); // 👈 true for refresh
+
+        if (tokenResult.claims.admin) {
+          navigate("/admin-dashboard");
+        } else {
+          setError("❌ You are not authorized as admin.");
+        }
+      }
     } catch (err) {
-      setError(err.message);
+      setError("❌ " + err.message);
     }
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="h-screen flex items-center justify-center bg-gradient-to-br from-red-600 to-yellow-500"
-    >
-      <div className="bg-white/60 rounded-2xl shadow-2xl p-8 w-full max-w-md backdrop-blur-md">
-        <h2 className="text-center text-xl font-bold text-red-700 mb-4">
-          Admin Portal
-        </h2>
+    <motion.div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-500 to-yellow-400">
+      <motion.div className="w-full max-w-md bg-white/30 backdrop-blur-xl rounded-3xl shadow-2xl p-8">
+        <motion.h2 className="text-2xl font-bold text-center text-red-700 mb-6">
+          Admin Login
+        </motion.h2>
 
-        {error && <p className="text-red-500 text-center">{error}</p>}
+        {error && <p className="text-red-600 text-center mb-4">{error}</p>}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
@@ -39,20 +48,24 @@ export default function AdminAuthPage() {
             placeholder="Admin Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-2 border rounded-xl"
+            className="w-full px-4 py-3 rounded-xl border border-gray-300"
+            required
           />
+
           <input
             type="password"
-            placeholder="Admin Password"
+            placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-2 border rounded-xl"
+            className="w-full px-4 py-3 rounded-xl border border-gray-300"
+            required
           />
+
           <button
             type="submit"
-            className="w-full bg-red-500 text-white py-2 rounded-xl hover:opacity-90 transition"
+            className="w-full bg-red-500 text-white py-3 rounded-xl shadow-md hover:bg-red-600"
           >
-            Login
+            Login as Admin
           </button>
           <p className="text-center text-sm text-gray-600 mt-2">
             <button
@@ -64,7 +77,7 @@ export default function AdminAuthPage() {
             </button>
           </p>
         </form>
-      </div>
+      </motion.div>
     </motion.div>
   );
 }
