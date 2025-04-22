@@ -23,10 +23,7 @@ function Navbar() {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target)
-      ) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsDropdownOpen(false);
       }
     };
@@ -47,69 +44,79 @@ function Navbar() {
           whileTap={{ scale: 0.95 }}
           transition={{ type: "spring", stiffness: 300 }}
         >
-          <Link to="/" className="font-medium ">
+          <Link to="/" className="font-medium">
             Home
           </Link>
         </motion.div>
 
         {user ? (
-          <motion.div className="relative" ref={dropdownRef}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
-          transition={{ type: "spring", stiffness: 300 }}>
+          <div
+          className="relative"
+          ref={dropdownRef}
+        >
+        
             <button
-              className="hover:text-gray-700 "
+              className="hover:text-gray-700 flex items-center space-x-1"
               onClick={toggleDropdown}
             >
-              Features ▾
+              <span>Features</span>
+              <span className="transform transition-transform duration-200">
+                {isDropdownOpen ? "▴" : "▾"}
+              </span>
             </button>
 
             {isDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-white text-black rounded-md shadow-lg z-10">
+              <motion.div
+                className="absolute right-0 mt-2 w-48 bg-white text-black rounded-md shadow-lg z-50"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+              >
                 <Link
                   to="/announcements"
                   onClick={() => setIsDropdownOpen(false)}
-                  className="block px-4 py-2 hover:bg-gray-100"
+                  className="block px-4 py-2 hover:bg-gray-100 transition-colors duration-200"
                 >
                   Announcements
                 </Link>
                 <Link
                   to="/discussions"
                   onClick={() => setIsDropdownOpen(false)}
-                  className="block px-4 py-2 hover:bg-gray-100"
+                  className="block px-4 py-2 hover:bg-gray-100 transition-colors duration-200"
                 >
                   Discussions
                 </Link>
                 <Link
                   to="/notes"
                   onClick={() => setIsDropdownOpen(false)}
-                  className="block px-4 py-2 hover:bg-gray-100"
+                  className="block px-4 py-2 hover:bg-gray-100 transition-colors duration-200"
                 >
                   Notes
                 </Link>
                 <Link
                   to="/chat"
                   onClick={() => setIsDropdownOpen(false)}
-                  className="block px-4 py-2 hover:bg-gray-100"
+                  className="block px-4 py-2 hover:bg-gray-100 transition-colors duration-200"
                 >
                   Chat
                 </Link>
                 <Link
                   to="/profile"
                   onClick={() => setIsDropdownOpen(false)}
-                  className="block px-4 py-2 hover:bg-gray-100"
+                  className="block px-4 py-2 hover:bg-gray-100 transition-colors duration-200"
                 >
                   Profile
                 </Link>
                 <button
                   onClick={handleLogout}
-                  className="block w-full text-left px-4 py-2 hover:bg-red-100 text-red-600"
+                  className="block w-full text-left px-4 py-2 hover:bg-red-100 text-red-600 transition-colors duration-200"
                 >
                   Logout
                 </button>
-              </div>
+              </motion.div>
             )}
-          </motion.div>
+          </div>
         ) : (
           <Link to="/login">Login / Signup</Link>
         )}

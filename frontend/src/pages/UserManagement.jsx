@@ -6,19 +6,21 @@ import {
   doc,
   deleteDoc,
   updateDoc,
+  getDoc,
 } from "firebase/firestore";
 import { motion, AnimatePresence } from "framer-motion";
 import Button from "../components/button";
-import { firestore } from "../firebase";
+import { firestore, auth } from "../firebase";
+import { FiRefreshCw } from "react-icons/fi";
 
 const roles = ["Student", "Teacher", "Staff"];
 const departments = [
   "Computer Engineering",
-  "Electronics And TeleCommunication Engiinering",
-  "Mechanical Enginerring ",
-  "Civil Enginerring",
-  "Electrical Enginerring",
-  "Intrumentation Enginerring",
+  "Electronics And TeleCommunication Engineering",
+  "Mechanical Engineering",
+  "Civil Engineering",
+  "Electrical Engineering",
+  "Instrumentation Engineering",
 ];
 
 const UserManagement = () => {
@@ -35,19 +37,55 @@ const UserManagement = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editId, setEditId] = useState(null);
   const [showForm, setShowForm] = useState(false);
-
- 
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const fetchUsers = async () => {
     try {
-      const querySnapshot = await getDocs(collection(firestore, "users"));
+      console.log("Starting fetchUsers...");
+      const usersCollection = collection(firestore, "users");
+      console.log("Collection reference created");
+
+      const querySnapshot = await getDocs(usersCollection);
+      console.log("Query snapshot received:", querySnapshot.size, "documents");
+
       const userList = [];
+      const validIds = new Set();
+
       querySnapshot.forEach((docSnap) => {
-        userList.push({ id: docSnap.id, ...docSnap.data() });
+        console.log("Processing document:", {
+          id: docSnap.id,
+          exists: docSnap.exists(),
+          data: docSnap.data(),
+        });
+
+        if (docSnap.exists()) {
+          validIds.add(docSnap.id);
+          const userData = { id: docSnap.id, ...docSnap.data() };
+          console.log("Adding user to list:", userData);
+          userList.push(userData);
+        }
       });
+
+      console.log("Final user list:", userList);
+      console.log("Valid IDs:", Array.from(validIds));
+
+      // Update state with the new user list
       setUsers(userList);
+      setFilteredUsers(userList);
+      setError("");
+
+      if (userList.length === 0) {
+        console.log("No users found in Firestore");
+        setError("No users found in the database");
+      }
     } catch (error) {
-      console.error("Error fetching users from Firestore:", error);
+      console.error("Error in fetchUsers:", error);
+      setError("Failed to fetch users: " + error.message);
+      // Reset states in case of error
+      setUsers([]);
+      setFilteredUsers([]);
     }
   };
 
@@ -56,34 +94,146 @@ const UserManagement = () => {
   }, []);
 
   useEffect(() => {
-    const filtered = users.filter((user) =>
-      (user.name?.toLowerCase()?.includes(search.toLowerCase()) ||
-       user.rollNo?.includes(search) ||
-       user.email?.toLowerCase()?.includes(search.toLowerCase()))
+    const filtered = users.filter(
+      (user) =>
+        user.name?.toLowerCase()?.includes(search.toLowerCase()) ||
+        user.rollNo?.includes(search) ||
+        user.email?.toLowerCase()?.includes(search.toLowerCase())
     );
     setFilteredUsers(filtered);
   }, [search, users]);
 
-  const handleSubmit = async () => {
-    try {
-      // Generate random password
-      const password = Math.random().toString(36).slice(-8); // Simple 8-char password
-  
-      // Call your backend API to create Firebase Auth user and send email
-      const response = await fetch("http://192.168.1.11:5000/api/createUser", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ ...formData, password }),
+  const validateEmail = (email) => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
+  };
+
+  const handleEdit = (user) => {
+    console.log("Starting handleEdit with user:", {
+      id: user?.id,
+      name: user?.name,
+      email: user?.email,
+      uid: user?.uid,
+    });
+
+    if (!user || !user.id) {
+      console.error("Invalid user data for editing:", user);
+      setError("Invalid user data for editing");
+      return;
+    }
+
+    // Set the form data immediately for better UX
+    setFormData(user);
+    setIsEditing(true);
+    setEditId(user.id);
+    setShowForm(true);
+    setError("");
+
+    // Verify the user exists in Firestore in the background
+    const userDocRef = doc(firestore, "users", user.id);
+    console.log("Checking Firestore for document:", user.id);
+
+    getDoc(userDocRef)
+      .then((docSnap) => {
+        console.log("Document check result:", {
+          exists: docSnap.exists(),
+          id: docSnap.id,
+          data: docSnap.data(),
+        });
+
+        if (!docSnap.exists()) {
+          console.warn("User not found in database. Details:", {
+            requestedId: user.id,
+            currentUsers: users.map((u) => ({ id: u.id, name: u.name })),
+          });
+
+          // Check if the user exists in our current state
+          const userInState = users.find((u) => u.id === user.id);
+          if (!userInState) {
+            console.error("User not found in both Firestore and local state");
+            setError("User not found in database. Please refresh the page.");
+            setIsEditing(false);
+            setShowForm(false);
+            return;
+          }
+
+          setError(
+            "Warning: User not found in database. Changes may not be saved."
+          );
+        }
+      })
+      .catch((error) => {
+        console.error("Error checking user existence:", error);
+        setError("Error checking user existence: " + error.message);
+        setIsEditing(false);
+        setShowForm(false);
       });
-  
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "User creation failed");
-  
-      // Store in Firestore (excluding password)
-      await addDoc(collection(firestore, "users"), formData);
-  
+  };
+
+  const handleSubmit = async () => {
+    setError("");
+    setSuccess("");
+    setIsLoading(true);
+
+    try {
+      // Validate email
+      if (!validateEmail(formData.email)) {
+        throw new Error("Please enter a valid email address");
+      }
+      if (!formData.rollNo || !formData.dept) {
+        throw new Error("Please fill all required fields.");
+      }
+
+      if (isEditing && editId) {
+        // Verify the document exists before updating
+        const userDocRef = doc(firestore, "users", editId);
+        const userDoc = await getDoc(userDocRef);
+
+        if (!userDoc.exists()) {
+          throw new Error("User not found in database");
+        }
+
+        // Update the document
+        await updateDoc(userDocRef, {
+          name: formData.name,
+          email: formData.email,
+          rollNo: formData.rollNo,
+          role: formData.role,
+          dept: formData.dept,
+          updatedAt: new Date().toISOString(),
+        });
+
+        setSuccess("User updated successfully!");
+      } else {
+        const password = Math.random().toString(36).slice(-8); // Generate random password
+
+        // ONLY CALL BACKEND
+        const response = await fetch("http://localhost:5000/api/createUser", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+
+          body: JSON.stringify({
+            name: formData.name,
+            email: formData.email,
+            password: password,
+            rollNo: formData.rollNo,
+            dept: formData.dept,
+            role: formData.role,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to create user.");
+        }
+
+        setSuccess("User created successfully! Credentials sent to email.");
+      }
+
+      // Reset form and fetch updated users
       setFormData({
         name: "",
         email: "",
@@ -94,39 +244,143 @@ const UserManagement = () => {
       setIsEditing(false);
       setEditId(null);
       setShowForm(false);
-      fetchUsers();
+      await fetchUsers();
     } catch (error) {
-      console.error("Error creating user:", error.message);
+      console.error("Error in handleSubmit:", error);
+      setError("Error: " + error.message);
+    } finally {
+      setIsLoading(false);
     }
-  };
-  
-
-  const handleEdit = (user) => {
-    setFormData(user);
-    setIsEditing(true);
-    setEditId(user.id);
-    setShowForm(true);
   };
 
   const handleDelete = async (id) => {
-    try {
-      await deleteDoc(doc(firestore, "users", id));
-      fetchUsers();
-    } catch (error) {
-      console.error("Error deleting user from Firestore:", error);
+    if (!id) {
+      setError("Invalid user ID");
+      return;
+    }
+
+    if (window.confirm("Are you sure you want to delete this user?")) {
+      try {
+        console.log("Starting delete process for user ID:", id);
+
+        // First get the user document to get the uid
+        const userDocRef = doc(firestore, "users", id);
+        const userDoc = await getDoc(userDocRef);
+
+        console.log("Firestore document check:", {
+          exists: userDoc.exists(),
+          id: userDoc.id,
+          data: userDoc.data(),
+        });
+
+        if (!userDoc.exists()) {
+          console.log(
+            "Document doesn't exist in Firestore, removing from UI only"
+          );
+          setUsers((prevUsers) => prevUsers.filter((u) => u.id !== id));
+          setFilteredUsers((prevFiltered) =>
+            prevFiltered.filter((u) => u.id !== id)
+          );
+          setSuccess("User removed from UI (was not found in database)");
+          return;
+        }
+
+        const userData = userDoc.data();
+        console.log("User data to be deleted:", userData);
+
+        // Delete from Firestore
+        await deleteDoc(userDocRef);
+        console.log("Successfully deleted from Firestore");
+
+        // Try to delete from Firebase Auth if uid exists
+        if (userData.uid) {
+          try {
+            console.log(
+              "Attempting to delete from Firebase Auth with UID:",
+              userData.uid
+            );
+            const response = await fetch(
+              "http://localhost:5000/api/deleteUser",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ uid: userData.uid }),
+              }
+            );
+
+            if (!response.ok) {
+              const errorData = await response.json();
+              console.warn(
+                "Could not delete from Firebase Auth:",
+                errorData.error || "API endpoint not available"
+              );
+              setError(
+                "User deleted from Firestore but could not delete from Firebase Auth"
+              );
+            } else {
+              console.log("Successfully deleted from Firebase Auth");
+              setSuccess(
+                "User deleted successfully from both Firestore and Firebase Auth!"
+              );
+            }
+          } catch (authError) {
+            console.warn("Could not connect to delete API:", authError.message);
+            setError(
+              "User deleted from Firestore but could not connect to Firebase Auth API"
+            );
+          }
+        } else {
+          console.warn(
+            "No UID found in user document, skipping Firebase Auth deletion"
+          );
+          setSuccess("User deleted successfully from Firestore!");
+        }
+
+        // Update UI state
+        setUsers((prevUsers) => prevUsers.filter((u) => u.id !== id));
+        setFilteredUsers((prevFiltered) =>
+          prevFiltered.filter((u) => u.id !== id)
+        );
+
+        // Force a refresh of the data from Firestore
+        await fetchUsers();
+      } catch (error) {
+        console.error("Detailed delete error:", error);
+        setError(`Failed to delete user: ${error.message}`);
+      }
     }
   };
 
   return (
     <div className="p-6">
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          {error}
+        </div>
+      )}
+
+      {success && (
+        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+          {success}
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-4">
-        <input
-          type="text"
-          placeholder="Search by name, email, or roll number"
-          className="border px-3 py-2 w-1/2 rounded shadow"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+        <div className="flex items-center space-x-4">
+          <input
+            type="text"
+            placeholder="Search by name, email, or roll number"
+            className="border px-3 py-2 w-1/2 rounded shadow"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <Button onClick={fetchUsers} className="flex items-center space-x-2">
+            <FiRefreshCw className="w-4 h-4" />
+            <span>Refresh</span>
+          </Button>
+        </div>
         <Button onClick={() => setShowForm(!showForm)}>
           {showForm ? "Close" : "Add User"}
         </Button>
@@ -144,13 +398,14 @@ const UserManagement = () => {
               {["name", "email", "rollNo"].map((field) => (
                 <input
                   key={field}
-                  type="text"
+                  type={field === "email" ? "email" : "text"}
                   placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
                   className="border px-3 py-2 rounded"
                   value={formData[field]}
                   onChange={(e) =>
                     setFormData({ ...formData, [field]: e.target.value })
                   }
+                  required
                 />
               ))}
               <select
@@ -159,10 +414,13 @@ const UserManagement = () => {
                   setFormData({ ...formData, role: e.target.value })
                 }
                 className="border px-3 py-2 rounded"
+                required
               >
-                <option value="Student">Student</option>
-                <option value="Teacher">Teacher</option>
-                <option value="Staff">Staff</option>
+                {roles.map((role) => (
+                  <option key={role} value={role}>
+                    {role}
+                  </option>
+                ))}
               </select>
               <select
                 value={formData.dept}
@@ -170,6 +428,7 @@ const UserManagement = () => {
                   setFormData({ ...formData, dept: e.target.value })
                 }
                 className="border px-3 py-2 rounded"
+                required
               >
                 <option value="">Select Department</option>
                 {departments.map((department) => (
@@ -181,8 +440,12 @@ const UserManagement = () => {
             </div>
 
             <div className="mt-4">
-              <Button onClick={handleSubmit}>
-                {isEditing ? "Update User" : "Add User"}
+              <Button onClick={handleSubmit} disabled={isLoading}>
+                {isLoading
+                  ? "Processing..."
+                  : isEditing
+                  ? "Update User"
+                  : "Add User"}
               </Button>
             </div>
           </motion.div>
@@ -205,7 +468,7 @@ const UserManagement = () => {
             <AnimatePresence>
               {filteredUsers.map((user) => (
                 <motion.tr
-                  key={user.id}
+                  key={`${user.id}-${user.uid || ""}`}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}

@@ -4,9 +4,8 @@ function Home() {
       <h1 className="text-5xl md:text-6xl font-extrabold leading-tight text-center">
         Connecting Students, Building <br /> Communities
       </h1>
-  
-    </div>
+    </section>
   );
-};
+}
 
 export default Home;
