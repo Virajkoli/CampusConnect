@@ -11,13 +11,15 @@ admin.initializeApp({
   databaseURL: "https://campus-connect-9e92e-default-rtdb.firebaseio.com",
 });
 
+const db = admin.firestore();
 const app = express();
-app.use(cors({
-  origin: "http://localhost:5173",
-}));
+
+app.use(cors({ origin: "http://localhost:5173" }));
 app.use(express.json());
 
-// Verify Admin Token
+/* ============================
+   ✅ Verify Admin Token
+=============================== */
 app.post("/verify-admin", async (req, res) => {
   const { token } = req.body;
 
@@ -33,28 +35,34 @@ app.post("/verify-admin", async (req, res) => {
   }
 });
 
-// Create Firebase User and Send Email
+/* ============================
+   ✅ Create User + Send Email
+=============================== */
 app.post("/api/createUser", async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, role = "student" } = req.body;
 
   try {
-    // Create user in Firebase Auth
     await admin.auth().createUser({
       email,
       password,
       displayName: name,
     });
 
-    // Setup transporter
+    await db.collection("users").doc(email).set({
+      name,
+      email,
+      role,
+      createdAt: admin.firestore.Timestamp.now(),
+    });
+
     const transporter = nodemailer.createTransport({
       service: "Gmail",
       auth: {
-        user: "campusconnect.portal@gmail.com",      
-        pass: "qygr xpbl bduk wkmi",     
+        user: process.env.EMAIL_USERNAME,
+        pass: process.env.EMAIL_PASSWORD,
       },
     });
 
-    // Send email
     await transporter.sendMail({
       from: `"Campus Connect" <${process.env.EMAIL_USERNAME}>`,
       to: email,
@@ -69,7 +77,75 @@ app.post("/api/createUser", async (req, res) => {
   }
 });
 
+/* ============================
+   ✅ Delete User
+=============================== */
+app.delete("/api/deleteUser/:email", async (req, res) => {
+  const { email } = req.params;
+
+  try {
+    // Try to get the user from Firebase Auth
+    const user = await admin.auth().getUserByEmail(email);
+
+    // Delete from Firebase Auth
+    await admin.auth().deleteUser(user.uid);
+    console.log("✅ Firebase Auth user deleted:", email);
+  } catch (error) {
+    if (error.code === "auth/user-not-found") {
+      console.warn("⚠️ No Firebase Auth user found, skipping auth delete.");
+    } else {
+      console.error("❌ Error during auth delete:", error);
+      return res.status(500).json({ message: "Auth delete failed", error });
+    }
+  }
+
+  try {
+    // Delete from Firestore
+    await admin.firestore().collection("users").doc(email).delete();
+    console.log("✅ Firestore user deleted:", email);
+
+    res.status(200).json({ message: "User deleted from Auth (if existed) and Firestore" });
+  } catch (error) {
+    console.error("❌ Error during Firestore delete:", error);
+    res.status(500).json({ message: "Firestore delete failed", error });
+  }
+});
+
+
+/* ============================
+   ✅ Update User
+=============================== */
+app.put("/api/updateUser/:email", async (req, res) => {
+  const { email } = req.params;
+  const { newName, newEmail, role } = req.body;
+
+  try {
+    const user = await admin.auth().getUserByEmail(email);
+
+    await admin.auth().updateUser(user.uid, {
+      email: newEmail,
+      displayName: newName,
+    });
+
+    await db.collection("users").doc(email).delete(); // old
+    await db.collection("users").doc(newEmail).set({
+      name: newName,
+      email: newEmail,
+      role,
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
+
+    res.status(200).json({ message: "User updated successfully" });
+  } catch (error) {
+    console.error("Error updating user:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/* ============================
+   ✅ Start Server
+=============================== */
 const PORT = 5000;
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });
