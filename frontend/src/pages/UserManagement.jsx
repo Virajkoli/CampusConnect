@@ -9,11 +9,11 @@ import {
   getDoc,
 } from "firebase/firestore";
 import { motion, AnimatePresence } from "framer-motion";
-import Button from "../components/button";
+import Button from "../components/Button";
 import { firestore, auth } from "../firebase";
 import { FiRefreshCw } from "react-icons/fi";
 
-const roles = ["Student", "Teacher", "Staff"];
+const roles = ["Student"];
 const departments = [
   "Computer Engineering",
   "Electronics And TeleCommunication Engineering",
@@ -171,6 +171,7 @@ const UserManagement = () => {
   };
 
   const handleSubmit = async () => {
+    event.preventDefault();
     setError("");
     setSuccess("");
     setIsLoading(true);

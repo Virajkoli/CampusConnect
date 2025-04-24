@@ -39,22 +39,14 @@ function Navbar() {
       <h1 className="text-xl font-bold">CampusConnect</h1>
 
       <div className="flex items-center space-x-6">
-        <motion.div
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
-          transition={{ type: "spring", stiffness: 300 }}
-        >
+        <div>
           <Link to="/" className="font-medium">
             Home
           </Link>
-        </motion.div>
+        </div>
 
         {user ? (
-          <div
-          className="relative"
-          ref={dropdownRef}
-        >
-        
+          <div className="relative" ref={dropdownRef}>
             <button
               className="hover:text-gray-700 flex items-center space-x-1"
               onClick={toggleDropdown}

@@ -1,4 +1,4 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { useEffect, useState } from "react";
 import { auth } from "../firebase";
@@ -7,6 +7,7 @@ function AdminRoute({ children }) {
   const [user, loading] = useAuthState(auth); // Firebase user status
   const [isAdmin, setIsAdmin] = useState(false); // Kya user admin hai?
   const [checking, setChecking] = useState(true); // Admin check complete hua ya nahi?
+  const location = useLocation();
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -25,11 +26,18 @@ function AdminRoute({ children }) {
     checkAdmin();
   }, [user]);
 
-  if (loading || checking) {
+  // Check if we're on a management page that should not redirect
+  const isManagementPage =
+    location.pathname.includes("/admin-adduser") ||
+    location.pathname.includes("/teacher-management");
+
+  // Show loading state only if we're not on a management page
+  if ((loading || checking) && !isManagementPage) {
     return <div>Loading...</div>; // Jab tak check ho raha hai, loading dikhayega
   }
 
-  if (!user || !isAdmin) {
+  // Only redirect if not on a management page
+  if ((!user || !isAdmin) && !isManagementPage) {
     return <Navigate to="/auth/admin" replace />; // Non-admin users ko redirect karega
   }
 
