@@ -1,7 +1,7 @@
-// AdminAuthPage.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { loginWithEmailPassword, auth } from "../firebase";
+import { useAuthState } from "react-firebase-hooks/auth";
 import { motion } from "framer-motion";
 
 export default function AdminAuthPage() {
@@ -9,6 +9,32 @@ export default function AdminAuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+
+  const [user, loading] = useAuthState(auth);
+  const [checkingAdmin, setCheckingAdmin] = useState(true);
+
+  useEffect(() => {
+    const checkAdmin = async () => {
+      if (user) {
+        const tokenResult = await user.getIdTokenResult(true);
+        if (tokenResult.claims.admin) {
+          navigate("/admin-dashboard");
+        }
+      }
+      setCheckingAdmin(false);
+    };
+
+    checkAdmin();
+  }, [user, navigate]);
+
+  // ❗ Show nothing until auth AND admin check both complete
+  if (loading || checkingAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <p className="text-gray-700 text-lg">Checking admin status...</p>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -19,9 +45,7 @@ export default function AdminAuthPage() {
       const user = auth.currentUser;
 
       if (user) {
-        // FORCE TOKEN REFRESH to get latest claims
-        const tokenResult = await user.getIdTokenResult(true); // 👈 true for refresh
-
+        const tokenResult = await user.getIdTokenResult(true);
         if (tokenResult.claims.admin) {
           navigate("/admin-dashboard");
         } else {
@@ -51,7 +75,6 @@ export default function AdminAuthPage() {
             className="w-full px-4 py-3 rounded-xl border border-gray-300"
             required
           />
-
           <input
             type="password"
             placeholder="Password"
@@ -60,7 +83,6 @@ export default function AdminAuthPage() {
             className="w-full px-4 py-3 rounded-xl border border-gray-300"
             required
           />
-
           <button
             type="submit"
             className="w-full bg-red-500 text-white py-3 rounded-xl shadow-md hover:bg-red-600"

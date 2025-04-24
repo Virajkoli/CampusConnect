@@ -28,6 +28,7 @@ import StudentAuthPage from "./pages/StudentAuthPage";
 import UserManagement from "./pages/UserManagement";
 import TeacherAuthPage from "./pages/TeacherAuthPage";
 import TeacherDashboard from "./pages/TeacherDashboard";
+import TeacherManagement from "./pages/TeacherManagement";
 
 function FirebaseRedirectHandler() {
   const location = useLocation();
@@ -124,7 +125,22 @@ function App() {
             </AdminRoute>
           }
         />
-        <Route path="/admin-adduser" element={<UserManagement />} />
+        <Route
+          path="/admin-adduser"
+          element={
+            <AdminRoute>
+              <UserManagement />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin-addteacher"
+          element={
+            <AdminRoute>
+              <TeacherManagement />
+            </AdminRoute>
+          }
+        />
 
         {/* Teacher Routes */}
         <Route

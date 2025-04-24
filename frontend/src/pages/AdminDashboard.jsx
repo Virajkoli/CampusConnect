@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { auth, firestore } from "../firebase";
 import { collection, getDocs } from "firebase/firestore";
-import { useNavigate , Link} from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { FiSearch, FiLogOut } from "react-icons/fi";
+import { onAuthStateChanged } from "firebase/auth";
+
 import {
   FaEnvelope,
   FaPhoneAlt,
@@ -21,6 +23,25 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        try {
+          // Force refresh the token to ensure latest custom claims
+          const tokenResult = await currentUser.getIdTokenResult(true);
+          if (!tokenResult.claims.admin) {
+            navigate("/auth/admin");
+          } else {
+            fetchUsers();
+          }
+        } catch (error) {
+          console.error("Token error:", error);
+          navigate("/auth/admin");
+        }
+      } else {
+        navigate("/auth/admin");
+      }
+    });
+
     const fetchUsers = async () => {
       try {
         const querySnapshot = await getDocs(collection(firestore, "users"));
@@ -34,21 +55,7 @@ export default function AdminDashboard() {
       }
     };
 
-    const checkAdmin = async () => {
-      const currentUser = auth.currentUser;
-      if (currentUser) {
-        const tokenResult = await currentUser.getIdTokenResult();
-        if (!tokenResult.claims.admin) {
-          navigate("/auth/admin");
-        } else {
-          fetchUsers();
-        }
-      } else {
-        navigate("/auth/admin");
-      }
-    };
-
-    checkAdmin();
+    return () => unsubscribe(); // Clean up listener
   }, [navigate]);
 
   return (
@@ -71,9 +78,17 @@ export default function AdminDashboard() {
 
         {/* Navigation */}
         <nav className=" space-y-4 mt-6">
-          <SidebarItem icon={<PiStudentFill />} label="Students" path="/admin-adduser" />
+          <SidebarItem
+            icon={<PiStudentFill />}
+            label="Students"
+            path="/admin-adduser"
+          />
           <SidebarItem icon={<IoHome />} label="Dashboard" />
-          <SidebarItem icon={<GiTeacher />} label="Teachers" />
+          <SidebarItem
+            icon={<GiTeacher />}
+            label="Teachers"
+            path="/admin-addteacher"
+          />
           <SidebarItem icon={<FaComments />} label="Chat" />
           <SidebarItem icon={<FaBell />} label="Notifications" />
           <SidebarItem icon={<FiLogOut />} label="Logout" path="/logout" />
@@ -196,12 +211,11 @@ export default function AdminDashboard() {
                   </p>
                 </div>
               </div>
-              
             </div>
           </div>
           <div className="  p-4  overflow-auto">
-                <CalendarComponent />
-              </div>
+            <CalendarComponent />
+          </div>
         </div>
       </main>
     </div>

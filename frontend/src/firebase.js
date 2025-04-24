@@ -6,6 +6,8 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   updateProfile,
+  setPersistence,
+  browserLocalPersistence,
 } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
@@ -48,3 +50,11 @@ export const createTeacherAccount = async (email, password, name) => {
 
   return userCredential;
 };
+
+setPersistence(auth, browserLocalPersistence)
+  .then(() => {
+    // Now the user stays logged in after reload
+  })
+  .catch((error) => {
+    console.error("Persistence error:", error);
+  });
