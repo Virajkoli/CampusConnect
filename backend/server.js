@@ -30,33 +30,20 @@ app.post("/verify-admin", async (req, res) => {
   }
 });
 
-// Create Firebase User and Send Email
 app.post("/api/createUser", async (req, res) => {
   const { name, email, password, rollNo, dept } = req.body;
 
   try {
-    console.log("Starting user creation process for:", email);
-
-    // First check if the email exists in Firebase Auth
     let existingUser = null;
     try {
-      console.log("Checking if email exists in Firebase Auth...");
       existingUser = await admin.auth().getUserByEmail(email);
-      console.log("Email exists in Firebase Auth with UID:", existingUser.uid);
     } catch (error) {
-      if (error.code === "auth/user-not-found") {
-        console.log(
-          "Email does not exist in Firebase Auth, can proceed with creation"
-        );
-      } else {
-        console.error("Error checking email existence:", error);
+      if (error.code !== "auth/user-not-found") {
         throw error;
       }
     }
 
     if (existingUser) {
-      console.log("Email already exists, checking Firestore...");
-      // Check if user exists in Firestore
       const firestore = admin.firestore();
       const userDoc = await firestore
         .collection("users")
@@ -64,91 +51,51 @@ app.post("/api/createUser", async (req, res) => {
         .get();
 
       if (userDoc.empty) {
-        console.log(
-          "User exists in Auth but not in Firestore, adding to Firestore..."
-        );
-        // Add to Firestore
         await firestore.collection("users").add({
           name,
           email,
-          uid: userRecord.uid,
+          uid: existingUser.uid,
           rollNo,
           dept,
-          role,
+          role: "Student",
           createdAt: new Date().toISOString(),
         });
 
-        // Send notification email
-        console.log("Sending notification email to existing user...");
         const transporter = nodemailer.createTransport({
           service: "Gmail",
           auth: {
             user: process.env.EMAIL_USERNAME,
             pass: process.env.EMAIL_PASSWORD,
           },
-          debug: true,
         });
 
-        try {
-          await transporter.verify();
-          console.log("Email transporter verified");
-        } catch (e) {
-          console.error("SMTP verification failed:", e);
-        }
+        await transporter.verify();
 
         const mailOptions = {
           from: `"Campus Connect" <${process.env.EMAIL_USERNAME}>`,
           to: email,
           subject: "Your CampusConnect Account",
-          text: `Hi ${name},\n\nYour account already exists in CampusConnect.\n\nPlease use your existing credentials to log in.\n\n- CampusConnect Team`,
+          text: `Hi ${name},\n\nYour account already exists in CampusConnect.\n\n- CampusConnect Team`,
         };
 
-        // const info = await transporter.sendMail(mailOptions);
-        // console.log("Notification email sent:", info.messageId);
-
-        try {
-          const info = await transporter.sendMail(mailOptions);
-          console.log("Credentials email sent:", info.messageId);
-
-          return res.status(200).json({
-            message: "User created and email sent",
-            uid: userRecord.uid,
-          });
-        } catch (err) {
-          console.error("Email sending failed:", err);
-          return res.status(200).json({
-            message:
-              "User created successfully, but failed to send credentials email.",
-            uid: userRecord.uid,
-            emailError: err.message,
-          });
-        }
-
+        const info = await transporter.sendMail(mailOptions);
         return res.status(200).json({
-          message:
-            "User already exists. Added to Firestore and sent notification email.",
-          existingUser: true,
+          message: "User exists. Added to Firestore and notified.",
+          uid: existingUser.uid,
         });
       } else {
-        console.log("User exists in both Auth and Firestore");
         return res.status(400).json({
           message: "User already exists in both Firebase Auth and Firestore",
-          existingUser: true,
         });
       }
     }
 
-    // If we get here, the email doesn't exist in Firebase Auth
-    console.log("Creating new user in Firebase Auth...");
     const userRecord = await admin.auth().createUser({
       email,
       password,
       displayName: name,
     });
-    console.log("New user created successfully with UID:", userRecord.uid);
 
-    // Add to Firestore
-    console.log("Adding user to Firestore...");
     const firestore = admin.firestore();
     await firestore.collection("users").doc(userRecord.uid).set({
       name,
@@ -159,68 +106,125 @@ app.post("/api/createUser", async (req, res) => {
       role: "Student",
     });
 
-    console.log("User added to Firestore successfully");
-
-    // Send credentials email
-    console.log("Setting up email transporter for new user...");
     const transporter = nodemailer.createTransport({
       service: "Gmail",
       auth: {
         user: process.env.EMAIL_USERNAME,
         pass: process.env.EMAIL_PASSWORD,
       },
-      debug: true,
     });
 
     await transporter.verify();
-    console.log("Email transporter verified");
 
     const mailOptions = {
       from: `"Campus Connect" <${process.env.EMAIL_USERNAME}>`,
       to: email,
       subject: "Your CampusConnect Account",
-      text: `Hi ${name},\n\nYour account has been created on CampusConnect.\n\nLogin Details:\nEmail: ${email}\nPassword: ${password}\n\nPlease change your password after first login.\n\n- CampusConnect Team`,
+      text: `Hi ${name},\n\nYour account has been created.\nEmail: ${email}\nPassword: ${password}\n\n- CampusConnect Team`,
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log("Credentials email sent:", info.messageId);
 
     return res.status(200).json({
       message: "User created and email sent",
       uid: userRecord.uid,
     });
   } catch (error) {
-    console.error("Error in /api/createUser:", error);
-    if (error.code === "auth/email-already-exists") {
-      return res.status(400).json({
-        message:
-          "This email is already registered. Please use a different email.",
-        code: error.code,
-      });
-    }
-    return res.status(500).json({
-      message: error.message,
-      code: error.code,
-      details: error.errorInfo,
-    });
+    return res.status(500).json({ message: error.message });
   }
 });
 
-// Delete user endpoint
+// ✅ ✅ ✅ NEW ROUTE ADDED FOR TEACHER CREATION
+app.post("/api/createTeacher", async (req, res) => {
+  const { name, email, employeeId, dept } = req.body;
+
+  if (!name || !email || !employeeId || !dept) {
+    return res.status(400).json({ message: "All fields are required." });
+  }
+
+  try {
+    let user;
+     let generatedPassword = Math.random().toString(36).slice(-8); // random password
+
+    try {
+      // check if teacher already exists
+      user = await admin.auth().getUserByEmail(email);
+    } catch (err) {
+      if (err.code === "auth/user-not-found") {
+        // ✅ create new teacher with random password
+        user = await admin.auth().createUser({
+          email,
+          displayName: name,
+          password: generatedPassword,
+        });
+      } else {
+        throw err;
+      }
+    }
+
+    // ✅ set teacher role
+    await admin.auth().setCustomUserClaims(user.uid, { teacher: true });
+
+    // ✅ save to Firestore
+    const firestore = admin.firestore();
+    await firestore.collection("teachers").doc(user.uid).set({
+      name,
+      email,
+      employeeId,
+      dept,
+      createdAt: new Date().toISOString(),
+    });
+
+    // ✅ email with credentials
+    const transporter = nodemailer.createTransport({
+      service: "Gmail",
+      auth: {
+        user: process.env.EMAIL_USERNAME,
+        pass: process.env.EMAIL_PASSWORD,
+      },
+    });
+
+    await transporter.verify();
+
+    const mailText = `Hi ${name},
+
+You have been added as a teacher in CampusConnect.
+
+Here are your login credentials:
+📧 Email: ${email}
+🔐 Password: ${generatedPassword}
+
+Please log in and change your password after first login.
+
+- CampusConnect Team`;
+
+    await transporter.sendMail({
+      from: `"Campus Connect" <${process.env.EMAIL_USERNAME}>`,
+      to: email,
+      subject: "Your CampusConnect Teacher Login",
+      text: mailText,
+    });
+
+    return res.status(200).json({
+      message: "Teacher added and login email sent successfully.",
+    });
+  } catch (error) {
+    console.error("Error creating teacher:", error);
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+
 app.post("/api/deleteUser", async (req, res) => {
   try {
     const { uid } = req.body;
-
     if (!uid) {
       return res.status(400).json({ error: "User ID is required" });
     }
 
-    // Delete user from Firebase Auth
     await admin.auth().deleteUser(uid);
-
     res.json({ success: true, message: "User deleted successfully" });
   } catch (error) {
-    console.error("Error deleting user:", error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -246,7 +250,6 @@ app.get("/test-mail", async (req, res) => {
 
     res.send("Test email sent: " + info.messageId);
   } catch (err) {
-    console.error("Test mail error:", err);
     res.status(500).send("Error sending test mail: " + err.message);
   }
 });
