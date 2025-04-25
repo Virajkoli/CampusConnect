@@ -8,19 +8,17 @@ admin.initializeApp({
 
 async function setTeacher(email) {
   try {
-    // Firebase Authentication Custom Claims
     const user = await admin.auth().getUserByEmail(email);
     await admin.auth().setCustomUserClaims(user.uid, { teacher: true });
 
     console.log(`✅ Teacher claim set for: ${email}`);
 
-    // Firestore Entry
     const firestore = admin.firestore();
     await firestore.collection("users").doc(user.uid).set({
       email: email,
       role: "teacher",
       createdAt: new Date().toISOString(),
-      displayName: name,
+      displayName: user.displayName || "", // ✅ FIXED
     });
 
     console.log(`✅ Firestore entry added for teacher: ${email}`);
@@ -29,5 +27,5 @@ async function setTeacher(email) {
   }
 }
 
-// YAHAN TEACHER EMAIL DAALO
+// ✅ Call function
 setTeacher("ks12@gmail.com");

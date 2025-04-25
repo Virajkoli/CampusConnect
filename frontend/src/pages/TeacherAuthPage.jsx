@@ -1,8 +1,7 @@
-// src/pages/TeacherAuthPage.jsx
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { loginWithEmailPassword, auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
+import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
 import { createTeacherAccount } from "../firebase";
 import { updateFirestoreUser } from "../utils/userUtils";
 
@@ -11,13 +10,23 @@ export default function TeacherAuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  
+  const auth = getAuth();
+
+  // Handle login
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setError("");
+
     try {
-      await loginWithEmailPassword(email, password);
-      const user = auth.currentUser;
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+      const user = userCredential.user;
 
       if (user) {
         const tokenResult = await user.getIdTokenResult();
@@ -25,20 +34,30 @@ export default function TeacherAuthPage() {
           await updateFirestoreUser(); // Firestore mein update
           navigate("/teacher-dashboard");
         } else {
-          setError("❌ You are not authorized as teacher.");
+          setError("❌ You are not authorized as a teacher.");
         }
       }
     } catch (err) {
-      setError(err.message);
+      console.error("Login Error:", err.message);
+      setError("❌ " + err.message); // Display error message
+    } finally {
+      setLoading(false);
     }
   };
 
+  // Handle register (creating a teacher account)
   const handleRegister = async () => {
+    setLoading(true);
+    setError("");
+
     try {
       await createTeacherAccount(email, password, "Teacher Name");
       alert("Account created successfully!");
-    } catch (error) {
-      console.error("Error creating account:", error.message);
+    } catch (err) {
+      console.error("Error creating account:", err.message);
+      setError("❌ Error creating account: " + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -100,8 +119,9 @@ export default function TeacherAuthPage() {
             whileTap={{ scale: 0.98 }}
             type="submit"
             className="w-full bg-green-500 text-white py-3 rounded-xl shadow-md hover:bg-green-600 transition duration-200"
+            disabled={loading} // Disable button during loading
           >
-            Login as Teacher
+            {loading ? "Loading..." : "Login as Teacher"}
           </motion.button>
 
           <p className="text-center mt-4 text-sm text-gray-600">
@@ -114,6 +134,17 @@ export default function TeacherAuthPage() {
             </button>
           </p>
         </form>
+
+        {/* Register Button */}
+        <div className="mt-6 text-center">
+          <button
+            onClick={handleRegister}
+            className="text-sm text-green-700 hover:underline"
+            disabled={loading} // Disable register button during loading
+          >
+            Don’t have an account? Register as Teacher
+          </button>
+        </div>
       </motion.div>
     </motion.div>
   );
