@@ -15,7 +15,7 @@ import {
 import { PiStudentFill } from "react-icons/pi";
 import { GiTeacher } from "react-icons/gi";
 import { IoHome } from "react-icons/io5";
-import CalendarComponent from "../Components/CalendarComponent";
+import CalendarComponent from "../components/CalendarComponent";
 
 export default function AdminDashboard() {
   const [users, setUsers] = useState([]);

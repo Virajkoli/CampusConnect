@@ -44,12 +44,14 @@ export default function CalendarComponent() {
       {/* Days of the Week */}
       <div className="grid grid-cols-7 gap-2 text-center text-gray-600 font-semibold text-xs mb-2">
         {daysOfWeek.map((day) => (
-          <div key={day} className="uppercase">{day}</div>
+          <div key={day} className="uppercase">
+            {day}
+          </div>
         ))}
       </div>
 
       {/* Calendar Grid */}
-      <div className="grid grid-cols-7 gap-2 text-center text-sm">
+      <div className="grid grid-cols-5 gap-2 text-center text-sm">
         {calendar.map((dateObj, index) => {
           const isToday = dateObj.isSame(dayjs(), "day");
           const isCurrentMonth = dateObj.month() === currentDate.month();
