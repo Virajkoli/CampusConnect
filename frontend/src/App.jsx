@@ -30,6 +30,7 @@ import UserManagement from "./pages/UserManagement";
 import TeacherAuthPage from "./pages/TeacherAuthPage";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import TeacherManagement from "./pages/TeacherManagement";
+import TeacherCourses from "./pages/TeacherCourses";
 
 function FirebaseRedirectHandler() {
   const location = useLocation();
@@ -158,6 +159,14 @@ function App() {
             element={
               <TeacherRoute>
                 <TeacherDashboard />
+              </TeacherRoute>
+            }
+          />
+          <Route
+            path="/teacher-courses"
+            element={
+              <TeacherRoute>
+                <TeacherCourses />
               </TeacherRoute>
             }
           />
