@@ -11,6 +11,7 @@ import Navbar from "./Components/Navbar";
 import ProtectedRoute from "./Components/ProtectedRoute";
 import AdminRoute from "./Components/AdminRoute";
 import TeacherRoute from "./Components/TeacherRoute";
+import TeacherCourses from "./pages/TeacherCourses";
 
 import Home from "./pages/Home";
 import Profile from "./pages/Profile";
@@ -50,7 +51,8 @@ function FirebaseRedirectHandler() {
 function App() {
   return (
     <Router>
-      <Navbar />
+      {/* Conditionally render the Navbar */}
+      {location.pathname !== "/teacher-dashboard" && <Navbar />}
       <FirebaseRedirectHandler />
       <Routes>
         <Route path="/" element={<Home />} />
@@ -148,6 +150,14 @@ function App() {
           element={
             <TeacherRoute>
               <TeacherDashboard />
+            </TeacherRoute>
+          }
+        />
+        <Route
+          path="/teacher-courses"
+          element={
+            <TeacherRoute>
+              <TeacherCourses />
             </TeacherRoute>
           }
         />

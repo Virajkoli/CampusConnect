@@ -5,6 +5,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { FiSearch, FiLogOut } from "react-icons/fi";
 import { onAuthStateChanged } from "firebase/auth";
 
+
 import {
   FaEnvelope,
   FaPhoneAlt,
@@ -91,7 +92,7 @@ export default function AdminDashboard() {
           />
           <SidebarItem icon={<FaComments />} label="Chat" />
           <SidebarItem icon={<FaBell />} label="Notifications" />
-          <SidebarItem icon={<FiLogOut />} label="Logout" path="/logout" />
+          <SidebarItem icon={<FiLogOut />} label="Logout" path="/login" />
         </nav>
       </aside>
 

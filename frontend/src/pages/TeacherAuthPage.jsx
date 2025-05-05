@@ -3,7 +3,6 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
 import { createTeacherAccount } from "../firebase";
-import { updateFirestoreUser } from "../utils/userUtils";
 
 export default function TeacherAuthPage() {
   const navigate = useNavigate();
@@ -21,17 +20,14 @@ export default function TeacherAuthPage() {
     setError("");
 
     try {
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
       if (user) {
-        const tokenResult = await user.getIdTokenResult();
+        // 👇 Force token refresh after login
+        const tokenResult = await user.getIdTokenResult(true);
+
         if (tokenResult.claims.teacher) {
-          await updateFirestoreUser(); // Firestore mein update
           navigate("/teacher-dashboard");
         } else {
           setError("❌ You are not authorized as a teacher.");
@@ -39,7 +35,7 @@ export default function TeacherAuthPage() {
       }
     } catch (err) {
       console.error("Login Error:", err.message);
-      setError("❌ " + err.message); // Display error message
+      setError("❌ " + err.message);
     } finally {
       setLoading(false);
     }
@@ -51,11 +47,28 @@ export default function TeacherAuthPage() {
     setError("");
 
     try {
-      await createTeacherAccount(email, password, "Teacher Name");
-      alert("Account created successfully!");
+      const userCredential = await createTeacherAccount(email, password, "Teacher Name");
+      const user = userCredential.user;
+
+      // ✅ Call backend API to set teacher role
+      const response = await fetch("http://localhost:5000/api/setTeacherRole", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uid: user.uid }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Failed to set teacher role.");
+      }
+
+      alert("✅ Account created successfully! Now you can login.");
+      navigate("/login"); // ✅ Redirect to login page after registration success
+
     } catch (err) {
       console.error("Error creating account:", err.message);
-      setError("❌ Error creating account: " + err.message);
+      setError("❌ " + err.message);
     } finally {
       setLoading(false);
     }
@@ -119,7 +132,7 @@ export default function TeacherAuthPage() {
             whileTap={{ scale: 0.98 }}
             type="submit"
             className="w-full bg-green-500 text-white py-3 rounded-xl shadow-md hover:bg-green-600 transition duration-200"
-            disabled={loading} // Disable button during loading
+            disabled={loading}
           >
             {loading ? "Loading..." : "Login as Teacher"}
           </motion.button>
@@ -140,7 +153,7 @@ export default function TeacherAuthPage() {
           <button
             onClick={handleRegister}
             className="text-sm text-green-700 hover:underline"
-            disabled={loading} // Disable register button during loading
+            disabled={loading}
           >
             Don’t have an account? Register as Teacher
           </button>

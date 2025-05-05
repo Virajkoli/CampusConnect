@@ -134,9 +134,8 @@ app.post("/api/createUser", async (req, res) => {
   }
 });
 
-// ✅ ✅ ✅ NEW ROUTE ADDED FOR TEACHER CREATION
 app.post("/api/createTeacher", async (req, res) => {
-  const { name, email, employeeId, dept } = req.body;
+  const { name, email, employeeId, dept, assignedCourses } = req.body;
 
   if (!name || !email || !employeeId || !dept) {
     return res.status(400).json({ message: "All fields are required." });
@@ -144,7 +143,7 @@ app.post("/api/createTeacher", async (req, res) => {
 
   try {
     let user;
-     let generatedPassword = Math.random().toString(36).slice(-8); // random password
+    let generatedPassword = Math.random().toString(36).slice(-8); // random password
 
     try {
       // check if teacher already exists
@@ -172,6 +171,7 @@ app.post("/api/createTeacher", async (req, res) => {
       email,
       employeeId,
       dept,
+      assignedCourses,
       createdAt: new Date().toISOString(),
     });
 
@@ -214,6 +214,23 @@ Please log in and change your password after first login.
   }
 });
 
+app.post("/api/setTeacherRole", async (req, res) => {
+  const { uid } = req.body;
+
+  if (!uid) {
+    return res.status(400).json({ message: "UID is required to set role" });
+  }
+
+  try {
+    await admin.auth().setCustomUserClaims(uid, { teacher: true });
+    res.status(200).json({ message: "Teacher role assigned successfully!" });
+  } catch (error) {
+    console.error("Error setting teacher role:", error);
+    res
+      .status(500)
+      .json({ message: "Failed to set teacher role", error: error.message });
+  }
+});
 
 app.post("/api/deleteUser", async (req, res) => {
   try {
@@ -251,6 +268,41 @@ app.get("/test-mail", async (req, res) => {
     res.send("Test email sent: " + info.messageId);
   } catch (err) {
     res.status(500).send("Error sending test mail: " + err.message);
+  }
+});
+
+app.get("/api/subjects", async (req, res) => {
+  const { department, year } = req.query;
+
+  if (!department || !year) {
+    return res
+      .status(400)
+      .json({ message: "Department and year are required." });
+  }
+
+  try {
+    const subjectsList = {
+      "Computer Engineering": {
+        "1st": ["Introduction to Programming", "Mathematics I"],
+        "2nd": ["Data Structures", "Algorithms"],
+        "3rd": ["Operating Systems", "Database Management"],
+        "4th": ["Machine Learning", "Cloud Computing"],
+      },
+      "Electronics And TeleCommunication Engineering": {
+        "1st": ["Basic Electronics", "Mathematics I"],
+        "2nd": ["Signals and Systems", "Digital Electronics"],
+        "3rd": ["Communication Systems", "Microprocessors"],
+        "4th": ["VLSI Design", "Embedded Systems"],
+      },
+      // Add other departments and their subjects here
+    };
+
+    const subjects = subjectsList[department]?.[year] || [];
+    res.status(200).json({ subjects });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Failed to fetch subjects.", error: error.message });
   }
 });
 
