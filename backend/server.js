@@ -223,7 +223,6 @@ app.post("/api/createTeacher", async (req, res) => {
   try {
     let user;
     let generatedPassword = Math.random().toString(36).slice(-8); // random password
-    let generatedPassword = Math.random().toString(36).slice(-8); // random password
 
     try {
       // check if teacher already exists
