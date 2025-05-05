@@ -2,18 +2,97 @@ const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const nodemailer = require("nodemailer");
+const http = require("http");
+const socketIO = require("socket.io");
 
 dotenv.config();
 
 const admin = require("./firebase-admin");
 
 const app = express();
+const server = http.createServer(app);
+const io = socketIO(server, {
+  cors: {
+    origin: "http://localhost:5173",
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
+});
+
 app.use(
   cors({
     origin: "http://localhost:5173",
   })
 );
 app.use(express.json());
+
+// Socket.IO Connection Logic
+io.on("connection", (socket) => {
+  console.log("New client connected:", socket.id);
+
+  // Join a chat room (student-teacher conversation)
+  socket.on("join_chat", (chatRoomId) => {
+    socket.join(chatRoomId);
+    console.log(`User ${socket.id} joined room: ${chatRoomId}`);
+  });
+
+  // Handle message sending
+  socket.on("send_message", async (messageData) => {
+    try {
+      // Store message in Firestore
+      const { chatId, message, senderId, receiverId, timestamp } = messageData;
+
+      const messageRef = await admin.firestore().collection("messages").add({
+        chatId,
+        message,
+        senderId,
+        receiverId,
+        timestamp,
+        read: false,
+      });
+
+      // Update the chat document with the last message
+      await admin.firestore().collection("chats").doc(chatId).update({
+        lastMessage: message,
+        lastMessageTimestamp: timestamp,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // Only broadcast to others in the room, not back to sender
+      // This prevents duplicate messages since the sender will get updates via Firestore
+      socket.to(chatId).emit("receive_message", {
+        ...messageData,
+        id: messageRef.id,
+      });
+
+      // Acknowledge message receipt back to sender
+      socket.emit("message_sent", {
+        success: true,
+        messageId: messageRef.id,
+      });
+    } catch (error) {
+      console.error("Error sending message:", error);
+      // Send error back to sender
+      socket.emit("message_error", {
+        error: "Failed to send message",
+      });
+    }
+  });
+
+  // Handle typing status
+  socket.on("typing", ({ chatId, username }) => {
+    socket.to(chatId).emit("typing_indicator", { username, isTyping: true });
+  });
+
+  socket.on("stop_typing", ({ chatId, username }) => {
+    socket.to(chatId).emit("typing_indicator", { username, isTyping: false });
+  });
+
+  // Handle user disconnect
+  socket.on("disconnect", () => {
+    console.log("Client disconnected:", socket.id);
+  });
+});
 
 app.post("/verify-admin", async (req, res) => {
   const { token } = req.body;
@@ -143,6 +222,7 @@ app.post("/api/createTeacher", async (req, res) => {
 
   try {
     let user;
+    let generatedPassword = Math.random().toString(36).slice(-8); // random password
     let generatedPassword = Math.random().toString(36).slice(-8); // random password
 
     try {
@@ -307,6 +387,6 @@ app.get("/api/subjects", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, "0.0.0.0", () => {
+server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });
