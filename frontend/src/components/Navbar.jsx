@@ -33,7 +33,7 @@ function Navbar() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
-
+  //Components and components change
   return (
     <nav className="flex justify-between items-center px-6 py-4 bg-transparent text-black relative">
       <h1 className="text-xl font-bold">CampusConnect</h1>
