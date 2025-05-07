@@ -5,7 +5,6 @@ import { useNavigate, Link } from "react-router-dom";
 import { FiSearch, FiLogOut } from "react-icons/fi";
 import { onAuthStateChanged } from "firebase/auth";
 
-
 import {
   FaEnvelope,
   FaPhoneAlt,
@@ -72,7 +71,7 @@ export default function AdminDashboard() {
             className="w-12 h-12 rounded-full object-cover border-2 border-white"
           />
           <div>
-            <p className="font-semibold text-sm">Nabila Azalea</p>
+            <p className="font-semibold text-sm">CampusConnect</p>
             <p className="text-xs text-gray-200">Admin</p>
           </div>
         </div>
@@ -109,7 +108,7 @@ export default function AdminDashboard() {
               </div>
               <div className="flex items-center space-x-2">
                 <FaEnvelope />
-                <span>jordan@mail.com</span>
+                <span>admin1234@mail.com</span>
               </div>
             </div>
             <div className="relative">
