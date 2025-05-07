@@ -14,6 +14,7 @@ import TeacherRoute from "./components/TeacherRoute";
 import SocketProvider from "./context/SocketContext";
 
 import Home from "./pages/Home";
+import About from "./pages/About";
 import Profile from "./pages/Profile";
 import EditProfile from "./pages/EditProfile";
 import Announcements from "./pages/Announcements";
@@ -57,6 +58,7 @@ function App() {
         <FirebaseRedirectHandler />
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/about" element={<About />} />
 
           {/* Authentication */}
           <Route path="/login" element={<AuthPage />} />

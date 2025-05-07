@@ -43,6 +43,7 @@ function Navbar() {
           <Link to="/" className="font-medium">
             Home
           </Link>
+          <Link to="/about" className="font-medium ml-6">About</Link>
         </div>
 
         {user ? (
