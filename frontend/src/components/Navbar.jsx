@@ -33,23 +33,25 @@ function Navbar() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
-  //Components and components change
+
   return (
-    <nav className="flex justify-between items-center px-6 py-4 bg-transparent text-black relative">
+    <nav className="flex justify-between items-center px-6 py-4 bg-transparent text-white absolute top-0 left-0 w-full z-10">
       <h1 className="text-xl font-bold">CampusConnect</h1>
 
       <div className="flex items-center space-x-6">
         <div>
-          <Link to="/" className="font-medium">
+          <Link to="/" className="font-medium hover:text-gray-300">
             Home
           </Link>
-          <Link to="/about" className="font-medium ml-6">About</Link>
+          <Link to="/about" className="font-medium ml-6 hover:text-gray-300">
+            About
+          </Link>
         </div>
 
         {user ? (
           <div className="relative" ref={dropdownRef}>
             <button
-              className="hover:text-gray-700 flex items-center space-x-1"
+              className="hover:text-gray-300 flex items-center space-x-1"
               onClick={toggleDropdown}
             >
               <span>Features</span>
@@ -60,7 +62,7 @@ function Navbar() {
 
             {isDropdownOpen && (
               <motion.div
-                className="absolute right-0 mt-2 w-48 bg-white text-black rounded-md shadow-lg z-50"
+                className="absolute right-0 mt-2 w-48 text-white rounded-md shadow-lg z-50 backdrop-blur-lg"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
@@ -69,41 +71,41 @@ function Navbar() {
                 <Link
                   to="/announcements"
                   onClick={() => setIsDropdownOpen(false)}
-                  className="block px-4 py-2 hover:bg-gray-100 transition-colors duration-200"
+                  className="block px-4 py-2 hover:bg-gray-700"
                 >
                   Announcements
                 </Link>
                 <Link
                   to="/discussions"
                   onClick={() => setIsDropdownOpen(false)}
-                  className="block px-4 py-2 hover:bg-gray-100 transition-colors duration-200"
+                  className="block px-4 py-2 hover:bg-gray-700"
                 >
                   Discussions
                 </Link>
                 <Link
                   to="/notes"
                   onClick={() => setIsDropdownOpen(false)}
-                  className="block px-4 py-2 hover:bg-gray-100 transition-colors duration-200"
+                  className="block px-4 py-2 hover:bg-gray-700"
                 >
                   Notes
                 </Link>
                 <Link
                   to="/chat"
                   onClick={() => setIsDropdownOpen(false)}
-                  className="block px-4 py-2 hover:bg-gray-100 transition-colors duration-200"
+                  className="block px-4 py-2 hover:bg-gray-700"
                 >
                   Chat
                 </Link>
                 <Link
                   to="/profile"
                   onClick={() => setIsDropdownOpen(false)}
-                  className="block px-4 py-2 hover:bg-gray-100 transition-colors duration-200"
+                  className="block px-4 py-2 hover:bg-gray-700"
                 >
                   Profile
                 </Link>
                 <button
                   onClick={handleLogout}
-                  className="block w-full text-left px-4 py-2 hover:bg-red-100 text-red-600 transition-colors duration-200"
+                  className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-700 hover:text-white transition-colors duration-300"
                 >
                   Logout
                 </button>
@@ -111,7 +113,9 @@ function Navbar() {
             )}
           </div>
         ) : (
-          <Link to="/login">Login / Signup</Link>
+          <Link to="/login" className="hover:text-gray-300">
+            Login / Signup
+          </Link>
         )}
       </div>
     </nav>
