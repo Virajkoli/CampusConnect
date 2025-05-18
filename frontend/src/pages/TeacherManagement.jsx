@@ -217,9 +217,8 @@ const TeacherManagement = () => {
     employeeId: "",
     dept: "",
     assignedCourses: [],
-    // Include these properties for backward compatibility
-    year: null, // Set to null instead of undefined
-    subjects: [], // Initialize as empty array
+    year: null,
+    subjects: [],
   });
   const [selectedYears, setSelectedYears] = useState([]);
   const [currentYear, setCurrentYear] = useState("");
@@ -271,7 +270,6 @@ const TeacherManagement = () => {
   };
 
   const handleEdit = async (teacher) => {
-    // Initialize the form with the teacher's data
     setFormData({
       name: teacher.name || "",
       email: teacher.email || "",
@@ -280,7 +278,6 @@ const TeacherManagement = () => {
       assignedCourses: teacher.assignedCourses || [],
     });
 
-    // Extract years from assignedCourses
     const years = teacher.assignedCourses
       ? teacher.assignedCourses.map((course) => course.year)
       : [];
@@ -311,14 +308,12 @@ const TeacherManagement = () => {
       return;
     }
 
-    // Check if year already exists
     const yearExists = formData.assignedCourses.some(
       (course) => course.year === currentYear
     );
 
     let updatedCourses;
     if (yearExists) {
-      // Update existing year with new subjects
       updatedCourses = formData.assignedCourses.map((course) => {
         if (course.year === currentYear) {
           return {
@@ -329,42 +324,35 @@ const TeacherManagement = () => {
         return course;
       });
     } else {
-      // Add new year with subjects
       updatedCourses = [
         ...formData.assignedCourses,
         { year: currentYear, subjects: currentSubjects },
       ];
     }
 
-    // Update formData
     setFormData({
       ...formData,
       assignedCourses: updatedCourses,
     });
 
-    // Update selectedYears if needed
     if (!selectedYears.includes(currentYear)) {
       setSelectedYears([...selectedYears, currentYear]);
     }
 
-    // Reset current selections
     setCurrentYear("");
     setCurrentSubjects([]);
   };
 
   const handleRemoveYear = (yearToRemove) => {
-    // Remove year from assignedCourses
     const updatedCourses = formData.assignedCourses.filter(
       (course) => course.year !== yearToRemove
     );
 
-    // Update formData
     setFormData({
       ...formData,
       assignedCourses: updatedCourses,
     });
 
-    // Update selectedYears
     setSelectedYears(selectedYears.filter((year) => year !== yearToRemove));
   };
 
@@ -472,6 +460,13 @@ const TeacherManagement = () => {
 
   const navigate = useNavigate();
 
+  const teachersByDept = departments.reduce((acc, dept) => {
+    acc[dept] = filteredTeachers.filter(
+      (t) => (t.dept || "").trim().toLowerCase() === dept.trim().toLowerCase()
+    );
+    return acc;
+  }, {});
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-white to-blue-100 p-8 text-gray-800">
       <div className="max-w-6xl mx-auto">
@@ -525,7 +520,6 @@ const TeacherManagement = () => {
             exit={{ opacity: 0, y: -10 }}
             className="bg-white rounded shadow-lg p-6 mb-6"
           >
-            {/* Basic Teacher Information */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
               <input
                 type="text"
@@ -570,12 +564,10 @@ const TeacherManagement = () => {
               </select>
             </div>
 
-            {/* Assign Courses Section */}
             {formData.dept && (
               <div className="border-t pt-4 mb-6">
                 <h3 className="text-lg font-semibold mb-3">Assign Courses</h3>
 
-                {/* Year and Subject Selection */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                   <select
                     value={currentYear}
@@ -599,7 +591,6 @@ const TeacherManagement = () => {
                   </Button>
                 </div>
 
-                {/* Subject Checkboxes */}
                 {currentYear && (
                   <div className="mb-4 border p-4 rounded bg-gray-50">
                     <h4 className="font-medium mb-2">
@@ -627,7 +618,6 @@ const TeacherManagement = () => {
                   </div>
                 )}
 
-                {/* Assigned Courses Display */}
                 {formData.assignedCourses.length > 0 && (
                   <div className="mb-4 border p-4 rounded bg-blue-50">
                     <h4 className="font-medium mb-2">Assigned Courses:</h4>
@@ -671,59 +661,85 @@ const TeacherManagement = () => {
           </motion.div>
         )}
 
-        <div className="overflow-x-auto shadow rounded bg-white">
-          <table className="min-w-full table-auto">
-            <thead className="bg-indigo-50">
-              <tr>
-                <th className="p-3 text-left">Name</th>
-                <th className="p-3 text-left">Email</th>
-                <th className="p-3 text-left">Employee ID</th>
-                <th className="p-3 text-left">Department</th>
-                <th className="p-3 text-left">Assigned Years</th>
-                <th className="p-3 text-left">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <AnimatePresence>
-                {filteredTeachers.map((teacher) => (
-                  <motion.tr
-                    key={teacher.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="border-t hover:bg-gray-50"
-                  >
-                    <td className="p-3">{teacher.name}</td>
-                    <td className="p-3">{teacher.email}</td>
-                    <td className="p-3">{teacher.employeeId}</td>
-                    <td className="p-3">{teacher.dept}</td>
-                    <td className="p-3">
-                      {teacher.assignedCourses &&
-                      teacher.assignedCourses.length > 0
-                        ? teacher.assignedCourses
-                            .map((course) => course.year)
-                            .join(", ")
-                        : "None"}
-                    </td>
-                    <td className="p-3 space-x-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => handleEdit(teacher)}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        onClick={() => handleDelete(teacher.id)}
-                      >
-                        Delete
-                      </Button>
-                    </td>
-                  </motion.tr>
-                ))}
-              </AnimatePresence>
-            </tbody>
-          </table>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+          {departments.map((dept) => (
+            <motion.div
+              key={dept}
+              className="bg-white rounded-xl shadow-md p-6 border border-indigo-100 flex flex-col"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              transition={{ duration: 0.4, type: "spring", stiffness: 120 }}
+            >
+              <div className="flex items-center mb-4">
+                <span className="inline-block w-3 h-3 rounded-full bg-indigo-400 mr-2"></span>
+                <h2 className="text-lg font-bold text-indigo-700">{dept}</h2>
+                <span className="ml-auto text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full">
+                  {teachersByDept[dept].length} teachers
+                </span>
+              </div>
+              {teachersByDept[dept].length === 0 ? (
+                <p className="text-gray-400 text-sm text-center py-6">
+                  No teachers in this department.
+                </p>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-gray-100">
+                  <table className="min-w-full text-sm divide-y divide-gray-100">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="p-2 text-left font-semibold text-gray-600">
+                          Name
+                        </th>
+                        <th className="p-2 text-left font-semibold text-gray-600">
+                          Email
+                        </th>
+                        <th className="p-2 text-left font-semibold text-gray-600">
+                          Employee ID
+                        </th>
+                        <th className="p-2 text-center font-semibold text-gray-600">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {teachersByDept[dept].map((teacher) => (
+                        <tr
+                          key={teacher.id}
+                          className="border-b hover:bg-gray-50 transition"
+                        >
+                          <td className="p-2 whitespace-nowrap">
+                            {teacher.name}
+                          </td>
+                          <td className="p-2 whitespace-nowrap">
+                            {teacher.email}
+                          </td>
+                          <td className="p-2 whitespace-nowrap">
+                            {teacher.employeeId}
+                          </td>
+                          <td className="p-2">
+                            <div className="flex justify-center items-center gap-2">
+                              <Button
+                                variant="outline"
+                                onClick={() => handleEdit(teacher)}
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                onClick={() => handleDelete(teacher.id)}
+                              >
+                                Delete
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </motion.div>
+          ))}
         </div>
       </div>
     </div>
