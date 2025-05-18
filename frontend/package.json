@@ -10,10 +10,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@studio-freight/lenis": "^1.0.42",
     "axios": "^1.8.1",
     "dayjs": "^1.11.13",
     "firebase": "^11.4.0",
     "framer-motion": "^12.6.3",
+    "gsap": "^3.13.0",
     "lucide-react": "^0.488.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
