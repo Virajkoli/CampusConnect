@@ -362,13 +362,11 @@ function Chats() {
     try {
       // Only send through socket for real-time
       // The server will handle storing in Firestore
-      if (socket) {
-        socket.emit("send_message", newMessage);
-        console.log("Message sent through socket:", newMessage);
-
-        // Clear the message input immediately for better UX
-        setMessage("");
-      } else {
+      if (socket && socket.connected) {
+  socket.emit("send_message", newMessage);
+  console.log("Message sent through socket:", newMessage);
+  setMessage("");
+} else {
         // Fallback for when socket is not available
         console.error("Socket not available, trying direct Firestore save");
         await addDoc(collection(firestore, "messages"), newMessage);

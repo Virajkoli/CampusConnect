@@ -11,7 +11,8 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import Button from "../components/Button";
 import { firestore, auth } from "../firebase";
-import { FiRefreshCw } from "react-icons/fi";
+import { FiRefreshCw, FiArrowLeft } from "react-icons/fi";
+import { useNavigate } from "react-router-dom";
 
 const roles = ["Student"];
 const departments = [
@@ -354,8 +355,28 @@ const UserManagement = () => {
     }
   };
 
+  const navigate = useNavigate();
+
+  // Group users by department for department-wise cards
+  const usersByDept = departments.reduce((acc, dept) => {
+    acc[dept] = filteredUsers.filter(
+      (u) => (u.dept || "").trim().toLowerCase() === dept.trim().toLowerCase()
+    );
+    return acc;
+  }, {});
+
   return (
-    <div className="p-6">
+    <div className="p-6 mt-20">
+      <div className="mb-4">
+        <button
+          onClick={() => navigate("/admin-dashboard")}
+          className="flex items-center text-red-600 hover:text-green-800 transition-colors"
+        >
+          <FiArrowLeft className="mr-2" />
+          Go Back
+        </button>
+      </div>
+
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
           {error}
@@ -453,53 +474,78 @@ const UserManagement = () => {
         )}
       </AnimatePresence>
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full bg-white rounded shadow">
-          <thead>
-            <tr className="bg-gray-100 text-left">
-              <th className="p-3">Name</th>
-              <th className="p-3">Email</th>
-              <th className="p-3">Roll No.</th>
-              <th className="p-3">Department</th>
-              <th className="p-3">Role</th>
-              <th className="p-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <AnimatePresence>
-              {filteredUsers.map((user) => (
-                <motion.tr
-                  key={`${user.id}-${user.uid || ""}`}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="border-b hover:bg-gray-50"
-                >
-                  <td className="p-3">{user.name}</td>
-                  <td className="p-3">{user.email}</td>
-                  <td className="p-3">{user.rollNo}</td>
-                  <td className="p-3">{user.dept}</td>
-                  <td className="p-3">
-                    <span className="px-2 py-1 bg-blue-100 text-blue-600 rounded-full text-sm">
-                      {user.role}
-                    </span>
-                  </td>
-                  <td className="p-3 space-x-2">
-                    <Button variant="outline" onClick={() => handleEdit(user)}>
-                      Edit
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      onClick={() => handleDelete(user.id)}
-                    >
-                      Delete
-                    </Button>
-                  </td>
-                </motion.tr>
-              ))}
-            </AnimatePresence>
-          </tbody>
-        </table>
+      {/* Department-wise Cards UI - Clean & Simple */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+        {departments.map((dept) => (
+          <motion.div
+            key={dept}
+            className="bg-white rounded-xl shadow-md p-6 border border-indigo-100 flex flex-col"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            transition={{ duration: 0.4, type: "spring", stiffness: 120 }}
+          >
+            <div className="flex items-center mb-4">
+              <span className="inline-block w-3 h-3 rounded-full bg-indigo-400 mr-2"></span>
+              <h2 className="text-lg font-bold text-indigo-700">{dept}</h2>
+              <span className="ml-auto text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full">
+                {usersByDept[dept].length} students
+              </span>
+            </div>
+            {usersByDept[dept].length === 0 ? (
+              <p className="text-gray-400 text-sm text-center py-6">
+                No students in this department.
+              </p>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-gray-100">
+                <table className="min-w-full text-sm divide-y divide-gray-100">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="p-2 text-left font-semibold text-gray-600">
+                        Name
+                      </th>
+                      <th className="p-2 text-left font-semibold text-gray-600">
+                        Email
+                      </th>
+                      <th className="p-2 text-left font-semibold text-gray-600">
+                        Roll No.
+                      </th>
+                      <th className="p-2 text-center font-semibold text-gray-600">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {usersByDept[dept].map((user) => (
+                      <tr
+                        key={user.id}
+                        className="border-b hover:bg-gray-50 transition"
+                      >
+                        <td className="p-2 whitespace-nowrap">{user.name}</td>
+                        <td className="p-2 whitespace-nowrap">{user.email}</td>
+                        <td className="p-2 whitespace-nowrap">{user.rollNo}</td>
+                        <td className="p-2 text-center space-x-2">
+                          <Button
+                            variant="outline"
+                            onClick={() => handleEdit(user)}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            onClick={() => handleDelete(user.id)}
+                          >
+                            Delete
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </motion.div>
+        ))}
       </div>
     </div>
   );
