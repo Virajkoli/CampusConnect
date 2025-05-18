@@ -45,7 +45,10 @@ function AppContent() {
   return (
     <>
       <Navbar />
+<<<<<<< HEAD
             <div className="pt-16 px-4" />
+=======
+>>>>>>> ce6217b051bc4e00d5a26cb37e01817219f0b24f
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />

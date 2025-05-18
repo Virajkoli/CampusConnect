@@ -169,12 +169,20 @@ function Navbar() {
                       { path: "/student-dashboard", name: "Dashboard" },
                       { path: "/announcements", name: "Announcements" },
                       { path: "/discussions", name: "Discussions" },
+<<<<<<< HEAD
+=======
+                      { path: "/notes", name: "Notes" },
+>>>>>>> ce6217b051bc4e00d5a26cb37e01817219f0b24f
                       { path: "/study-materials", name: "Study Materials" },
                       { path: "/events-calendar", name: "Events Calendar" },
                       {
                         path: "/attendance-tracker",
                         name: "Attendance Tracker",
                       },
+<<<<<<< HEAD
+=======
+                      { path: "/chat", name: "Chat" },
+>>>>>>> ce6217b051bc4e00d5a26cb37e01817219f0b24f
                       { path: "/profile", name: "Profile" },
                     ].map((item) => (
                       <motion.div
