@@ -28,8 +28,9 @@ function AdminRoute({ children }) {
 
   // Check if we're on a management page that should not redirect
   const isManagementPage =
-    location.pathname.includes("/admin-adduser") ||
-    location.pathname.includes("/teacher-management");
+    location.pathname.includes("/admin/usermanagement") ||
+    location.pathname.includes("/admin/teachermanagement") ||
+    location.pathname.includes("/admin/announcements");
 
   // Show loading state only if we're not on a management page
   if ((loading || checking) && !isManagementPage) {
