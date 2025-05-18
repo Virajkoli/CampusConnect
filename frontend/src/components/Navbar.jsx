@@ -13,6 +13,8 @@ function Navbar() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
   const [scrolled, setScrolled] = useState(false);
+  const [userRole, setUserRole] = useState(null);
+
 
   // Check if current page is login/signup
   const isAuthPage =
@@ -57,6 +59,57 @@ function Navbar() {
     };
   }, []);
 
+ useEffect(() => {
+  const checkUserRole = async () => {
+    if (user) {
+      try {
+        const tokenResult = await user.getIdTokenResult(true);
+        if (tokenResult.claims.admin) {
+          setUserRole("admin");
+        } else if (tokenResult.claims.teacher) {
+          setUserRole("teacher");
+        } else {
+          setUserRole("student");
+        }
+      } catch (error) {
+        console.error("Error checking user role:", error);
+      }
+    }
+  };
+
+  checkUserRole();
+}, [user]);
+
+const roleBasedLinks = {
+  admin: [
+    { path: "/admin-dashboard", name: "Dashboard" },
+     { path: "/announcements", name: "Announcements" },
+    { path: "/discussions", name: "Discussions" },
+    { path: "/events-calendar", name: "Events Calendar" },
+    { path: "/profile", name: "Profile" },
+  ],
+  teacher: [
+    { path: "/teacher-dashboard", name: "Dashboard" },
+    { path: "/announcements", name: "Announcements" },
+    { path: "/discussions", name: "Discussions" },
+    { path: "/events-calendar", name: "Events Calendar" },
+    { path: "/profile", name: "Profile" },
+  ],
+  student: [
+    { path: "/student-dashboard", name: "Dashboard" },
+    { path: "/announcements", name: "Announcements" },
+    { path: "/discussions", name: "Discussions" },
+    { path: "/study-materials", name: "Study Materials" },
+    { path: "/events-calendar", name: "Events Calendar" },
+    { path: "/attendance-tracker", name: "Attendance Tracker" },
+    { path: "/profile", name: "Profile" },
+  ],
+};
+
+const linksToRender = roleBasedLinks[userRole] || [];
+
+
+
   // Always use a consistent navbar style
   // We're using a fully solid background for better readability on all pages
   const navbarClasses = `flex justify-between items-center px-6 py-4 w-full z-30 transition-all duration-300 fixed top-0 left-0 ${
@@ -76,7 +129,18 @@ function Navbar() {
     >
       <motion.div
         className="flex items-center cursor-pointer"
-        onClick={() => navigate(user ? "/student-dashboard" : "/")}
+        onClick={() => {
+  if (!user) {
+    navigate("/");
+  } else if (userRole === "admin") {
+    navigate("/admin-dashboard");
+  } else if (userRole === "teacher") {
+    navigate("/teacher-dashboard");
+  } else {
+    navigate("/student-dashboard");
+  }
+}}
+
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
       >
@@ -165,26 +229,7 @@ function Navbar() {
                     exit={{ opacity: 0, y: -10 }}
                     transition={{ duration: 0.2 }}
                   >
-                    {[
-                      { path: "/student-dashboard", name: "Dashboard" },
-                      { path: "/announcements", name: "Announcements" },
-                      { path: "/discussions", name: "Discussions" },
-<<<<<<< HEAD
-=======
-                      { path: "/notes", name: "Notes" },
->>>>>>> ce6217b051bc4e00d5a26cb37e01817219f0b24f
-                      { path: "/study-materials", name: "Study Materials" },
-                      { path: "/events-calendar", name: "Events Calendar" },
-                      {
-                        path: "/attendance-tracker",
-                        name: "Attendance Tracker",
-                      },
-<<<<<<< HEAD
-=======
-                      { path: "/chat", name: "Chat" },
->>>>>>> ce6217b051bc4e00d5a26cb37e01817219f0b24f
-                      { path: "/profile", name: "Profile" },
-                    ].map((item) => (
+                    {linksToRender.map((item) => (
                       <motion.div
                         key={item.path}
                         whileHover={{

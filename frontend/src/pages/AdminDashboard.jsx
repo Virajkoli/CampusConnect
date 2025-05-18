@@ -547,11 +547,7 @@ export default function AdminDashboard() {
       <div className=" rounded-full min-h-screen  bg-gray-50 text-gray-800 flex">
         {/* Sidebar */}
         <motion.aside
-<<<<<<< HEAD
           className="bg-white shadow-lg text-gray-800 flex flex-col h-screen sticky top-0 z-10 border-r border-gray-200"
-=======
-          className="mt-20 bg-white shadow-lg text-gray-800 flex flex-col h-screen sticky top-0 z-10 border-r border-gray-200"
->>>>>>> ce6217b051bc4e00d5a26cb37e01817219f0b24f
           variants={sidebarVariants}
           animate={isOpen ? "open" : "closed"}
         >
@@ -669,11 +665,7 @@ export default function AdminDashboard() {
         </motion.aside>
 
         {/* Main Content */}
-<<<<<<< HEAD
         <main className="flex-1 min-h-screen">
-=======
-        <main className=" mt-20 flex-1 min-h-screen">
->>>>>>> ce6217b051bc4e00d5a26cb37e01817219f0b24f
           {/* Top Navbar - Enhanced Design */}
           <motion.div
             className="bg-gradient-to-r from-indigo-700 via-purple-700 to-indigo-800 sticky top-0 z-20 shadow-xl"
@@ -1249,7 +1241,8 @@ export default function AdminDashboard() {
                       transition={{ duration: 0.4 }}
                       className="relative z-10"
                     >
-                      <CalendarComponent />
+                      <CalendarComponent />+
+                      
                     </motion.div>
                   </div>
                 </motion.div>
