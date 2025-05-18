@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { loginWithEmailPassword, auth } from "../firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
-import { motion } from "framer-motion";
 
 export default function AdminAuthPage() {
   const navigate = useNavigate();
@@ -58,48 +57,68 @@ export default function AdminAuthPage() {
   };
 
   return (
-    <motion.div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-500 to-yellow-400">
-      <motion.div className="w-full max-w-md bg-white/30 backdrop-blur-xl rounded-3xl shadow-2xl p-8">
-        <motion.h2 className="text-2xl font-bold text-center text-red-700 mb-6">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="w-full max-w-sm bg-white rounded-xl shadow-lg p-8 border border-gray-100">
+        <h2 className="text-2xl font-bold text-center text-gray-800 mb-6 tracking-tight">
           Admin Login
-        </motion.h2>
-
-        {error && <p className="text-red-600 text-center mb-4">{error}</p>}
-
+        </h2>
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-600 rounded px-3 py-2 mb-4 text-center text-sm">
+            {error}
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="email"
-            placeholder="Admin Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border border-gray-300"
-            required
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border border-gray-300"
-            required
-          />
+          <div>
+            <label className="block text-gray-700 font-medium mb-1">
+              Email
+            </label>
+            <input
+              type="email"
+              placeholder="Enter admin email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-2 rounded border border-gray-300 focus:ring-2 focus:ring-indigo-200 focus:outline-none text-gray-800 bg-white"
+              required
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="block text-gray-700 font-medium mb-1">
+              Password
+            </label>
+            <input
+              type="password"
+              placeholder="Enter password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-2 rounded border border-gray-300 focus:ring-2 focus:ring-indigo-200 focus:outline-none text-gray-800 bg-white"
+              required
+            />
+          </div>
           <button
             type="submit"
-            className="w-full bg-red-500 text-white py-3 rounded-xl shadow-md hover:bg-red-600"
+            className="w-full bg-purple-600 hover:bg-purple-700 transition-colors text-white py-2 rounded font-semibold shadow text-base"
           >
             Login as Admin
           </button>
-          <p className="text-center text-sm text-gray-600 mt-2">
+          <div className="flex flex-col items-center mt-2 gap-1">
             <button
               onClick={() => navigate("/login")}
               type="button"
-              className="text-red-600 hover:underline"
+              className="text-indigo-600 hover:underline text-sm"
             >
               ← Back to Role Selection
             </button>
-          </p>
+            <button
+              type="button"
+              onClick={() => navigate("/reset-password")}
+              className="text-purple-600 hover:underline text-xs mt-1"
+            >
+              Forgot password?
+            </button>
+          </div>
         </form>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }
