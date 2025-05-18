@@ -871,13 +871,6 @@ export default function AdminDashboard() {
                       label="Announcements"
                       bgColor="from-pink-500 to-pink-600"
                     />
-                    <NavLink
-                      to="/admin/calendar"
-                      active={false}
-                      icon={<FiCalendar />}
-                      label="Calendar"
-                      bgColor="from-amber-500 to-amber-600"
-                    />
                   </nav>
                 </div>
 
@@ -981,7 +974,7 @@ export default function AdminDashboard() {
 
             {/* Main Dashboard Content */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left Column */}{" "}
+              {/* Left Column */}
               <motion.div
                 className="lg:col-span-2 space-y-6"
                 initial={{ opacity: 0, y: 20 }}
@@ -994,201 +987,84 @@ export default function AdminDashboard() {
                   damping: 15,
                 }}
               >
-                {/* Enhanced Messages */}
-                <motion.div
-                  className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden"
-                  whileHover={{ scale: 1.01 }}
-                  transition={{ type: "spring", stiffness: 200 }}
-                >
-                  <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-indigo-50 via-white to-indigo-50">
-                    <div className="flex justify-between items-center">
-                      <h2 className="text-lg font-semibold text-gray-800 flex items-center">
-                        <motion.div
-                          whileHover={{ rotate: 15 }}
-                          whileTap={{ scale: 0.9 }}
-                          transition={{ type: "spring", stiffness: 300 }}
-                        >
-                          <FiMessageSquare className="mr-2 text-indigo-600" />
-                        </motion.div>
-                        Recent Messages
-                      </h2>
-                      <motion.button
-                        className="text-indigo-600 text-sm hover:text-indigo-700 flex items-center group"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                      >
-                        <span>View All</span>
-                        <motion.svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="h-4 w-4 ml-1 transition-transform duration-300 transform group-hover:translate-x-1"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z"
-                            clipRule="evenodd"
-                          />
-                        </motion.svg>
-                      </motion.button>
-                    </div>
-                  </div>
-                  <div className="divide-y divide-gray-100">
-                    {users.slice(0, 5).map((user, index) => (
-                      <motion.div
-                        key={user.id}
-                        className="p-4 hover:bg-indigo-50 transition-colors"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{
-                          delay: index * 0.1,
-                          duration: 0.4,
-                          type: "spring",
-                          stiffness: 150,
-                        }}
-                        whileHover={{ x: 5 }}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <motion.img
-                            whileHover={{ scale: 1.1, rotate: 5 }}
-                            whileTap={{ scale: 0.95 }}
-                            src={`https://i.pravatar.cc/40?u=${user.email}`}
-                            alt={user.name}
-                            className="w-10 h-10 rounded-full border-2 border-indigo-100"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-gray-900 truncate">
-                              {user.name}
-                            </p>
-                            <p className="text-sm text-gray-500 truncate">
-                              I wanted to discuss the upcoming semester
-                              planning...
-                            </p>
-                          </div>
-                          <div className="text-xs bg-indigo-100 text-indigo-600 px-2 py-1 rounded-full">
-                            12:42 PM
-                          </div>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                </motion.div>
-
-                {/* Enhanced Recent Activity */}
-                <motion.div
-                  className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden"
-                  whileHover={{ scale: 1.01 }}
-                  transition={{ type: "spring", stiffness: 200 }}
-                >
-                  <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-indigo-50 via-white to-indigo-50">
-                    <h2 className="text-lg font-semibold text-gray-800 flex items-center">
-                      <motion.div
+                {/* Upcoming Events Card - Redesigned */}
+                <div className="relative overflow-hidden rounded-lg shadow-md border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-6 transition-all duration-300 hover:shadow-lg">
+                  {/* Decorative animated blob */}
+                  <motion.div
+                    className="absolute -top-8 -right-8 w-32 h-32 bg-blue-100 rounded-full filter blur-2xl opacity-40 z-0"
+                    animate={{
+                      scale: [1, 1.15, 1],
+                      opacity: [0.4, 0.6, 0.4],
+                      x: [0, 10, 0],
+                      y: [0, 10, 0],
+                    }}
+                    transition={{
+                      duration: 8,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                  />
+                  <div className="relative z-10">
+                    <h2 className="text-lg font-semibold text-blue-800 mb-3 flex items-center gap-2">
+                      <motion.span
                         whileHover={{ rotate: 15 }}
                         whileTap={{ scale: 0.9 }}
                         transition={{ type: "spring", stiffness: 300 }}
+                        className="inline-flex items-center justify-center bg-blue-100 text-blue-600 rounded-full w-9 h-9 shadow"
                       >
-                        <FiActivity className="mr-2 text-indigo-600" />
-                      </motion.div>
-                      Latest Activity
+                        <FiCalendar className="text-xl" />
+                      </motion.span>
+                      Upcoming Events
                     </h2>
+                    <ul className="space-y-2 mt-2">
+                      <li className="flex items-start gap-2">
+                        <span className="mt-1 w-2 h-2 rounded-full bg-blue-400"></span>
+                        <span className="text-gray-700 text-sm font-medium">
+                          Workshop: AI in Education{" "}
+                          <span className="text-xs text-blue-500 ml-2 font-normal">
+                            20th May 2025
+                          </span>
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="mt-1 w-2 h-2 rounded-full bg-indigo-400"></span>
+                        <span className="text-gray-700 text-sm font-medium">
+                          Parent-Teacher Meeting{" "}
+                          <span className="text-xs text-indigo-500 ml-2 font-normal">
+                            28th May 2025
+                          </span>
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="mt-1 w-2 h-2 rounded-full bg-purple-400"></span>
+                        <span className="text-gray-700 text-sm font-medium">
+                          Annual Fest{" "}
+                          <span className="text-xs text-purple-500 ml-2 font-normal">
+                            10th June 2025
+                          </span>
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="mt-1 w-2 h-2 rounded-full bg-green-400"></span>
+                        <span className="text-gray-700 text-sm font-medium">
+                          Library Orientation{" "}
+                          <span className="text-xs text-green-500 ml-2 font-normal">
+                            15th June 2025
+                          </span>
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="mt-1 w-2 h-2 rounded-full bg-amber-400"></span>
+                        <span className="text-gray-700 text-sm font-medium">
+                          Sports Day{" "}
+                          <span className="text-xs text-amber-500 ml-2 font-normal">
+                            25th June 2025
+                          </span>
+                        </span>
+                      </li>
+                    </ul>
                   </div>
-                  <div className="p-4 space-y-4 relative">
-                    {/* Animated decorative elements */}
-                    <motion.div
-                      className="absolute right-0 top-10 w-32 h-32 bg-indigo-50 rounded-full filter blur-3xl opacity-30 z-0"
-                      animate={{
-                        scale: [1, 1.2, 1],
-                        opacity: [0.2, 0.3, 0.2],
-                        x: [0, 10, 0],
-                      }}
-                      transition={{
-                        duration: 10,
-                        repeat: Infinity,
-                        ease: "easeInOut",
-                      }}
-                    />
-
-                    {[1, 2, 3].map((item, index) => {
-                      // Determine item colors and icons
-                      const itemConfig = {
-                        1: {
-                          bgColor: "bg-blue-100",
-                          textColor: "text-blue-600",
-                          bgHover: "group-hover:bg-blue-200",
-                          icon: <FiUser />,
-                          name: "Kevin Smith",
-                          action: "updated their profile information",
-                        },
-                        2: {
-                          bgColor: "bg-green-100",
-                          textColor: "text-green-600",
-                          bgHover: "group-hover:bg-green-200",
-                          icon: <FiCreditCard />,
-                          name: "Maria Rodriguez",
-                          action:
-                            'created a new course: "Advanced Mathematics"',
-                        },
-                        3: {
-                          bgColor: "bg-amber-100",
-                          textColor: "text-amber-600",
-                          bgHover: "group-hover:bg-amber-200",
-                          icon: <FiBell />,
-                          name: "System",
-                          action:
-                            "sent notification to all users about system maintenance",
-                        },
-                      };
-
-                      const config = itemConfig[item];
-
-                      return (
-                        <motion.div
-                          key={item}
-                          className="flex items-start space-x-3 group"
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{
-                            delay: index * 0.15,
-                            duration: 0.4,
-                            type: "spring",
-                            stiffness: 150,
-                          }}
-                          whileHover={{ x: 5 }}
-                        >
-                          <motion.div
-                            className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-colors duration-300 ${config.bgColor} ${config.textColor} ${config.bgHover}`}
-                            whileHover={{ scale: 1.1, rotate: 5 }}
-                            whileTap={{ scale: 0.9 }}
-                          >
-                            {config.icon}
-                          </motion.div>
-                          <div className="flex-1">
-                            <p className="text-sm">
-                              <span className="font-medium text-gray-900">
-                                {config.name}
-                              </span>{" "}
-                              {config.action}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1 flex items-center">
-                              <motion.span
-                                className="inline-block mr-1"
-                                animate={{ y: [0, -1, 0] }}
-                                transition={{ duration: 2, repeat: Infinity }}
-                              >
-                                ⏱
-                              </motion.span>
-                              {item === 1
-                                ? "2 hours ago"
-                                : item === 2
-                                ? "Yesterday at 4:30 PM"
-                                : "3 days ago"}
-                            </p>
-                          </div>
-                        </motion.div>
-                      );
-                    })}
-                  </div>
-                </motion.div>
+                </div>
               </motion.div>
               {/* Right Column */}
               <motion.div
@@ -1242,89 +1118,6 @@ export default function AdminDashboard() {
                       className="relative z-10"
                     >
                       <CalendarComponent />+
-                      
-                    </motion.div>
-                  </div>
-                </motion.div>
-
-                {/* Enhanced Quick Contacts */}
-                <motion.div
-                  className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden"
-                  whileHover={{ scale: 1.01 }}
-                  transition={{ type: "spring", stiffness: 200 }}
-                >
-                  <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-indigo-50 via-white to-indigo-50">
-                    <h2 className="text-lg font-semibold text-gray-800 flex items-center">
-                      <motion.div
-                        whileHover={{ rotate: 15 }}
-                        whileTap={{ scale: 0.9 }}
-                        transition={{ type: "spring", stiffness: 300 }}
-                      >
-                        <FiUsers className="mr-2 text-indigo-600" />
-                      </motion.div>
-                      Quick Contacts
-                    </h2>
-                  </div>
-                  <div className="divide-y divide-gray-100">
-                    {users.slice(0, 3).map((user, index) => (
-                      <motion.div
-                        key={user.id}
-                        className="p-3 hover:bg-indigo-50 transition-colors group"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{
-                          delay: index * 0.1,
-                          duration: 0.4,
-                          type: "spring",
-                          stiffness: 150,
-                        }}
-                        whileHover={{ x: 5 }}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <motion.img
-                              whileHover={{ scale: 1.1, rotate: 5 }}
-                              whileTap={{ scale: 0.95 }}
-                              src={`https://i.pravatar.cc/40?u=${user.email}`}
-                              alt={user.name}
-                              className="w-8 h-8 rounded-full border-2 border-indigo-100"
-                            />
-                            <div>
-                              <p className="font-medium text-sm">{user.name}</p>
-                              <p className="text-xs text-gray-500">
-                                {user.role || "User"}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex space-x-2">
-                            <motion.button
-                              className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors"
-                              aria-label={`Email ${user.name}`}
-                              whileHover={{ scale: 1.2, rotate: 5 }}
-                              whileTap={{ scale: 0.9 }}
-                            >
-                              <FaEnvelope className="w-3.5 h-3.5" />
-                            </motion.button>
-                            <motion.button
-                              className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-full transition-colors"
-                              aria-label={`Call ${user.name}`}
-                              whileHover={{ scale: 1.2, rotate: 5 }}
-                              whileTap={{ scale: 0.9 }}
-                            >
-                              <FaPhoneAlt className="w-3 h-3" />
-                            </motion.button>
-                          </div>
-                        </div>
-                      </motion.div>
-                    ))}
-                    <motion.div
-                      className="p-3 text-center"
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      <button className="text-indigo-600 text-sm font-medium hover:text-indigo-800 transition-colors">
-                        View All Contacts
-                      </button>
                     </motion.div>
                   </div>
                 </motion.div>
