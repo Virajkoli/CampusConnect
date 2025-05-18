@@ -1,6 +1,6 @@
 // src/pages/TeacherCourses.jsx
 import React, { useState, useEffect } from "react";
-import { auth, db } from "../firebase";
+import { auth, firestore } from "../firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -10,7 +10,6 @@ export default function TeacherCourses() {
   const [assignedCourses, setAssignedCourses] = useState([]);
   const [error, setError] = useState("");
   const navigate = useNavigate();
-
   useEffect(() => {
     const fetchTeacherData = async () => {
       const user = auth.currentUser;
@@ -19,7 +18,7 @@ export default function TeacherCourses() {
         return;
       }
       try {
-        const docRef = doc(db, "teachers", user.uid);
+        const docRef = doc(firestore, "teachers", user.uid);
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {

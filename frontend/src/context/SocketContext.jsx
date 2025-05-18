@@ -12,64 +12,86 @@ export const useSocket = () => useContext(SocketContext);
 export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const [user] = useAuthState(auth);
-  const [connectionError, setConnectionError] = useState(null);
-
-  // Connect to the socket when the user is authenticated
+  const [connectionError, setConnectionError] = useState(null);  // Connect to the socket when the user is authenticated
   useEffect(() => {
     let newSocket = null;
 
-    if (user) {
-      console.log(
-        "Attempting to connect socket.io for user:",
-        user.displayName
-      );
-
+    // Only create socket if we have a user and we're not already connected
+    if (user && !socket) {
+      console.log("Attempting to connect socket for user:", user.displayName);
+      
       try {
-        // Connect to the socket server
+        // Connect to the socket server with error handling
+        // Using the correct server port that matches your backend
         newSocket = io("http://localhost:5000", {
           query: {
             userId: user.uid,
             userName: user.displayName || "Anonymous",
           },
-          reconnectionAttempts: 5,
+          reconnectionAttempts: 3,
           reconnectionDelay: 1000,
           timeout: 10000,
+          autoConnect: false, // Don't auto connect to avoid connection errors
         });
 
+        // Set up all event handlers before connecting
         newSocket.on("connect", () => {
-          console.log("Socket.io connected successfully");
+          console.log("Socket connected successfully");
           setConnectionError(null);
         });
 
+        // Handle connection errors gracefully to prevent app crashes
         newSocket.on("connect_error", (err) => {
           console.error("Socket connection error:", err);
-          setConnectionError(
-            "Unable to connect to chat server. Please try again later."
-          );
+          setConnectionError("Chat server connection issue");
+          
+          // Don't keep trying to reconnect - this prevents cascading errors
+          newSocket.disconnect();
         });
 
+        // Handle disconnection
         newSocket.on("disconnect", (reason) => {
           console.log("Socket disconnected:", reason);
         });
-
-        // Set the socket in state
-        setSocket(newSocket);
-      } catch (err) {
-        console.error("Error creating socket connection:", err);
-        setConnectionError("Failed to initialize chat connection");
-      }
-
-      // Cleanup function to disconnect socket when the component unmounts or user logs out
-      return () => {
-        if (newSocket) {
-          console.log("Disconnecting socket");
-          newSocket.disconnect();
+        
+        // Only after setting up all handlers, connect and store in state
+        try {
+          newSocket.connect();
+          setSocket(newSocket);
+        } catch (connectErr) {
+          console.error("Failed to connect socket:", connectErr);
         }
-      };
+      } catch (err) {
+        console.error("Socket creation error:", err);
+        setConnectionError("Failed to initialize chat");
+      }
     }
 
-    return () => {};
-  }, [user]);
+    // Clean up function
+    return () => {
+      // Use the socket from closure and from state to ensure we clean up correctly
+      const socketToCleanup = newSocket || socket;
+      
+      if (socketToCleanup) {
+        console.log("Cleaning up socket connection");
+        try {
+          // Properly clean up to prevent memory leaks
+          socketToCleanup.off("connect");
+          socketToCleanup.off("connect_error");
+          socketToCleanup.off("disconnect");
+          socketToCleanup.removeAllListeners();
+          socketToCleanup.disconnect();
+          
+          // Only clear the state if the socket being cleaned up is the current socket
+          if (socketToCleanup === socket) {
+            setSocket(null);
+          }
+        } catch (err) {
+          console.error("Socket cleanup error:", err);
+        }
+      }
+    };
+  }, [user, socket]);
 
   // The value that will be given to the context
   const value = { socket, connectionError };
