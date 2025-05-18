@@ -987,6 +987,66 @@ export default function AdminDashboard() {
                   damping: 15,
                 }}
               >
+                {/* Campus News Card */}
+                <motion.div
+                  className="relative overflow-hidden rounded-lg shadow-md border border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-blue-50 p-6 transition-all duration-300 hover:shadow-lg"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    duration: 0.5,
+                    delay: 0.2,
+                    type: "spring",
+                    stiffness: 150,
+                  }}
+                >
+                  {/* Decorative animated blob */}
+                  <motion.div
+                    className="absolute -top-8 -left-8 w-32 h-32 bg-indigo-100 rounded-full filter blur-2xl opacity-40 z-0"
+                    animate={{
+                      scale: [1, 1.15, 1],
+                      opacity: [0.4, 0.6, 0.4],
+                      x: [0, 10, 0],
+                      y: [0, 10, 0],
+                    }}
+                    transition={{
+                      duration: 8,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                  />
+                  <div className="relative z-10">
+                    <h2 className="text-lg font-semibold text-indigo-800 mb-3 flex items-center gap-2">
+                      <motion.span
+                        whileHover={{ rotate: 15 }}
+                        whileTap={{ scale: 0.9 }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 300,
+                        }}
+                        className="inline-flex items-center justify-center bg-indigo-100 text-indigo-600 rounded-full w-9 h-9 shadow"
+                      >
+                        <FiBell className="text-xl" />
+                      </motion.span>
+                      Campus News
+                    </h2>
+                    <ul className="space-y-2 mt-2">
+                      <li className="flex items-start gap-2">
+                        <span className="mt-1 w-2 h-2 rounded-full bg-indigo-400"></span>
+                        <span className="text-gray-700 text-sm font-medium">
+                          <span className="font-semibold">
+                            Exam Schedule Update:
+                          </span>{" "}
+                          Summer exams will start from{" "}
+                          <span className="text-indigo-600 font-semibold">
+                            27th May 2025
+                          </span>
+                          . Check the notice board for detailed timetable.
+                        </span>
+                      </li>
+                    </ul>
+                  </div>
+                </motion.div>
+
                 {/* Upcoming Events Card - Redesigned */}
                 <div className="relative overflow-hidden rounded-lg shadow-md border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-6 transition-all duration-300 hover:shadow-lg">
                   {/* Decorative animated blob */}
