@@ -3,8 +3,11 @@ import { motion } from "framer-motion";
 import { FiSettings, FiUser, FiLock, FiBell, FiDatabase } from "react-icons/fi";
 import { firestore, auth } from "../firebase";
 import { doc, getDoc } from "firebase/firestore";
+import {FiArrowLeft} from "react-icons/fi"
+import { useNavigate } from "react-router-dom";
 
 const AdminSettings = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("profile");
   const [adminData, setAdminData] = useState({});
   const [isLoading, setIsLoading] = useState(true);
@@ -40,6 +43,12 @@ const AdminSettings = () => {
 
   return (
     <div className="bg-gray-50 min-h-screen p-6">
+      <button
+          onClick={() => navigate("/admin-dashboard")}
+          className="flex items-center my-4 text-red-600 hover:text-green-800 transition-colors"
+        >
+          <FiArrowLeft className="mr-2" />Go Back
+        </button>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

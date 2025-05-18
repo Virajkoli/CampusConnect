@@ -194,7 +194,7 @@ export default function AnnouncementManagement() {
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
       {/* Header */}
       <div>
-        <div className="mt-20 ">
+        <div>
           <button
             onClick={() => navigate("/admin-dashboard")}
             className="mb-4 flex items-center text-red-900 hover:text-green-900 transition-colors"
