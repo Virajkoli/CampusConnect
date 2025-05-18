@@ -17,6 +17,8 @@ import {
 import { firestore as db, storage, auth } from "../firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom";
+import { FiArrowLeft } from "react-icons/fi";
 
 const StudyMaterials = () => {
   const [materials, setMaterials] = useState([]);
@@ -30,6 +32,7 @@ const StudyMaterials = () => {
   const [uploadLoading, setUploadLoading] = useState(false);
   const [user] = useAuthState(auth);
   const [isTeacher, setIsTeacher] = useState(false);
+  const navigate = useNavigate();
 
   // Check if user is a teacher
   useEffect(() => {
@@ -377,7 +380,14 @@ const StudyMaterials = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container m-6 px-4 py-8">
+      <button
+        onClick={() => navigate("/student-dashboard")}
+        className="flex items-center my-4 text-red-600 hover:text-green-800 transition-colors"
+      >
+        <FiArrowLeft className="mr-2" />
+        Go Back
+      </button>
       <h1 className="text-3xl font-bold mb-6">Study Materials</h1>
 
       <div className="mb-8">

@@ -22,8 +22,10 @@ import {
   FiEdit2,
   FiTrash2,
   FiPlus,
+  FiArrowLeft,
 } from "react-icons/fi";
 import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom";
 
 function EventsCalendar() {
   const [user] = useAuthState(auth);
@@ -38,6 +40,7 @@ function EventsCalendar() {
     { id: "holiday", name: "Holiday", color: "green" },
     { id: "event", name: "General Event", color: "purple" },
   ]);
+  const navigate = useNavigate();
 
   // Form refs
   const formRef = useRef(null);
@@ -239,7 +242,14 @@ function EventsCalendar() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 pt-20 pb-10">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 pt-10 pb-10">
+      <button
+        onClick={() => navigate("/student-dashboard")}
+        className="flex items-center ml-8 my-4 text-red-600 hover:text-green-800 transition-colors"
+      >
+        <FiArrowLeft className="mr-2" />
+        Go Back
+      </button>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">

@@ -184,7 +184,7 @@ export default function TeacherDashboard() {
       !classItem.endTime ||
       !classItem.endTime.includes(":")
     ) {
-      return false; 
+      return false;
     }
     const [endHours, endMinutes] = classItem.endTime.split(":").map(Number);
     const classEndDate = new Date(classItem.date);
@@ -293,11 +293,11 @@ export default function TeacherDashboard() {
             label="Courses"
             path="/teacher-courses"
           />
-          <SidebarItem
+          {/* <SidebarItem
             icon={<FaChalkboardTeacher />}
             label="My Classes"
             path="/teacher-classes"
-          />
+          /> */}
           <SidebarItem icon={<FiLogOut />} label="Logout" path="/login" />
         </nav>
       </aside>

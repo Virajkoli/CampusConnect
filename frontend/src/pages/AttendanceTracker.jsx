@@ -23,7 +23,9 @@ import {
   FiUser,
   FiFilter,
   FiDownload,
+  FiArrowLeft,
 } from "react-icons/fi";
+import { useNavigate } from "react-router-dom";
 
 function AttendanceTracker() {
   const [user] = useAuthState(auth);
@@ -41,6 +43,7 @@ function AttendanceTracker() {
   const [attendanceFilter, setAttendanceFilter] = useState("all"); // 'all', 'present', 'absent'
   const [studentAttendance, setStudentAttendance] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
+  const navigate = useNavigate();
 
   // Check user role and load appropriate data
   useEffect(() => {
@@ -486,7 +489,14 @@ function AttendanceTracker() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 pt-20 pb-10">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 pt-10 pb-10">
+      <button
+        onClick={() => navigate("/student-dashboard")}
+        className="flex items-center ml-8 my-4 text-red-600 hover:text-green-800 transition-colors"
+      >
+        <FiArrowLeft className="mr-2" />
+        Go Back
+      </button>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <h1 className="text-3xl font-bold text-gray-800 mb-6">
           Attendance Tracker

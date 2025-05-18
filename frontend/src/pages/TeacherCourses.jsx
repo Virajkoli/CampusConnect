@@ -6,7 +6,6 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { FiArrowLeft } from "react-icons/fi";
 
-
 export default function TeacherCourses() {
   const [dept, setDept] = useState("");
   const [assignedCourses, setAssignedCourses] = useState([]);
@@ -68,11 +67,12 @@ export default function TeacherCourses() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-100 via-blue-50 to-white p-8">
       <button
-          onClick={() => navigate("/teacher-dashboard")}
-          className="flex items-center my-4 text-red-600 hover:text-green-800 transition-colors"
-        >
-          <FiArrowLeft className="mr-2" />Go Back
-        </button>
+        onClick={() => navigate("/teacher-dashboard")}
+        className="flex items-center my-4 text-red-600 hover:text-green-800 transition-colors"
+      >
+        <FiArrowLeft className="mr-2" />
+        Go Back
+      </button>
       <div className="max-w-5xl mx-auto">
         <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
           <h1 className="text-3xl font-bold text-center text-blue-800 mb-2">

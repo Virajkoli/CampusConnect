@@ -8,14 +8,22 @@ import {
   orderBy,
   onSnapshot,
 } from "firebase/firestore";
-import { FiBell, FiCalendar, FiInfo, FiAlertCircle } from "react-icons/fi";
+import {
+  FiBell,
+  FiCalendar,
+  FiInfo,
+  FiAlertCircle,
+  FiArrowLeft,
+} from "react-icons/fi";
 import AnnouncementsBanner from "../components/AnnouncementsBanner";
 import NotificationsModal from "../components/NotificationsModal";
+import { useNavigate } from "react-router-dom";
 
 const Announcements = () => {
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const q = query(
@@ -78,9 +86,16 @@ const Announcements = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <button
+        onClick={() => navigate("/student-dashboard")}
+        className="flex items-center mt-8 ml-8 text-red-600 hover:text-green-800 transition-colors"
+      >
+        <FiArrowLeft className="mr-2" />
+        Go Back
+      </button>
       <AnnouncementsBanner />
 
-      <div className="container mx-auto px-4 py-8 pt-20">
+      <div className="container m-8">
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-800 mb-1">
