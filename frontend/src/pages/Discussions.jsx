@@ -3,6 +3,7 @@ import { collection, getDocs, query, where } from "firebase/firestore";
 import { firestore, auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
 import { useAuthState } from "react-firebase-hooks/auth";
+import { FiArrowLeft } from "react-icons/fi";
 
 function Discussions() {
   const [user] = useAuthState(auth);
@@ -71,7 +72,15 @@ function Discussions() {
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
+      <button
+          onClick={() => navigate("/student-dashboard")}
+          className="flex items-center my-4 text-red-600 hover:text-green-800 transition-colors"
+        >
+          <FiArrowLeft className="mr-2" />
+          Go Back
+        </button>
       <div className="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-lg">
+        
         <h1 className="text-2xl font-bold text-gray-800 mb-6">
           Find Teachers for Discussion
         </h1>

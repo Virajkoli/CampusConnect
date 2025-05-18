@@ -198,7 +198,7 @@ function StudentDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 pt-20 pb-10">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 pt-10 pb-10">
       {/* Top Banner for Announcements */}
       <AnnouncementsBanner />
 

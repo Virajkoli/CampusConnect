@@ -1,16 +1,24 @@
 import { useNavigate } from "react-router-dom";
-import { auth } from "../firebase"; 
+import { auth } from "../firebase";
+import { FiArrowLeft } from "react-icons/fi";
 
 const StudentProfile = ({ userData }) => {
   const navigate = useNavigate();
 
-   const handleLogout = async () => {
+  const handleLogout = async () => {
     await auth.signOut();
     navigate("/login");
   };
 
   return (
     <div className="w-full max-w-3xl bg-white rounded-xl shadow-lg p-8">
+      <button
+        onClick={() => navigate("/student-dashboard")}
+        className="flex items-center my-4 text-red-600 hover:text-green-800 transition-colors"
+      >
+        <FiArrowLeft className="mr-2" />
+        Go Back
+      </button>
       <h1 className="text-3xl font-bold text-center text-blue-800 mb-6">
         🎓 Student Profile
       </h1>
@@ -71,27 +79,27 @@ const StudentProfile = ({ userData }) => {
           <p className="text-gray-600">No subjects assigned</p>
         )}
       </div>
-      
-       <div className="flex flex-wrap gap-4 justify-center mt-2">
-          <button
-            onClick={() => navigate("/edit-profile")}
-            className="bg-yellow-400 text-white px-4 py-2 rounded-lg font-medium hover:bg-yellow-500"
-          >
-            Edit Profile
-          </button>
-          <button
-            onClick={() => navigate("/change-password")}
-            className="bg-blue-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-600"
-          >
-            Change Password
-          </button>
-          <button
-            onClick={handleLogout}
-            className="bg-red-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-600"
-          >
-            Logout
-          </button>
-        </div>
+
+      <div className="flex flex-wrap gap-4 justify-center mt-2">
+        <button
+          onClick={() => navigate("/edit-profile")}
+          className="bg-yellow-400 text-white px-4 py-2 rounded-lg font-medium hover:bg-yellow-500"
+        >
+          Edit Profile
+        </button>
+        <button
+          onClick={() => navigate("/change-password")}
+          className="bg-blue-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-600"
+        >
+          Change Password
+        </button>
+        <button
+          onClick={handleLogout}
+          className="bg-red-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-600"
+        >
+          Logout
+        </button>
+      </div>
     </div>
   );
 };
