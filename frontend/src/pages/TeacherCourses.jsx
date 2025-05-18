@@ -1,6 +1,6 @@
 // src/pages/TeacherCourses.jsx
 import React, { useState, useEffect } from "react";
-import { auth, db } from "../firebase";
+import { auth, firestore } from "../firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -10,7 +10,6 @@ export default function TeacherCourses() {
   const [assignedCourses, setAssignedCourses] = useState([]);
   const [error, setError] = useState("");
   const navigate = useNavigate();
-
   useEffect(() => {
     const fetchTeacherData = async () => {
       const user = auth.currentUser;
@@ -19,7 +18,7 @@ export default function TeacherCourses() {
         return;
       }
       try {
-        const docRef = doc(db, "teachers", user.uid);
+        const docRef = doc(firestore, "teachers", user.uid);
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
@@ -65,7 +64,7 @@ export default function TeacherCourses() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-blue-50 to-white p-8">
+    <div className=" mt-40 min-h-screen bg-gradient-to-br from-blue-100 via-blue-50 to-white p-8">
       <div className="max-w-5xl mx-auto">
         <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
           <h1 className="text-3xl font-bold text-center text-blue-800 mb-2">

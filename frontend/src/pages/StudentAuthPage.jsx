@@ -20,7 +20,7 @@ export default function AuthPage() {
       } else {
         await signUpWithEmailPassword(email, password, name);
       }
-      navigate("/");
+      navigate("/student-dashboard");
     } catch (err) {
       setError(err.message);
     }
@@ -104,14 +104,14 @@ export default function AuthPage() {
               Login
             </motion.button>
             <p className="text-center text-sm text-gray-600 mt-2">
-            <button
-              onClick={() => navigate("/login")}
-              type="button"
-              className="text-red-600 hover:underline"
-            >
-              ← Back to Role Selection
-            </button>
-          </p>
+              <button
+                onClick={() => navigate("/login")}
+                type="button"
+                className="text-red-600 hover:underline"
+              >
+                ← Back to Role Selection
+              </button>
+            </p>
           </motion.form>
         ) : (
           <motion.form
@@ -153,14 +153,14 @@ export default function AuthPage() {
               Sign Up
             </motion.button>
             <p className="text-center text-sm text-gray-600 mt-2">
-            <button
-              onClick={() => navigate("/login")}
-              type="button"
-              className="text-red-600 hover:underline"
-            >
-              ← Back to Role Selection
-            </button>
-          </p>
+              <button
+                onClick={() => navigate("/login")}
+                type="button"
+                className="text-red-600 hover:underline"
+              >
+                ← Back to Role Selection
+              </button>
+            </p>
           </motion.form>
         )}
       </motion.div>
