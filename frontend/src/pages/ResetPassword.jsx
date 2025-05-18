@@ -28,6 +28,13 @@ export default function ResetPassword() {
         onSubmit={handleReset}
         className="bg-white p-8 rounded-lg shadow-lg space-y-4 w-96"
       >
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="mb-2 text-indigo-600 hover:underline text-sm text-left"
+        >
+          ← Back
+        </button>
         <h2 className="text-xl font-bold text-center">Reset Your Password</h2>
         {message && <p className="text-green-600 text-center">{message}</p>}
         {error && <p className="text-red-600 text-center">{error}</p>}
