@@ -9,6 +9,7 @@ import {
   browserLocalPersistence,
 } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 // Your Firebase configuration
 const firebaseConfig = {
@@ -28,10 +29,15 @@ const auth = getAuth(app);
 const firestore = getFirestore(app);
 const provider = new GoogleAuthProvider();
 const db = firestore; // 🆕 Make alias for easier imports
+const storage = getStorage(app);
 
 // Auth functions
 export const signUpWithEmailPassword = async (email, password, name) => {
-  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+  const userCredential = await createUserWithEmailAndPassword(
+    auth,
+    email,
+    password
+  );
   await updateProfile(userCredential.user, { displayName: name });
   return userCredential;
 };
@@ -41,8 +47,17 @@ export const loginWithEmailPassword = (email, password) => {
 };
 
 export const createTeacherAccount = async (email, password, name) => {
-  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-  await updateProfile(userCredential.user, { displayName: name });
+  // Create a teacher account with Firebase Authentication
+  const userCredential = await createUserWithEmailAndPassword(
+    auth,
+    email,
+    password
+  );
+
+  // Update the profile with the provided name
+  await updateProfile(userCredential.user, {
+    displayName: name});
+
   return userCredential;
 };
 
@@ -55,5 +70,20 @@ setPersistence(auth, browserLocalPersistence)
     console.error("Persistence error:", error);
   });
 
+// Helper function to check if a user has teacher role
+export const checkTeacherRole = async (user) => {
+  if (!user) return false;
+
+  try {
+    // Force refresh token to get the latest custom claims
+    await user.getIdToken(true);
+    const tokenResult = await user.getIdTokenResult();
+    return !!tokenResult.claims.teacher;
+  } catch (error) {
+    console.error("Error checking teacher role:", error);
+    return false;
+  }
+};
+
 // Export everything
-export { auth, firestore, provider, db };
+export { auth, firestore, provider, db, storage };
