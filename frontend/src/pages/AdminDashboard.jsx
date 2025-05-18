@@ -160,7 +160,7 @@ function SidebarItem({
 }
 
 // Stat Card Component
-function StatCard({ title, value, change, icon, color }) {
+function StatCard({ title, value, change, icon, color, breakdown }) {
   const cardVariants = {
     hidden: { opacity: 0, y: 20, scale: 0.95 },
     visible: {
@@ -228,6 +228,14 @@ function StatCard({ title, value, change, icon, color }) {
               {change}
             </motion.span>
           </div>
+          {breakdown && (
+            <div className="mt-2 text-xs text-gray-500">
+              {Object.entries(breakdown)
+                .filter(([dept, count]) => count > 0)
+                .map(([dept, count]) => `${dept}: ${count}`)
+                .join(", ")}
+            </div>
+          )}
         </div>
         <motion.div
           className={`w-12 h-12 rounded-full bg-${color}-100 flex items-center justify-center`}
@@ -387,6 +395,9 @@ export default function AdminDashboard() {
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
 
+  const [studentStats, setStudentStats] = useState({ total: 0, byDept: {} });
+  const [teacherStats, setTeacherStats] = useState({ total: 0, byDept: {} });
+
   // Define fetchUsers first, before using it in useEffect
   const fetchUsers = useCallback(async () => {
     try {
@@ -398,6 +409,40 @@ export default function AdminDashboard() {
       setUsers(userList);
     } catch (err) {
       setError("Failed to fetch users: " + err.message);
+    }
+  }, []);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      // Fetch students
+      const usersSnapshot = await getDocs(collection(firestore, "users"));
+      const students = usersSnapshot.docs
+        .map((doc) => doc.data())
+        .filter((u) => (u.role || "Student") === "Student");
+      const studentByDept = {};
+      students.forEach((u) => {
+        const dept = (u.dept || "Other").trim();
+        studentByDept[dept] = (studentByDept[dept] || 0) + 1;
+      });
+      setStudentStats({
+        total: students.length,
+        byDept: studentByDept,
+      });
+
+      // Fetch teachers
+      const teachersSnapshot = await getDocs(collection(firestore, "teachers"));
+      const teachers = teachersSnapshot.docs.map((doc) => doc.data());
+      const teacherByDept = {};
+      teachers.forEach((t) => {
+        const dept = (t.dept || "Other").trim();
+        teacherByDept[dept] = (teacherByDept[dept] || 0) + 1;
+      });
+      setTeacherStats({
+        total: teachers.length,
+        byDept: teacherByDept,
+      });
+    } catch (err) {
+      // Optionally handle error
     }
   }, []);
 
@@ -435,6 +480,7 @@ export default function AdminDashboard() {
           } else {
             // Only fetch users if still mounted
             fetchUsers();
+            fetchStats();
           }
         } catch (error) {
           console.error("Token error:", error);
@@ -461,7 +507,7 @@ export default function AdminDashboard() {
       unsubscribe(); // Clean up auth listener
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [navigate, fetchUsers]);
+  }, [navigate, fetchUsers, fetchStats]);
 
   const toggleDropdown = () => {
     setIsDropdownOpen(!isDropdownOpen);
@@ -944,17 +990,19 @@ export default function AdminDashboard() {
             >
               <StatCard
                 title="Total Students"
-                value="1,286"
-                change="+12%"
+                value={studentStats.total}
+                change={studentStats.total > 0 ? `+${studentStats.total}` : "0"}
                 icon={<FiUsers className="text-blue-500" />}
                 color="blue"
+                breakdown={studentStats.byDept}
               />
               <StatCard
                 title="Total Teachers"
-                value="84"
-                change="+4%"
+                value={teacherStats.total}
+                change={teacherStats.total > 0 ? `+${teacherStats.total}` : "0"}
                 icon={<FiUser className="text-green-500" />}
                 color="green"
+                breakdown={teacherStats.byDept}
               />
               <StatCard
                 title="Active Courses"
