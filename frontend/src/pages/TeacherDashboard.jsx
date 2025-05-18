@@ -11,7 +11,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { useNavigate, Link } from "react-router-dom";
-import { FiSearch, FiLogOut } from "react-icons/fi";
+import { FiSearch, FiLogOut, FiBook } from "react-icons/fi";
 import {
   FaChalkboardTeacher,
   FaBell,
@@ -292,6 +292,11 @@ export default function TeacherDashboard() {
             icon={<FaBook />}
             label="Courses"
             path="/teacher-courses"
+          />
+          <SidebarItem
+            icon={<FiBook />}
+            label="Study Materials"
+            path="/teacher-studymaterial"
           />
           {/* <SidebarItem
             icon={<FaChalkboardTeacher />}
