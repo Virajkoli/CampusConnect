@@ -10,7 +10,8 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import Button from "../components/Button";
 import { firestore } from "../firebase";
-import { FiRefreshCw } from "react-icons/fi";
+import { FiRefreshCw, FiArrowLeft } from "react-icons/fi";
+import { useNavigate } from "react-router-dom";
 
 const departments = [
   "Computer Engineering",
@@ -469,10 +470,21 @@ const TeacherManagement = () => {
     }
   };
 
+  const navigate = useNavigate();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-white to-blue-100 p-8 text-gray-800">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6 text-indigo-600">
+        <div className="flex justify-between items-center mb-6">
+          <button
+            onClick={() => navigate("/admin-dashboard")}
+            className="mt-20 flex items-center text-red-600 hover:text-green-900 transition-colors text-lg"
+          >
+            <FiArrowLeft className=" mr-2 text-xl" /> Go Back
+          </button>
+        </div>
+
+        <h1 className="text-3xl font-bold text-indigo-600">
           Teacher Management Panel
         </h1>
 

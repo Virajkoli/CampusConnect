@@ -11,7 +11,8 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import Button from "../components/Button";
 import { firestore, auth } from "../firebase";
-import { FiRefreshCw } from "react-icons/fi";
+import { FiRefreshCw, FiArrowLeft } from "react-icons/fi";
+import { useNavigate } from "react-router-dom";
 
 const roles = ["Student"];
 const departments = [
@@ -354,8 +355,19 @@ const UserManagement = () => {
     }
   };
 
+  const navigate = useNavigate();
+
   return (
-    <div className="p-6">
+    <div className="p-6 mt-20">
+      <div className="mb-4">
+        <button
+          onClick={() => navigate("/admin-dashboard")}
+          className="flex items-center text-red-600 hover:text-green-800 transition-colors"
+        >
+          <FiArrowLeft className="mr-2" />Go Back
+        </button>
+      </div>
+
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
           {error}

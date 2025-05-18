@@ -6,6 +6,7 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { useEffect } from "react";
+import { ToastContainer } from "react-toastify";
 
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -24,6 +25,7 @@ import Chat from "./pages/Chats";
 import AuthPage from "./components/AuthPage";
 import ResetPassword from "./pages/ResetPassword";
 import ResetConfirm from "./pages/ResetConfirm";
+import StudentDashboard from "./pages/StudentDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminAuthPage from "./pages/AdminAuthPage";
 import StudentAuthPage from "./pages/StudentAuthPage";
@@ -32,6 +34,210 @@ import TeacherAuthPage from "./pages/TeacherAuthPage";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import TeacherManagement from "./pages/TeacherManagement";
 import TeacherCourses from "./pages/TeacherCourses";
+import AnnouncementManagement from "./pages/AnnouncementManagement";
+import StudyMaterials from "./pages/StudyMaterials";
+import EventsCalendar from "./pages/EventsCalendar";
+import AttendanceTracker from "./pages/AttendanceTracker";
+import AdminSettings from "./pages/AdminSettings";
+
+// Component to control when to show navbar
+function AppContent() {
+  return (
+    <>
+      <Navbar />
+            <div className="pt-16 px-4" />
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/about" element={<About />} />
+
+        {/* Authentication */}
+        <Route path="/login" element={<AuthPage />} />
+        <Route path="/signup" element={<AuthPage />} />
+        <Route path="/auth/student" element={<StudentAuthPage />} />
+        <Route path="/auth/admin" element={<AdminAuthPage />} />
+        <Route path="/auth/teacher" element={<TeacherAuthPage />} />
+
+        {/* Password Reset */}
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/reset-password-confirm" element={<ResetConfirm />} />
+
+        {/* Protected Routes */}
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/edit-profile"
+          element={
+            <ProtectedRoute>
+              <EditProfile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/change-password"
+          element={
+            <ProtectedRoute>
+              <ChangePassword />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/announcements"
+          element={
+            <ProtectedRoute>
+              <Announcements />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/discussions"
+          element={
+            <ProtectedRoute>
+              <Discussions />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/chat"
+          element={
+            <ProtectedRoute>
+              <Chat />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/chat/:teacherId"
+          element={
+            <ProtectedRoute>
+              <Chat />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/study-materials"
+          element={
+            <ProtectedRoute>
+              <StudyMaterials />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/events-calendar"
+          element={
+            <ProtectedRoute>
+              <EventsCalendar />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/attendance-tracker"
+          element={
+            <ProtectedRoute>
+              <AttendanceTracker />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/student-dashboard"
+          element={
+            <ProtectedRoute>
+              <StudentDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Admin Routes */}
+        <Route
+          path="/admin-dashboard"
+          element={
+            <AdminRoute>
+              <AdminDashboard />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/dashboard"
+          element={
+            <AdminRoute>
+              <AdminDashboard />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/usermanagement"
+          element={
+            <AdminRoute>
+              <UserManagement />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/teachermanagement"
+          element={
+            <AdminRoute>
+              <TeacherManagement />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/announcements"
+          element={
+            <AdminRoute>
+              <AnnouncementManagement />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/settings"
+          element={
+            <AdminRoute>
+              <AdminSettings />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin-addteacher"
+          element={
+            <AdminRoute>
+              <TeacherManagement />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/settings"
+          element={
+            <AdminRoute>
+              <AdminSettings />
+            </AdminRoute>
+          }
+        />
+
+        {/* Teacher Routes */}
+        <Route
+          path="/teacher-dashboard"
+          element={
+            <TeacherRoute>
+              <TeacherDashboard />
+            </TeacherRoute>
+          }
+        />
+        <Route
+          path="/teacher-courses"
+          element={
+            <TeacherRoute>
+              <TeacherCourses />
+            </TeacherRoute>
+          }
+        />
+      </Routes>
+    </>
+  );
+}
 
 function FirebaseRedirectHandler() {
   const location = useLocation();
@@ -52,127 +258,23 @@ function FirebaseRedirectHandler() {
 
 function App() {
   return (
-    <Router>
+    <Router future={{ v7_startTransition: true }}>
       <SocketProvider>
-        <Navbar />
+        <AppContent />
         <FirebaseRedirectHandler />
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/about" element={<About />} />
-
-          {/* Authentication */}
-          <Route path="/login" element={<AuthPage />} />
-          <Route path="/signup" element={<AuthPage />} />
-          <Route path="/auth/student" element={<StudentAuthPage />} />
-          <Route path="/auth/admin" element={<AdminAuthPage />} />
-          <Route path="/auth/teacher" element={<TeacherAuthPage />} />
-
-          {/* Password Reset */}
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/reset-password-confirm" element={<ResetConfirm />} />
-
-          {/* Protected Routes */}
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/edit-profile"
-            element={
-              <ProtectedRoute>
-                <EditProfile />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/change-password"
-            element={
-              <ProtectedRoute>
-                <ChangePassword />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/announcements"
-            element={
-              <ProtectedRoute>
-                <Announcements />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/discussions"
-            element={
-              <ProtectedRoute>
-                <Discussions />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/chat"
-            element={
-              <ProtectedRoute>
-                <Chat />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/chat/:teacherId"
-            element={
-              <ProtectedRoute>
-                <Chat />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Admin Routes */}
-          <Route
-            path="/admin-dashboard"
-            element={
-              <AdminRoute>
-                <AdminDashboard />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin-adduser"
-            element={
-              <AdminRoute>
-                <UserManagement />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/admin-addteacher"
-            element={
-              <AdminRoute>
-                <TeacherManagement />
-              </AdminRoute>
-            }
-          />
-
-          {/* Teacher Routes */}
-          <Route
-            path="/teacher-dashboard"
-            element={
-              <TeacherRoute>
-                <TeacherDashboard />
-              </TeacherRoute>
-            }
-          />
-          <Route
-            path="/teacher-courses"
-            element={
-              <TeacherRoute>
-                <TeacherCourses />
-              </TeacherRoute>
-            }
-          />
-        </Routes>
+        {/* Toast notifications from react-toastify */}
+        <ToastContainer
+          position="top-right"
+          autoClose={5000}
+          hideProgressBar={false}
+          newestOnTop
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="light"
+        />
       </SocketProvider>
     </Router>
   );
