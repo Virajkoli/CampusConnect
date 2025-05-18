@@ -39,15 +39,14 @@ import StudyMaterials from "./pages/StudyMaterials";
 import EventsCalendar from "./pages/EventsCalendar";
 import AttendanceTracker from "./pages/AttendanceTracker";
 import AdminSettings from "./pages/AdminSettings";
+import TeacherStudyMaterial from "./pages/TeacherStudyMaterial";
 
 // Component to control when to show navbar
 function AppContent() {
   return (
     <>
       <Navbar />
-<div className="pt-16 px-4" />
-
-
+      <div className="pt-16 px-4" />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
@@ -235,6 +234,10 @@ function AppContent() {
               <TeacherCourses />
             </TeacherRoute>
           }
+        />
+        <Route
+          path="/teacher-studymaterial"
+          element={<TeacherStudyMaterial />}
         />
       </Routes>
     </>

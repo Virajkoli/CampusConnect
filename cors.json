@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["http://localhost:5173", "https://YOUR-PRODUCTION-DOMAIN.com"],
+    "method": ["GET", "POST", "PUT", "DELETE", "HEAD"],
+    "maxAgeSeconds": 3600,
+    "responseHeader": ["Content-Type", "Authorization", "Content-Length", "User-Agent", "x-firebase-storage-version"]
+  }
+]
