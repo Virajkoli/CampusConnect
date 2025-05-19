@@ -293,11 +293,11 @@ export default function TeacherDashboard() {
             label="Courses"
             path="/teacher-courses"
           />
-          <SidebarItem
+          {/* <SidebarItem
             icon={<FiBook />}
             label="Study Materials"
             path="/teacher-studymaterial"
-          />
+          /> */}
           {/* <SidebarItem
             icon={<FaChalkboardTeacher />}
             label="My Classes"
