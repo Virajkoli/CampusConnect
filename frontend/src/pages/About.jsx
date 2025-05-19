@@ -3,7 +3,7 @@ import Footer from "../components/Footer";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
-import about_img from "../assets/about_img.jpg";
+import about_img from "../assets/building.jpg";
 import designstudents from "../assets/designstudents.jpg";
 import connected_experience from "../assets/connected_experience.jpg";
 import instant_updates from "../assets/instant_updates.jpg";

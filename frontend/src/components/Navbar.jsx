@@ -101,7 +101,6 @@ const roleBasedLinks = {
     { path: "/discussions", name: "Discussions" },
     { path: "/study-materials", name: "Study Materials" },
     { path: "/events-calendar", name: "Events Calendar" },
-    { path: "/attendance-tracker", name: "Attendance Tracker" },
     { path: "/profile", name: "Profile" },
   ],
 };

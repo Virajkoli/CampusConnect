@@ -16,7 +16,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyAaqKQWQuQZyPnrUieCUkRh3GrfKqucdOw",
   authDomain: "campus-connect-9e92e.firebaseapp.com",
   projectId: "campus-connect-9e92e",
-  storageBucket: "campus-connect-9e92e.appspot.com", // Typo corrected here too ("storageBucket" me ".app" hata ke ".com")
+  storageBucket: "campus-connect-9e92e.appspot.com", 
   messagingSenderId: "268286454476",
   appId: "1:268286454476:web:a70a7e0f77ceef75d3b069",
 };
