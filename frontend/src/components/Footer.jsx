@@ -23,16 +23,8 @@ const Footer = () => {
                 About
               </a>
             </li>
-            <li>
-              <a href="/events" className="hover:text-white">
-                Events
-              </a>
-            </li>
-            <li>
-              <a href="/clubs" className="hover:text-white">
-                Clubs
-              </a>
-            </li>
+            
+
           </ul>
         </div>
 
