@@ -11,9 +11,13 @@ const admin = require("./firebase-admin");
 
 const app = express();
 const server = http.createServer(app);
+
+// Get frontend URL from environment or use localhost as fallback
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+
 const io = socketIO(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: FRONTEND_URL,
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -21,7 +25,7 @@ const io = socketIO(server, {
 
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: FRONTEND_URL,
   })
 );
 app.use(express.json());
