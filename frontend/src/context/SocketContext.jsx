@@ -23,7 +23,7 @@ export const SocketProvider = ({ children }) => {
       try {
         // Connect to the socket server with error handling
         // Using the correct server port that matches your backend
-        newSocket = io("http://localhost:5000", {
+        newSocket = io(import.meta.env.VITE_API_URL || "http://localhost:5000", {
           query: {
             userId: user.uid,
             userName: user.displayName || "Anonymous",

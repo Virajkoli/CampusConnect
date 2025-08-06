@@ -20,7 +20,11 @@ export default function TeacherAuthPage() {
     setError("");
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
       const user = userCredential.user;
 
       if (user) {
@@ -47,15 +51,24 @@ export default function TeacherAuthPage() {
     setError("");
 
     try {
-      const userCredential = await createTeacherAccount(email, password, "Teacher Name");
+      const userCredential = await createTeacherAccount(
+        email,
+        password,
+        "Teacher Name"
+      );
       const user = userCredential.user;
 
       // ✅ Call backend API to set teacher role
-      const response = await fetch("http://localhost:5000/api/setTeacherRole", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ uid: user.uid }),
-      });
+      const response = await fetch(
+        `${
+          import.meta.env.VITE_API_URL || "http://localhost:5000"
+        }/api/setTeacherRole`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ uid: user.uid }),
+        }
+      );
 
       const result = await response.json();
 
@@ -65,7 +78,6 @@ export default function TeacherAuthPage() {
 
       alert("✅ Account created successfully! Now you can login.");
       navigate("/login"); // ✅ Redirect to login page after registration success
-
     } catch (err) {
       console.error("Error creating account:", err.message);
       setError("❌ " + err.message);

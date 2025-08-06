@@ -210,21 +210,26 @@ const UserManagement = () => {
         const password = Math.random().toString(36).slice(-8); // Generate random password
 
         // ONLY CALL BACKEND
-        const response = await fetch("http://localhost:5000/api/createUser", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+        const response = await fetch(
+          `${
+            import.meta.env.VITE_API_URL || "http://localhost:5000"
+          }/api/createUser`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
 
-          body: JSON.stringify({
-            name: formData.name,
-            email: formData.email,
-            password: password,
-            rollNo: formData.rollNo,
-            dept: formData.dept,
-            role: formData.role,
-          }),
-        });
+            body: JSON.stringify({
+              name: formData.name,
+              email: formData.email,
+              password: password,
+              rollNo: formData.rollNo,
+              dept: formData.dept,
+              role: formData.role,
+            }),
+          }
+        );
 
         const data = await response.json();
 
@@ -302,7 +307,9 @@ const UserManagement = () => {
               userData.uid
             );
             const response = await fetch(
-              "http://localhost:5000/api/deleteUser",
+              `${
+                import.meta.env.VITE_API_URL || "http://localhost:5000"
+              }/api/deleteUser`,
               {
                 method: "POST",
                 headers: {
