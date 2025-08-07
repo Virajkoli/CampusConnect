@@ -1,4 +1,5 @@
-# CampusConnect 🚀     Link : https://campus-connect-ten-theta.vercel.app/
+# CampusConnect 🚀     
+Link : https://campus-connect-ten-theta.vercel.app/
 
 A platform to connect students, faculty, and campus communities.
 
