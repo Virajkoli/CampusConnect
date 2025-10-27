@@ -40,6 +40,8 @@ import EventsCalendar from "./pages/EventsCalendar";
 import AttendanceTracker from "./pages/AttendanceTracker";
 import AdminSettings from "./pages/AdminSettings";
 import TeacherStudyMaterial from "./pages/TeacherStudyMaterial";
+import TeacherTimetable from "./pages/TeacherTimetable";
+import StudentTimetable from "./pages/StudentTimetable";
 
 // Component to control when to show navbar
 function AppContent() {
@@ -237,7 +239,27 @@ function AppContent() {
         />
         <Route
           path="/teacher-studymaterial"
-          element={<TeacherStudyMaterial />}
+          element={
+            <TeacherRoute>
+              <TeacherStudyMaterial />
+            </TeacherRoute>
+          }
+        />
+        <Route
+          path="/teacher-timetable"
+          element={
+            <TeacherRoute>
+              <TeacherTimetable />
+            </TeacherRoute>
+          }
+        />
+        <Route
+          path="/student-timetable"
+          element={
+            <ProtectedRoute>
+              <StudentTimetable />
+            </ProtectedRoute>
+          }
         />
       </Routes>
     </>

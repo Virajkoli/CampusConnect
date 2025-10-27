@@ -1,14 +1,12 @@
 // src/pages/TeacherDashboard.jsx
 import React, { useState, useEffect } from "react";
-import { auth, firestore, db } from "../firebase";
+import { auth, firestore } from "../firebase";
 import {
   collection,
   getDocs,
   query,
   where,
   onSnapshot,
-  doc,
-  updateDoc,
 } from "firebase/firestore";
 import { useNavigate, Link } from "react-router-dom";
 import { FiSearch, FiLogOut, FiBook } from "react-icons/fi";
@@ -17,21 +15,12 @@ import {
   FaBell,
   FaComments,
   FaBook,
-  FaCheckCircle,
   FaClipboardList,
   FaGraduationCap,
   FaCalendarCheck,
 } from "react-icons/fa";
 import { IoHome } from "react-icons/io5";
 import CalendarComponent from "../components/CalendarComponent";
-
-const getTodaysDateString = () => {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const day = String(today.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
 
 export default function TeacherDashboard() {
   const [students, setStudents] = useState([]);
@@ -42,8 +31,83 @@ export default function TeacherDashboard() {
   const [isTeacherVerified, setIsTeacherVerified] = useState(false);
   const [courses, setCourses] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState(null);
-  const [todaysClasses, setTodaysClasses] = useState([]);
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [timetableClasses, setTimetableClasses] = useState([]);
+  const [allTimetable, setAllTimetable] = useState([]);
+
+  // Get current day name
+  const getCurrentDay = () => {
+    const days = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
+    return days[new Date().getDay()];
+  };
+
+  // Fetch today's classes from timetable
+  useEffect(() => {
+    const fetchTodaysClasses = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      try {
+        const currentDay = getCurrentDay();
+        const timetableRef = collection(firestore, "timetable");
+        const q = query(
+          timetableRef,
+          where("teacherId", "==", user.uid),
+          where("day", "==", currentDay)
+        );
+
+        const snapshot = await getDocs(q);
+        const classes = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+
+        // Sort classes by start time
+        classes.sort((a, b) => a.startTime.localeCompare(b.startTime));
+        setTimetableClasses(classes);
+      } catch (error) {
+        console.error("Error fetching today's classes:", error);
+      }
+    };
+
+    if (isTeacherVerified) {
+      fetchTodaysClasses();
+    }
+  }, [isTeacherVerified]);
+
+  // Fetch all timetable data for calendar
+  useEffect(() => {
+    const fetchAllTimetable = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      try {
+        const timetableRef = collection(firestore, "timetable");
+        const q = query(timetableRef, where("teacherId", "==", user.uid));
+
+        const snapshot = await getDocs(q);
+        const allClasses = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+
+        setAllTimetable(allClasses);
+      } catch (error) {
+        console.error("Error fetching timetable:", error);
+      }
+    };
+
+    if (isTeacherVerified) {
+      fetchAllTimetable();
+    }
+  }, [isTeacherVerified]);
 
   useEffect(() => {
     const verifyRole = async () => {
@@ -82,132 +146,6 @@ export default function TeacherDashboard() {
       clearInterval(timerId);
     };
   }, []);
-
-  useEffect(() => {
-    let unsubscribeFromClasses = () => {};
-
-    // Clear previous class-fetching errors specifically before attempting to fetch again
-    if (error.includes("Failed to fetch today's classes")) {
-      setError("");
-    }
-
-    const currentUser = auth.currentUser;
-
-    if (isTeacherVerified) {
-      console.log(
-        "TeacherDashboard: useEffect for classes - User:",
-        currentUser
-      );
-
-      if (currentUser && currentUser.uid) {
-        const todayString = getTodaysDateString();
-        console.log(
-          "TeacherDashboard: useEffect for classes - Today's Date String:",
-          todayString
-        );
-
-        const classesRef = collection(firestore, "classes");
-        console.log(
-          "TeacherDashboard: useEffect for classes - Attempting to query classes for teacherId:",
-          currentUser.uid,
-          "on date:",
-          todayString
-        );
-
-        const q = query(
-          classesRef,
-          where("teacherId", "==", currentUser.uid),
-          where("date", "==", todayString)
-        );
-
-        unsubscribeFromClasses = onSnapshot(
-          q,
-          (querySnapshot) => {
-            console.log(
-              "TeacherDashboard: useEffect for classes - Snapshot received. Number of docs:",
-              querySnapshot.size
-            );
-            const classesList = [];
-            querySnapshot.forEach((doc) => {
-              classesList.push({ id: doc.id, ...doc.data() });
-            });
-            classesList.sort((a, b) => {
-              const timeA = a.startTime || "00:00";
-              const timeB = b.startTime || "00:00";
-              return timeA.localeCompare(timeB);
-            });
-            setTodaysClasses(classesList);
-            if (error.includes("Failed to fetch today's classes")) {
-              setError("");
-            }
-          },
-          (err) => {
-            console.log(
-              "TeacherDashboard: useEffect for classes - Entering onSnapshot error callback."
-            );
-            console.error(
-              "TeacherDashboard: Detailed error fetching today's classes: ",
-              err
-            );
-            setError(
-              "Failed to fetch today's classes. Check console for details."
-            );
-            setTodaysClasses([]);
-          }
-        );
-      } else {
-        console.log(
-          "TeacherDashboard: useEffect for classes - User not available or user.uid is missing. User:",
-          currentUser
-        );
-        setTodaysClasses([]);
-      }
-    } else {
-      console.log(
-        "TeacherDashboard: useEffect for classes - Teacher not verified."
-      );
-      setTodaysClasses([]);
-    }
-
-    return () => {
-      console.log(
-        "TeacherDashboard: useEffect for classes - Cleaning up snapshot listener."
-      );
-      unsubscribeFromClasses();
-    };
-  }, [isTeacherVerified, auth.currentUser]);
-
-  const hasTimePassed = (classItem) => {
-    const now = currentTime;
-    if (
-      !classItem.date ||
-      !classItem.endTime ||
-      !classItem.endTime.includes(":")
-    ) {
-      return false;
-    }
-    const [endHours, endMinutes] = classItem.endTime.split(":").map(Number);
-    const classEndDate = new Date(classItem.date);
-    classEndDate.setHours(endHours);
-    classEndDate.setMinutes(endMinutes);
-    classEndDate.setSeconds(0);
-    classEndDate.setMilliseconds(0);
-    return now > classEndDate;
-  };
-
-  const handleMarkAsConducted = async (classId) => {
-    setError(""); // Clear previous errors
-    try {
-      const classDocRef = doc(firestore, "classes", classId);
-      await updateDoc(classDocRef, {
-        isConducted: true,
-      });
-      console.log("Class marked as conducted:", classId);
-    } catch (err) {
-      console.error("Error marking class as conducted:", err);
-      setError("Failed to mark class as conducted. Please try again.");
-    }
-  };
 
   const handleCreateAssignment = async (assignmentData) => {
     if (!selectedCourse) {
@@ -293,16 +231,16 @@ export default function TeacherDashboard() {
             label="Courses"
             path="/teacher-courses"
           />
-          {/* <SidebarItem
+          <SidebarItem
             icon={<FiBook />}
             label="Study Materials"
             path="/teacher-studymaterial"
-          /> */}
-          {/* <SidebarItem
+          />
+          <SidebarItem
             icon={<FaChalkboardTeacher />}
-            label="My Classes"
-            path="/teacher-classes"
-          /> */}
+            label="My Timetable"
+            path="/teacher-timetable"
+          />
           <SidebarItem icon={<FiLogOut />} label="Logout" path="/login" />
         </nav>
       </aside>
@@ -326,68 +264,88 @@ export default function TeacherDashboard() {
 
         <div className="flex flex-col lg:flex-row space-y-6 lg:space-y-0 lg:space-x-6">
           <div className="flex-1 bg-white p-6 rounded-xl shadow-lg order-2 lg:order-1">
-            <h3 className="text-xl font-semibold mb-4 text-purple-700">
-              Today's Classes
-            </h3>
-            {error &&
-              !error.startsWith("You don't have teacher privileges") && (
-                <p className="text-red-500 mb-2">{error}</p>
-              )}
-            {todaysClasses.length > 0 ? (
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-semibold text-purple-700">
+                Today's Classes - {getCurrentDay()}
+              </h3>
+              <Link
+                to="/teacher-timetable"
+                className="text-sm text-blue-600 hover:text-blue-800"
+              >
+                View Full Timetable →
+              </Link>
+            </div>
+
+            {timetableClasses.length > 0 ? (
               <div className="space-y-3">
-                {todaysClasses.map((classItem) => {
-                  const isConducted = classItem.isConducted === true;
-                  const timeHasPassed = hasTimePassed(classItem);
-                  const showCompletedBadge = isConducted;
-                  const showMarkAsConductedButton =
-                    !isConducted && timeHasPassed;
+                {timetableClasses.map((classItem) => {
+                  const currentTimeStr = new Date().toLocaleTimeString(
+                    "en-US",
+                    { hour12: false, hour: "2-digit", minute: "2-digit" }
+                  );
+                  const isPast = currentTimeStr > classItem.endTime;
+                  const isOngoing =
+                    currentTimeStr >= classItem.startTime &&
+                    currentTimeStr <= classItem.endTime;
 
                   return (
                     <div
                       key={classItem.id}
-                      className={`p-3 rounded-lg border ${
-                        isConducted
-                          ? "bg-green-50 border-green-400"
-                          : timeHasPassed
-                          ? "bg-yellow-50 border-yellow-400"
-                          : "bg-purple-50 border-purple-300"
+                      className={`p-4 rounded-lg border-l-4 ${
+                        isPast
+                          ? "bg-gray-50 border-gray-400 opacity-60"
+                          : isOngoing
+                          ? "bg-green-50 border-green-500"
+                          : "bg-blue-50 border-blue-500"
                       }`}
                     >
                       <div className="flex justify-between items-start">
-                        <div>
-                          <h4 className="font-semibold text-md text-purple-800">
-                            {classItem.subject || "N/A Subject"} -{" "}
-                            {classItem.department || "N/A Dept."} (
-                            {classItem.year || "N/A Year"})
-                          </h4>
-                          <p className="text-sm text-gray-600">
-                            Time: {classItem.startTime || "--:--"} -{" "}
-                            {classItem.endTime || "--:--"}
-                          </p>
-                          {!isConducted &&
-                            timeHasPassed &&
-                            !showMarkAsConductedButton && (
-                              <p className="text-xs text-yellow-600 mt-1">
-                                Scheduled time has passed.
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-lg text-gray-800">
+                              {classItem.subject}
+                            </h4>
+                            {isOngoing && (
+                              <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full animate-pulse">
+                                Ongoing
+                              </span>
+                            )}
+                            {isPast && (
+                              <span className="bg-gray-400 text-white text-xs px-2 py-1 rounded-full">
+                                Completed
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-2 space-y-1 text-sm text-gray-600">
+                            <p className="flex items-center gap-2">
+                              <span className="font-medium">⏰ Time:</span>
+                              {classItem.startTime} - {classItem.endTime}
+                            </p>
+                            {classItem.room && (
+                              <p className="flex items-center gap-2">
+                                <span className="font-medium">📍 Room:</span>
+                                {classItem.room}
                               </p>
                             )}
-                        </div>
-                        <div className="flex flex-col items-end">
-                          {showCompletedBadge && (
-                            <span className="text-green-600 flex items-center text-xs mt-1 whitespace-nowrap">
-                              <FaCheckCircle className="mr-1" /> Conducted
-                            </span>
-                          )}
-                          {showMarkAsConductedButton && (
-                            <button
-                              onClick={() =>
-                                handleMarkAsConducted(classItem.id)
-                              }
-                              className="mt-2 px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
-                            >
-                              Mark as Conducted
-                            </button>
-                          )}
+                            {classItem.department && (
+                              <p className="flex items-center gap-2">
+                                <span className="font-medium">
+                                  🎓 Department:
+                                </span>
+                                {classItem.department}
+                              </p>
+                            )}
+                            {classItem.semester && (
+                              <p className="flex items-center gap-2">
+                                <span className="font-medium">
+                                  📚 Semester:
+                                </span>
+                                {classItem.semester}
+                                {classItem.division &&
+                                  ` - Div ${classItem.division}`}
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -395,16 +353,22 @@ export default function TeacherDashboard() {
                 })}
               </div>
             ) : (
-              <p className="text-gray-500">
-                {isTeacherVerified
-                  ? "No classes scheduled for today."
-                  : "Loading classes or not verified..."}
-              </p>
+              <div className="text-center py-8 text-gray-500">
+                <p className="text-lg">
+                  No classes scheduled for today ({getCurrentDay()})
+                </p>
+                <Link
+                  to="/teacher-timetable"
+                  className="text-blue-600 hover:text-blue-800 mt-2 inline-block"
+                >
+                  Add classes to your timetable →
+                </Link>
+              </div>
             )}
           </div>
 
           <div className="w-full lg:w-1/3 bg-white p-4 rounded-xl shadow-lg order-1 lg:order-2">
-            <CalendarComponent />
+            <CalendarComponent timetable={allTimetable} />
           </div>
         </div>
       </main>

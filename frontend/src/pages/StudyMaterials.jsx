@@ -9,17 +9,14 @@ import {
   doc,
   orderBy,
 } from "firebase/firestore";
-import {
-  ref,
-  uploadBytes,
-  getDownloadURL,
-  deleteObject,
-} from "firebase/storage";
-import { firestore as db, storage, auth } from "../firebase";
+import { firestore as db, auth } from "../firebase"; // Remove storage import
 import { useAuthState } from "react-firebase-hooks/auth";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { FiArrowLeft, FiFilter } from "react-icons/fi";
+import axios from "axios";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const StudyMaterials = () => {
   const [materials, setMaterials] = useState([]);
@@ -207,36 +204,34 @@ const StudyMaterials = () => {
 
   useEffect(() => {
     fetchMaterials();
-  }, [courseId, selectedBranch, selectedSubject]);
+  }, [selectedBranch, selectedSubject]);
 
   const fetchMaterials = async () => {
-    if (!courseId) return;
-
     setLoading(true);
     try {
       let materialsQuery;
 
-      // Base query with course filter
+      // Build query based on filters
       if (selectedBranch && selectedSubject) {
         // Filter by branch and subject
         materialsQuery = query(
           collection(db, "studyMaterials"),
-          where("courseId", "==", courseId),
           where("department", "==", selectedBranch),
-          where("subject", "==", selectedSubject)
+          where("subject", "==", selectedSubject),
+          orderBy("createdAt", "desc")
         );
       } else if (selectedBranch) {
         // Filter by branch only
         materialsQuery = query(
           collection(db, "studyMaterials"),
-          where("courseId", "==", courseId),
-          where("department", "==", selectedBranch)
+          where("department", "==", selectedBranch),
+          orderBy("createdAt", "desc")
         );
       } else {
-        // No branch filter, only course filter
+        // No filter, get all materials
         materialsQuery = query(
           collection(db, "studyMaterials"),
-          where("courseId", "==", courseId)
+          orderBy("createdAt", "desc")
         );
       }
 
@@ -246,67 +241,11 @@ const StudyMaterials = () => {
         ...doc.data(),
       }));
 
-      // If we have materials from Firestore, use them
-      if (materialsList.length > 0) {
-        setMaterials(materialsList);
-      }
-      // If no materials in Firestore for this course, use mock data
-      else {
-        // Generate mock materials based on courseId
-        const mockMaterials = [
-          {
-            id: `mock-${courseId}-1`,
-            title: `${selectedBranch || "Course"} Introduction`,
-            description: "Overview of the course syllabus and objectives",
-            category: "notes",
-            courseId: courseId,
-            fileURL: "https://example.com/sample.pdf",
-            filePath: `materials/${courseId}/sample.pdf`,
-            uploadedBy: "teacher123",
-            uploadedByName: "Dr. Johnson",
-            department: selectedBranch || "Computer Engineering",
-            subject: selectedSubject || "Programming Fundamentals",
-            createdAt: new Date().toISOString(),
-          },
-          {
-            id: `mock-${courseId}-2`,
-            title: `${selectedSubject || "First"} Assignment`,
-            description: "First assignment of the semester",
-            category: "assignment",
-            courseId: courseId,
-            fileURL: "https://example.com/assignment.pdf",
-            filePath: `materials/${courseId}/assignment.pdf`,
-            uploadedBy: "teacher123",
-            uploadedByName: "Dr. Johnson",
-            department: selectedBranch || "Computer Engineering",
-            subject: selectedSubject || "Programming Fundamentals",
-            createdAt: new Date(Date.now() - 86400000).toISOString(), // Yesterday
-          },
-        ];
-        setMaterials(mockMaterials);
-      }
+      setMaterials(materialsList);
     } catch (error) {
       console.error("Error fetching study materials:", error);
-      toast.error("Failed to load study materials, showing mock data");
-
-      // In case of error, still show some mock materials
-      const mockMaterials = [
-        {
-          id: `mock-${courseId}-1`,
-          title: "Course Introduction",
-          description: "Overview of the course syllabus and objectives",
-          category: "notes",
-          courseId: courseId,
-          fileURL: "https://example.com/sample.pdf",
-          filePath: `materials/${courseId}/sample.pdf`,
-          uploadedBy: "teacher123",
-          uploadedByName: "Dr. Johnson",
-          department: selectedBranch || "Computer Engineering",
-          subject: selectedSubject || "Programming Fundamentals",
-          createdAt: new Date().toISOString(),
-        },
-      ];
-      setMaterials(mockMaterials);
+      toast.error("Failed to load study materials");
+      setMaterials([]); // Show empty state instead of mock data
     } finally {
       setLoading(false);
     }
@@ -323,9 +262,40 @@ const StudyMaterials = () => {
     // ...
   };
 
-  const handleDelete = async (materialId, filePath) => {
-    // Previous delete functionality remains the same
-    // ...
+  const handleDelete = async (materialId, cloudinaryPublicId) => {
+    if (!confirm("Are you sure you want to delete this material?")) return;
+
+    try {
+      // Get user's ID token for authentication
+      const idToken = await user.getIdToken();
+
+      // Delete file from Cloudinary via backend
+      if (cloudinaryPublicId) {
+        await axios.delete(
+          `${API_URL}/api/delete-material/${encodeURIComponent(
+            cloudinaryPublicId
+          )}`,
+          {
+            headers: {
+              Authorization: `Bearer ${idToken}`,
+            },
+          }
+        );
+      }
+
+      // Delete document from Firestore
+      await deleteDoc(doc(db, "studyMaterials", materialId));
+
+      // Update UI
+      setMaterials(materials.filter((material) => material.id !== materialId));
+      toast.success("Material deleted successfully");
+    } catch (error) {
+      console.error("Error deleting material:", error);
+      toast.error(
+        "Failed to delete material: " +
+          (error.response?.data?.message || error.message)
+      );
+    }
   };
 
   const getCategoryIcon = (category) => {
@@ -343,6 +313,22 @@ const StudyMaterials = () => {
     }
   };
 
+  const getFileTypeIcon = (fileType) => {
+    if (!fileType) return "📎";
+
+    if (fileType.includes("pdf")) return "📄";
+    if (fileType.includes("word") || fileType.includes("document")) return "📝";
+    if (fileType.includes("powerpoint") || fileType.includes("presentation"))
+      return "📊";
+    if (fileType.includes("excel") || fileType.includes("spreadsheet"))
+      return "📊";
+    if (fileType.includes("image")) return "🖼️";
+    if (fileType.includes("zip") || fileType.includes("rar")) return "📦";
+    if (fileType.includes("text")) return "📄";
+
+    return "📎";
+  };
+
   // Filter materials by search query
   const filteredMaterials = materials.filter(
     (material) =>
@@ -355,6 +341,27 @@ const StudyMaterials = () => {
         material.subject.toLowerCase().includes(searchQuery.toLowerCase())) ||
       material.uploadedByName.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Function to handle file download with better UX
+  const handleDownload = async (fileURL, fileName) => {
+    try {
+      const response = await fetch(fileURL);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName || "download";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success("Download started!");
+    } catch (error) {
+      console.error("Download error:", error);
+      // Fallback to direct download
+      window.open(fileURL, "_blank");
+    }
+  };
 
   return (
     <div className="container m-6 px-4 py-8">
@@ -516,29 +523,19 @@ const StudyMaterials = () => {
               )}
 
               <div className="flex justify-between items-center">
-                <a
-                  href={
-                    material.fileURL.startsWith("https://example.com")
-                      ? "#"
-                      : material.fileURL
+                <button
+                  onClick={() =>
+                    handleDownload(material.fileURL, material.title)
                   }
-                  onClick={(e) => {
-                    if (material.fileURL.startsWith("https://example.com")) {
-                      e.preventDefault();
-                      toast.info(
-                        "This is a mock file and cannot be downloaded."
-                      );
-                    }
-                  }}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-green-600 hover:bg-green-700 text-white py-1 px-3 rounded text-sm"
+                  className="bg-green-600 hover:bg-green-700 text-white py-1 px-3 rounded text-sm flex items-center"
                 >
-                  Download
-                </a>
+                  📥 Download
+                </button>
                 {isTeacher && material.uploadedBy === user?.uid && (
                   <button
-                    onClick={() => handleDelete(material.id, material.filePath)}
+                    onClick={() =>
+                      handleDelete(material.id, material.cloudinaryPublicId)
+                    }
                     className="bg-red-600 hover:bg-red-700 text-white py-1 px-3 rounded text-sm"
                   >
                     Delete
