@@ -11,15 +11,12 @@ import {
   doc,
   orderBy,
 } from "firebase/firestore";
-import {
-  ref,
-  uploadBytesResumable,
-  getDownloadURL,
-  deleteObject,
-} from "firebase/storage";
-import { firestore, storage, auth } from "../firebase"; // Using firestore directly instead of db
+import { firestore, auth } from "../firebase"; // Remove storage import
 import { useAuthState } from "react-firebase-hooks/auth";
 import { toast } from "react-toastify";
+import axios from "axios";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const TeacherStudyMaterial = () => {
   const [user] = useAuthState(auth);
@@ -55,6 +52,22 @@ const TeacherStudyMaterial = () => {
 
       console.log("Current user UID:", user.uid);
       console.log("Current user email:", user.email);
+
+      // Check if user has teacher claim
+      try {
+        const idTokenResult = await user.getIdTokenResult();
+        console.log("User claims:", idTokenResult.claims);
+
+        if (!idTokenResult.claims.teacher) {
+          console.log("User does not have teacher claim");
+          toast.warning(
+            "Teacher permissions may be required for uploading files"
+          );
+        }
+      } catch (error) {
+        console.error("Error checking user claims:", error);
+      }
+
       try {
         console.log("Attempting to query teachers collection");
         const teachersRef = collection(firestore, "teachers");
@@ -205,24 +218,7 @@ const TeacherStudyMaterial = () => {
       } catch (error) {
         console.error("Error fetching materials:", error);
         toast.error("Failed to load materials");
-
-        // Mock data as fallback
-        setMaterials([
-          {
-            id: "mock-1",
-            title: "Introduction to " + selectedSubject,
-            description: "Basic concepts and overview",
-            category: "notes",
-            department: selectedBranch,
-            subject: selectedSubject,
-            fileURL: "https://example.com/sample.pdf",
-            filePath: "mock-path",
-            uploadedBy: user?.uid || "unknown",
-            uploadedByName: teacherName,
-            createdAt: Date.now(),
-            fileSize: "2.5 MB",
-          },
-        ]);
+        setMaterials([]); // Show empty state instead of mock data
       } finally {
         setLoading(false);
       }
@@ -243,7 +239,7 @@ const TeacherStudyMaterial = () => {
         return;
       }
 
-      // Check file type
+      // Check file type with clear messaging
       const allowedTypes = [
         "application/pdf",
         "application/msword",
@@ -261,11 +257,20 @@ const TeacherStudyMaterial = () => {
 
       if (!allowedTypes.includes(file.type)) {
         toast.error(
-          "Invalid file type. Please upload a document, image, or archive file"
+          `Invalid file type: ${
+            file.type || "Unknown"
+          }. Please upload PDF, Word, PowerPoint, Excel, text, image, or archive files.`
         );
         e.target.value = "";
         return;
       }
+
+      // Show file info to user
+      const fileInfo = `Selected: ${file.name} (${(
+        file.size /
+        (1024 * 1024)
+      ).toFixed(2)} MB)`;
+      toast.success(fileInfo);
 
       setSelectedFile(file);
     }
@@ -279,113 +284,143 @@ const TeacherStudyMaterial = () => {
       return;
     }
 
+    if (!user) {
+      toast.error("You must be logged in to upload files");
+      return;
+    }
+
     setUploading(true);
     setUploadProgress(0);
 
     try {
-      // Create a unique filename
-      const timestamp = Date.now();
-      const fileExtension = selectedFile.name.split(".").pop();
-      const fileName = `${timestamp}-${title.replace(
-        /[^a-zA-Z0-9]/g,
-        "_"
-      )}.${fileExtension}`;
+      // Get user's ID token for authentication
+      const idToken = await user.getIdToken();
 
-      // Create storage reference
-      const storageRef = ref(
-        storage,
-        `materials/${selectedBranch}/${selectedSubject}/${fileName}`
-      );
+      // Create FormData to send file
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("title", title);
+      formData.append("description", description);
+      formData.append("category", category);
+      formData.append("department", selectedBranch);
+      formData.append("subject", selectedSubject);
 
-      // Upload with progress tracking
-      const uploadTask = uploadBytesResumable(storageRef, selectedFile);
-
-      uploadTask.on(
-        "state_changed",
-        (snapshot) => {
-          const progress =
-            (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          setUploadProgress(progress);
-        },
-        (error) => {
-          console.error("Upload error:", error);
-          toast.error("Upload failed: " + error.message);
-          setUploading(false);
-        },
-        async () => {
-          // Upload completed successfully, get download URL
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-
-          // Format file size
-          const fileSize = selectedFile.size;
-          let formattedSize;
-          if (fileSize < 1024) {
-            formattedSize = fileSize + " B";
-          } else if (fileSize < 1024 * 1024) {
-            formattedSize = (fileSize / 1024).toFixed(1) + " KB";
-          } else {
-            formattedSize = (fileSize / (1024 * 1024)).toFixed(1) + " MB";
-          }
-
-          // Save document to Firestore
-          const materialData = {
-            title,
-            description,
-            category,
-            department: selectedBranch,
-            subject: selectedSubject,
-            fileURL: downloadURL,
-            filePath: `materials/${selectedBranch}/${selectedSubject}/${fileName}`,
-            uploadedBy: user.uid,
-            uploadedByName: teacherName,
-            createdAt: Date.now(),
-            fileSize: formattedSize,
-            fileType: fileExtension,
-          };
-          const docRef = await addDoc(
-            collection(firestore, "studyMaterials"),
-            materialData
-          );
-
-          // Add to current materials list
-          setMaterials([{ id: docRef.id, ...materialData }, ...materials]);
-
-          // Reset form
-          setTitle("");
-          setDescription("");
-          setSelectedFile(null);
-          document.getElementById("file-upload").value = "";
-
-          toast.success("Material uploaded successfully");
-          setUploading(false);
+      // Upload to backend (which uploads to Cloudinary)
+      const response = await axios.post(
+        `${API_URL}/api/upload-material`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${idToken}`,
+          },
+          onUploadProgress: (progressEvent) => {
+            const progress = (progressEvent.loaded / progressEvent.total) * 100;
+            setUploadProgress(progress);
+          },
         }
       );
+
+      if (response.data.success) {
+        const { fileURL, publicId, fileSize, format } = response.data;
+
+        // Format file size
+        let formattedSize;
+        if (fileSize < 1024) {
+          formattedSize = fileSize + " B";
+        } else if (fileSize < 1024 * 1024) {
+          formattedSize = (fileSize / 1024).toFixed(1) + " KB";
+        } else {
+          formattedSize = (fileSize / (1024 * 1024)).toFixed(1) + " MB";
+        }
+
+        // Save document to Firestore
+        const materialData = {
+          title,
+          description,
+          category,
+          department: selectedBranch,
+          subject: selectedSubject,
+          fileURL,
+          cloudinaryPublicId: publicId, // Store for deletion later
+          uploadedBy: user.uid,
+          uploadedByName: teacherName,
+          createdAt: Date.now(),
+          fileSize: formattedSize,
+          fileType: format,
+        };
+
+        const docRef = await addDoc(
+          collection(firestore, "studyMaterials"),
+          materialData
+        );
+
+        // Add to current materials list
+        setMaterials([{ id: docRef.id, ...materialData }, ...materials]);
+
+        // Reset form
+        setTitle("");
+        setDescription("");
+        setSelectedFile(null);
+        document.getElementById("file-upload").value = "";
+
+        toast.success("Material uploaded successfully");
+        setUploading(false);
+        setUploadProgress(0);
+      }
     } catch (error) {
-      console.error("Error uploading material:", error);
-      toast.error("Upload failed");
+      console.error("Upload error:", error);
+      let errorMessage = "Upload failed: ";
+
+      if (error.response) {
+        errorMessage +=
+          error.response.data.message || error.response.statusText;
+      } else if (error.request) {
+        errorMessage +=
+          "No response from server. Please check your connection.";
+      } else {
+        errorMessage += error.message;
+      }
+
+      toast.error(errorMessage);
       setUploading(false);
+      setUploadProgress(0);
     }
   };
 
-  const handleDelete = async (materialId, filePath) => {
+  const handleDelete = async (materialId, cloudinaryPublicId) => {
     if (!confirm("Are you sure you want to delete this material?")) return;
 
     try {
-      // Delete file from storage if not a mock file
-      if (!filePath.includes("mock")) {
-        const storageRef = ref(storage, filePath);
-        await deleteObject(storageRef);
-      } // Delete document from Firestore if not a mock ID
-      if (!materialId.includes("mock")) {
-        await deleteDoc(doc(firestore, "studyMaterials", materialId));
+      // Get user's ID token for authentication
+      const idToken = await user.getIdToken();
+
+      // Delete file from Cloudinary via backend
+      if (cloudinaryPublicId) {
+        await axios.delete(
+          `${API_URL}/api/delete-material/${encodeURIComponent(
+            cloudinaryPublicId
+          )}`,
+          {
+            headers: {
+              Authorization: `Bearer ${idToken}`,
+            },
+          }
+        );
       }
+
+      // Delete document from Firestore
+      await deleteDoc(doc(firestore, "studyMaterials", materialId));
 
       // Update UI
       setMaterials(materials.filter((material) => material.id !== materialId));
       toast.success("Material deleted successfully");
     } catch (error) {
       console.error("Error deleting material:", error);
-      toast.error("Failed to delete material");
+      toast.error(
+        "Failed to delete material: " +
+          (error.response?.data?.message || error.message)
+      );
     }
   };
 
@@ -402,6 +437,22 @@ const TeacherStudyMaterial = () => {
       default:
         return "📎";
     }
+  };
+
+  const getFileTypeIcon = (fileType) => {
+    if (!fileType) return "📎";
+
+    if (fileType.includes("pdf")) return "📄";
+    if (fileType.includes("word") || fileType.includes("document")) return "📝";
+    if (fileType.includes("powerpoint") || fileType.includes("presentation"))
+      return "📊";
+    if (fileType.includes("excel") || fileType.includes("spreadsheet"))
+      return "📊";
+    if (fileType.includes("image")) return "🖼️";
+    if (fileType.includes("zip") || fileType.includes("rar")) return "📦";
+    if (fileType.includes("text")) return "📄";
+
+    return "📎";
   };
 
   if (loading) {
@@ -567,9 +618,14 @@ const TeacherStudyMaterial = () => {
                 className="bg-white p-5 rounded-lg shadow-md hover:shadow-lg transition"
               >
                 <div className="flex justify-between items-center mb-3">
-                  <span className="text-2xl">
-                    {getCategoryIcon(material.category)}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">
+                      {getCategoryIcon(material.category)}
+                    </span>
+                    <span className="text-lg">
+                      {getFileTypeIcon(material.fileType)}
+                    </span>
+                  </div>
                   <span className="text-sm text-gray-500">
                     {new Date(material.createdAt).toLocaleDateString()}
                   </span>
@@ -613,7 +669,7 @@ const TeacherStudyMaterial = () => {
                   {material.uploadedBy === user?.uid && (
                     <button
                       onClick={() =>
-                        handleDelete(material.id, material.filePath)
+                        handleDelete(material.id, material.cloudinaryPublicId)
                       }
                       className="bg-red-600 hover:bg-red-700 text-white py-1 px-3 rounded text-sm"
                     >

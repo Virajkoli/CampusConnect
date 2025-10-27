@@ -4,6 +4,8 @@ const dotenv = require("dotenv");
 const nodemailer = require("nodemailer");
 const http = require("http");
 const socketIO = require("socket.io");
+const multer = require("multer");
+const cloudinary = require("./cloudinary-config");
 
 dotenv.config();
 
@@ -29,6 +31,44 @@ app.use(
   })
 );
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Configure Multer for file uploads (memory storage)
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Allow specific file types
+    const allowedTypes = [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-powerpoint",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "text/plain",
+      "image/jpeg",
+      "image/png",
+      "image/jpg",
+      "application/zip",
+      "application/x-rar-compressed",
+    ];
+
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(
+        new Error(
+          "Invalid file type. Only documents, images, and archives are allowed."
+        )
+      );
+    }
+  },
+});
 
 // Socket.IO Connection Logic
 io.on("connection", (socket) => {
@@ -386,6 +426,100 @@ app.get("/api/subjects", async (req, res) => {
     res
       .status(500)
       .json({ message: "Failed to fetch subjects.", error: error.message });
+  }
+});
+
+// Cloudinary File Upload Endpoint
+app.post("/api/upload-material", upload.single("file"), async (req, res) => {
+  try {
+    // Verify user is authenticated
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res
+        .status(401)
+        .json({ message: "No authorization token provided" });
+    }
+
+    const token = authHeader.split("Bearer ")[1];
+    const decodedToken = await admin.auth().verifyIdToken(token);
+
+    // Check if user has teacher claim (optional, can be removed for testing)
+    // if (!decodedToken.teacher) {
+    //   return res.status(403).json({ message: "Only teachers can upload materials" });
+    // }
+
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    // Get file info
+    const { title, description, category, department, subject } = req.body;
+
+    // Upload to Cloudinary
+    const uploadResult = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: "campus-connect/materials",
+          resource_type: "auto", // Automatically detect file type
+          public_id: `${Date.now()}-${title.replace(/[^a-zA-Z0-9]/g, "_")}`,
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+
+      uploadStream.end(req.file.buffer);
+    });
+
+    // Return the uploaded file info
+    res.status(200).json({
+      success: true,
+      fileURL: uploadResult.secure_url,
+      publicId: uploadResult.public_id,
+      fileSize: uploadResult.bytes,
+      format: uploadResult.format,
+      resourceType: uploadResult.resource_type,
+    });
+  } catch (error) {
+    console.error("Upload error:", error);
+    res.status(500).json({
+      message: "Failed to upload file",
+      error: error.message,
+    });
+  }
+});
+
+// Delete file from Cloudinary
+app.delete("/api/delete-material/:publicId", async (req, res) => {
+  try {
+    // Verify user is authenticated
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res
+        .status(401)
+        .json({ message: "No authorization token provided" });
+    }
+
+    const token = authHeader.split("Bearer ")[1];
+    await admin.auth().verifyIdToken(token);
+
+    const { publicId } = req.params;
+    const decodedPublicId = decodeURIComponent(publicId);
+
+    // Delete from Cloudinary
+    const result = await cloudinary.uploader.destroy(decodedPublicId);
+
+    res.status(200).json({
+      success: true,
+      result: result,
+    });
+  } catch (error) {
+    console.error("Delete error:", error);
+    res.status(500).json({
+      message: "Failed to delete file",
+      error: error.message,
+    });
   }
 });
 

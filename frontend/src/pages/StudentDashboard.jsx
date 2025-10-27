@@ -480,6 +480,14 @@ function StudentDashboard() {
                     </h3>
                   </Link>
                   <Link
+                    to="/student-timetable"
+                    className="bg-indigo-50 hover:bg-indigo-100 p-4 rounded-lg text-center transition-colors"
+                  >
+                    <h3 className="font-medium text-indigo-700">
+                      My Timetable
+                    </h3>
+                  </Link>
+                  <Link
                     to="/events-calendar"
                     className="bg-indigo-50 hover:bg-indigo-100 p-4 rounded-lg text-center transition-colors"
                   >

@@ -1,12 +1,17 @@
 import React, { useState, useMemo } from "react";
 import dayjs from "dayjs";
-import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
 const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-export default function CalendarComponent({ events: propEvents = [] }) {
+export default function CalendarComponent({
+  events: propEvents = [],
+  timetable = [],
+}) {
   const [currentDate, setCurrentDate] = useState(dayjs());
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
 
   // ✅ Process events only when propEvents change
   const events = useMemo(() => {
@@ -101,6 +106,21 @@ export default function CalendarComponent({ events: propEvents = [] }) {
     visible: { opacity: 1, transition: { duration: 0.3 } },
   };
 
+  // Get schedule for a specific date
+  const getScheduleForDate = (dateObj) => {
+    const dayName = dateObj.format("dddd");
+    return timetable.filter((item) => item.day === dayName);
+  };
+
+  // Handle date click
+  const handleDateClick = (dateObj) => {
+    const schedule = getScheduleForDate(dateObj);
+    if (schedule.length > 0) {
+      setSelectedDate(dateObj);
+      setShowScheduleModal(true);
+    }
+  };
+
   return (
     <motion.div
       className="bg-white p-4 rounded-xl shadow-lg border border-gray-200"
@@ -150,12 +170,14 @@ export default function CalendarComponent({ events: propEvents = [] }) {
           const isCurrentMonth = dateObj.month() === currentDate.month();
           const dateStr = dateObj.format("YYYY-MM-DD");
           const hasEvents = events[dateStr]?.length > 0;
+          const hasClasses = getScheduleForDate(dateObj).length > 0;
 
           return (
             <motion.div
               key={index}
               variants={dayVariants}
               whileHover={{ scale: 1.1, zIndex: 10 }}
+              onClick={() => isCurrentMonth && handleDateClick(dateObj)}
               className={`relative rounded-lg py-2 transition-all duration-200 cursor-pointer
                 ${isCurrentMonth ? "hover:shadow-md" : "opacity-50"}
                 ${
@@ -165,22 +187,32 @@ export default function CalendarComponent({ events: propEvents = [] }) {
                     ? "text-gray-700 hover:bg-gray-50"
                     : "text-gray-400"
                 }
+                ${hasClasses && !isToday ? "ring-2 ring-purple-300" : ""}
               `}
             >
               <span className="inline-block">{dateObj.date()}</span>
 
               {/* Event indicators */}
-              {hasEvents && (
+              {(hasEvents || hasClasses) && (
                 <div className="absolute bottom-1 left-0 right-0 flex justify-center space-x-1">
-                  {events[dateStr].map((event, i) => (
+                  {hasEvents &&
+                    events[dateStr].map((event, i) => (
+                      <motion.span
+                        key={i}
+                        className={`${event.color} w-1.5 h-1.5 rounded-full inline-block`}
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ delay: 0.2 }}
+                      />
+                    ))}
+                  {hasClasses && (
                     <motion.span
-                      key={i}
-                      className={`${event.color} w-1.5 h-1.5 rounded-full inline-block`}
+                      className="bg-purple-500 w-1.5 h-1.5 rounded-full inline-block"
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
                       transition={{ delay: 0.2 }}
                     />
-                  ))}
+                  )}
                 </div>
               )}
             </motion.div>
@@ -218,6 +250,117 @@ export default function CalendarComponent({ events: propEvents = [] }) {
             ))}
         </div>
       </div>
+
+      {/* Schedule Modal */}
+      <AnimatePresence>
+        {showScheduleModal && selectedDate && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowScheduleModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden"
+            >
+              {/* Modal Header */}
+              <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-6">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h2 className="text-2xl font-bold mb-1">
+                      {selectedDate.format("dddd")} Schedule
+                    </h2>
+                    <p className="text-purple-100">
+                      {selectedDate.format("MMMM D, YYYY")}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowScheduleModal(false)}
+                    className="p-2 hover:bg-white hover:bg-opacity-20 rounded-full transition"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6 overflow-y-auto max-h-[calc(80vh-120px)]">
+                {getScheduleForDate(selectedDate).length > 0 ? (
+                  <div className="space-y-4">
+                    {getScheduleForDate(selectedDate)
+                      .sort((a, b) => a.startTime.localeCompare(b.startTime))
+                      .map((classItem, index) => {
+                        const colors = [
+                          "from-blue-500 to-blue-600",
+                          "from-purple-500 to-purple-600",
+                          "from-green-500 to-green-600",
+                          "from-orange-500 to-orange-600",
+                          "from-pink-500 to-pink-600",
+                          "from-indigo-500 to-indigo-600",
+                        ];
+                        const colorClass = colors[index % colors.length];
+
+                        return (
+                          <motion.div
+                            key={classItem.id}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.1 }}
+                            className={`bg-gradient-to-r ${colorClass} text-white rounded-xl p-5 shadow-lg hover:shadow-xl transition-shadow`}
+                          >
+                            <div className="flex justify-between items-start mb-3">
+                              <div>
+                                <h3 className="text-xl font-bold mb-1">
+                                  {classItem.subject}
+                                </h3>
+                                <p className="text-white text-opacity-90 text-sm">
+                                  ⏰ {classItem.startTime} - {classItem.endTime}
+                                </p>
+                              </div>
+                              <div className="bg-white bg-opacity-20 px-3 py-1 rounded-full text-sm font-semibold">
+                                {classItem.room || "TBA"}
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              {classItem.department && (
+                                <div className="flex items-center gap-2">
+                                  <span className="opacity-80">🎓</span>
+                                  <span>{classItem.department}</span>
+                                </div>
+                              )}
+                              {classItem.semester && (
+                                <div className="flex items-center gap-2">
+                                  <span className="opacity-80">📚</span>
+                                  <span>
+                                    Sem {classItem.semester}
+                                    {classItem.division &&
+                                      ` - Div ${classItem.division}`}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="text-6xl mb-4">📅</div>
+                    <p className="text-gray-500 text-lg">
+                      No classes scheduled for this day
+                    </p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
