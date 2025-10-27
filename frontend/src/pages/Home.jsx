@@ -120,25 +120,6 @@ function Home() {
               </Link>
             )}
           </motion.div>
-
-          {/* Floating Stats */}
-          <motion.div
-            variants={fadeInUp}
-            className="mt-16 grid grid-cols-3 gap-8 text-center"
-          >
-            <div className="backdrop-blur-md bg-white/10 rounded-2xl p-4 border border-white/20">
-              <div className="text-3xl font-bold">10K+</div>
-              <div className="text-sm text-gray-300">Active Students</div>
-            </div>
-            <div className="backdrop-blur-md bg-white/10 rounded-2xl p-4 border border-white/20">
-              <div className="text-3xl font-bold">500+</div>
-              <div className="text-sm text-gray-300">Educators</div>
-            </div>
-            <div className="backdrop-blur-md bg-white/10 rounded-2xl p-4 border border-white/20">
-              <div className="text-3xl font-bold">98%</div>
-              <div className="text-sm text-gray-300">Satisfaction</div>
-            </div>
-          </motion.div>
         </motion.div>
       </section>
 
@@ -373,7 +354,7 @@ function Home() {
           >
             {[
               {
-                name: "Sarah Johnson",
+                name: "Pallavi Patil",
                 role: "Computer Science, Final Year",
                 avatar: "👩‍💻",
                 rating: 5,
@@ -381,16 +362,16 @@ function Home() {
                 highlight: "98% grade improvement",
               },
               {
-                name: "Michael Chen",
-                role: "Club President, Business Admin",
+                name: "Rahul Brahmane",
+                role: "Computer Science, Final Year",
                 avatar: "👨‍💼",
                 rating: 5,
                 text: "As a club leader, reaching 3000+ students with event announcements was impossible before. Now our engagement has tripled! The announcement system is a game-changer.",
                 highlight: "3x engagement boost",
               },
               {
-                name: "Priya Sharma",
-                role: "Engineering Sophomore",
+                name: "Durgesh Patil",
+                role: "Computer Science, Final Year",
                 avatar: "👩‍🔬",
                 rating: 5,
                 text: "The timetable feature keeps me organized, and the real-time notifications ensure I never miss important deadlines. Plus, seniors mentoring through chat is invaluable!",
