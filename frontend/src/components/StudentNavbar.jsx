@@ -43,11 +43,11 @@ const StudentNavbar = () => {
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           onClick={() => setShowNotifications(true)}
-          className="relative p-2 rounded-full hover:bg-indigo-100 transition-colors duration-200"
+          className="relative p-2 bg-indigo-100 rounded-full hover:bg-indigo-100 transition-colors duration-200"
           aria-label="Notifications"
         >
           <FiBell
-            className={`h-5 w-5 ${
+            className={`h-5 w-5 opacity-100 ${
               notificationCount > 0 ? "text-indigo-600" : "text-gray-700"
             }`}
           />

@@ -694,6 +694,20 @@ export default function AdminDashboard() {
               color="purple"
             />
             <SidebarItem
+              icon={<FiCalendar />}
+              label="Exam Timetable"
+              path="/admin/exam-timetable"
+              isOpen={isOpen}
+              color="green"
+            />
+            <SidebarItem
+              icon={<FiCreditCard />}
+              label="Populate Exam Data"
+              path="/admin/populate-exam-data"
+              isOpen={isOpen}
+              color="indigo"
+            />
+            <SidebarItem
               icon={<FiSettings />}
               label="Settings"
               path="/admin/settings"

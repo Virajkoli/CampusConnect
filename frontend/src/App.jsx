@@ -42,6 +42,9 @@ import AdminSettings from "./pages/AdminSettings";
 import TeacherStudyMaterial from "./pages/TeacherStudyMaterial";
 import TeacherTimetable from "./pages/TeacherTimetable";
 import StudentTimetable from "./pages/StudentTimetable";
+import ExamTimetable from "./pages/ExamTimetable";
+import AdminExamTimetable from "./pages/AdminExamTimetable";
+import PopulateExamData from "./pages/PopulateExamData";
 
 // Component to control when to show navbar
 function AppContent() {
@@ -204,6 +207,22 @@ function AppContent() {
           }
         />
         <Route
+          path="/admin/exam-timetable"
+          element={
+            <AdminRoute>
+              <AdminExamTimetable />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/populate-exam-data"
+          element={
+            <AdminRoute>
+              <PopulateExamData />
+            </AdminRoute>
+          }
+        />
+        <Route
           path="/admin-addteacher"
           element={
             <AdminRoute>
@@ -243,6 +262,14 @@ function AppContent() {
             <TeacherRoute>
               <TeacherStudyMaterial />
             </TeacherRoute>
+          }
+        />
+        <Route
+          path="/exam-timetable"
+          element={
+            <ProtectedRoute>
+              <ExamTimetable />
+            </ProtectedRoute>
           }
         />
         <Route

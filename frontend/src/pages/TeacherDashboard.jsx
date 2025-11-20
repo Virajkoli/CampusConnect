@@ -241,6 +241,11 @@ export default function TeacherDashboard() {
             label="My Timetable"
             path="/teacher-timetable"
           />
+          <SidebarItem
+            icon={<FaCalendarCheck />}
+            label="Exam Schedule"
+            path="/exam-timetable"
+          />
           <SidebarItem icon={<FiLogOut />} label="Logout" path="/login" />
         </nav>
       </aside>

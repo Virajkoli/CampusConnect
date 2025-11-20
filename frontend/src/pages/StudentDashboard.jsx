@@ -488,6 +488,14 @@ function StudentDashboard() {
                     </h3>
                   </Link>
                   <Link
+                    to="/exam-timetable"
+                    className="bg-gradient-to-r from-orange-50 to-red-50 hover:from-orange-100 hover:to-red-100 p-4 rounded-lg text-center transition-colors border border-orange-200"
+                  >
+                    <h3 className="font-medium text-orange-700">
+                      📝 Exam Schedule
+                    </h3>
+                  </Link>
+                  <Link
                     to="/events-calendar"
                     className="bg-indigo-50 hover:bg-indigo-100 p-4 rounded-lg text-center transition-colors"
                   >
