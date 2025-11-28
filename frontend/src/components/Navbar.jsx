@@ -15,7 +15,6 @@ function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [userRole, setUserRole] = useState(null);
 
-
   // Check if current page is login/signup
   const isAuthPage =
     location.pathname === "/login" || location.pathname === "/signup";
@@ -59,55 +58,53 @@ function Navbar() {
     };
   }, []);
 
- useEffect(() => {
-  const checkUserRole = async () => {
-    if (user) {
-      try {
-        const tokenResult = await user.getIdTokenResult(true);
-        if (tokenResult.claims.admin) {
-          setUserRole("admin");
-        } else if (tokenResult.claims.teacher) {
-          setUserRole("teacher");
-        } else {
-          setUserRole("student");
+  useEffect(() => {
+    const checkUserRole = async () => {
+      if (user) {
+        try {
+          const tokenResult = await user.getIdTokenResult(true);
+          if (tokenResult.claims.admin) {
+            setUserRole("admin");
+          } else if (tokenResult.claims.teacher) {
+            setUserRole("teacher");
+          } else {
+            setUserRole("student");
+          }
+        } catch (error) {
+          console.error("Error checking user role:", error);
         }
-      } catch (error) {
-        console.error("Error checking user role:", error);
       }
-    }
+    };
+
+    checkUserRole();
+  }, [user]);
+
+  const roleBasedLinks = {
+    admin: [
+      { path: "/admin-dashboard", name: "Dashboard" },
+      { path: "/announcements", name: "Announcements" },
+      { path: "/discussions", name: "Discussions" },
+      { path: "/calendars", name: "Calendars" },
+      { path: "/profile", name: "Profile" },
+    ],
+    teacher: [
+      { path: "/teacher-dashboard", name: "Dashboard" },
+      { path: "/announcements", name: "Announcements" },
+      { path: "/discussions", name: "Discussions" },
+      { path: "/calendars", name: "Calendars" },
+      { path: "/profile", name: "Profile" },
+    ],
+    student: [
+      { path: "/student-dashboard", name: "Dashboard" },
+      { path: "/announcements", name: "Announcements" },
+      { path: "/discussions", name: "Discussions" },
+      { path: "/study-materials", name: "Study Materials" },
+      { path: "/calendars", name: "Calendars" },
+      { path: "/profile", name: "Profile" },
+    ],
   };
 
-  checkUserRole();
-}, [user]);
-
-const roleBasedLinks = {
-  admin: [
-    { path: "/admin-dashboard", name: "Dashboard" },
-     { path: "/announcements", name: "Announcements" },
-    { path: "/discussions", name: "Discussions" },
-    { path: "/events-calendar", name: "Events Calendar" },
-    { path: "/profile", name: "Profile" },
-  ],
-  teacher: [
-    { path: "/teacher-dashboard", name: "Dashboard" },
-    { path: "/announcements", name: "Announcements" },
-    { path: "/discussions", name: "Discussions" },
-    { path: "/events-calendar", name: "Events Calendar" },
-    { path: "/profile", name: "Profile" },
-  ],
-  student: [
-    { path: "/student-dashboard", name: "Dashboard" },
-    { path: "/announcements", name: "Announcements" },
-    { path: "/discussions", name: "Discussions" },
-    { path: "/study-materials", name: "Study Materials" },
-    { path: "/events-calendar", name: "Events Calendar" },
-    { path: "/profile", name: "Profile" },
-  ],
-};
-
-const linksToRender = roleBasedLinks[userRole] || [];
-
-
+  const linksToRender = roleBasedLinks[userRole] || [];
 
   // Always use a consistent navbar style
   // We're using a fully solid background for better readability on all pages
@@ -129,17 +126,16 @@ const linksToRender = roleBasedLinks[userRole] || [];
       <motion.div
         className="flex items-center cursor-pointer"
         onClick={() => {
-  if (!user) {
-    navigate("/");
-  } else if (userRole === "admin") {
-    navigate("/admin-dashboard");
-  } else if (userRole === "teacher") {
-    navigate("/teacher-dashboard");
-  } else {
-    navigate("/student-dashboard");
-  }
-}}
-
+          if (!user) {
+            navigate("/");
+          } else if (userRole === "admin") {
+            navigate("/admin-dashboard");
+          } else if (userRole === "teacher") {
+            navigate("/teacher-dashboard");
+          } else {
+            navigate("/student-dashboard");
+          }
+        }}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
       >

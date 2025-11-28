@@ -701,13 +701,6 @@ export default function AdminDashboard() {
               color="green"
             />
             <SidebarItem
-              icon={<FiCreditCard />}
-              label="Populate Exam Data"
-              path="/admin/populate-exam-data"
-              isOpen={isOpen}
-              color="indigo"
-            />
-            <SidebarItem
               icon={<FiSettings />}
               label="Settings"
               path="/admin/settings"

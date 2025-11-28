@@ -253,7 +253,7 @@ const StudentProfile = ({ userData }) => {
         </motion.div>
       </motion.div>
 
-      <style jsx>{`
+      <style>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 6px;
         }

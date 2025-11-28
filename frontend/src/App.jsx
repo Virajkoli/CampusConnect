@@ -43,8 +43,9 @@ import TeacherStudyMaterial from "./pages/TeacherStudyMaterial";
 import TeacherTimetable from "./pages/TeacherTimetable";
 import StudentTimetable from "./pages/StudentTimetable";
 import ExamTimetable from "./pages/ExamTimetable";
-import AdminExamTimetable from "./pages/AdminExamTimetable";
-import PopulateExamData from "./pages/PopulateExamData";
+import ExamTimetableManagement from "./pages/ExamTimetableManagement";
+import Calendars from "./pages/Calendars";
+import AcademicCalendar from "./pages/AcademicCalendar";
 
 // Component to control when to show navbar
 function AppContent() {
@@ -133,10 +134,26 @@ function AppContent() {
           }
         />
         <Route
+          path="/calendars"
+          element={
+            <ProtectedRoute>
+              <Calendars />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/events-calendar"
           element={
             <ProtectedRoute>
               <EventsCalendar />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/academic-calendar"
+          element={
+            <ProtectedRoute>
+              <AcademicCalendar />
             </ProtectedRoute>
           }
         />
@@ -210,15 +227,7 @@ function AppContent() {
           path="/admin/exam-timetable"
           element={
             <AdminRoute>
-              <AdminExamTimetable />
-            </AdminRoute>
-          }
-        />
-        <Route
-          path="/admin/populate-exam-data"
-          element={
-            <AdminRoute>
-              <PopulateExamData />
+              <ExamTimetableManagement />
             </AdminRoute>
           }
         />
