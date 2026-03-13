@@ -276,21 +276,47 @@ function Chats() {
 
               for (const chatDoc of snapshot.docs) {
                 const chatData = chatDoc.data();
-                // Fetch student details
+                // Fetch student details - try users collection first, then students collection
                 try {
+                  let studentName = "Unknown Student";
+                  let studentEmail = "No email";
+
+                  // Try users collection first
                   const studentDoc = await getDoc(
                     doc(firestore, "users", chatData.studentId)
                   );
+
                   if (studentDoc.exists()) {
-                    chatList.push({
-                      id: chatDoc.id,
-                      ...chatData,
-                      studentName: studentDoc.data().name || "Unknown Student",
-                      studentEmail: studentDoc.data().email || "No email",
-                    });
+                    studentName = studentDoc.data().name || "Unknown Student";
+                    studentEmail = studentDoc.data().email || "No email";
+                  } else {
+                    // Try students collection as fallback
+                    const studentsDoc = await getDoc(
+                      doc(firestore, "students", chatData.studentId)
+                    );
+                    if (studentsDoc.exists()) {
+                      studentName =
+                        studentsDoc.data().name || "Unknown Student";
+                      studentEmail = studentsDoc.data().email || "No email";
+                    }
                   }
+
+                  // Always add chat to list, even if student details not found
+                  chatList.push({
+                    id: chatDoc.id,
+                    ...chatData,
+                    studentName: studentName,
+                    studentEmail: studentEmail,
+                  });
                 } catch (err) {
                   console.error("Error fetching student details:", err);
+                  // Still add chat even if error fetching student details
+                  chatList.push({
+                    id: chatDoc.id,
+                    ...chatData,
+                    studentName: "Unknown Student",
+                    studentEmail: "No email",
+                  });
                 }
               }
 

@@ -18,7 +18,6 @@ import {
   FiCalendar,
   FiClock,
   FiMapPin,
-  FiUser,
   FiEdit2,
   FiTrash2,
   FiPlus,
@@ -244,11 +243,11 @@ function EventsCalendar() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 pt-10 pb-10">
       <button
-        onClick={() => navigate("/student-dashboard")}
-        className="flex items-center ml-8 my-4 text-red-600 hover:text-green-800 transition-colors"
+        onClick={() => navigate("/calendars")}
+        className="flex items-center ml-8 my-4 text-indigo-600 hover:text-indigo-800 transition-colors"
       >
         <FiArrowLeft className="mr-2" />
-        Go Back
+        Back to Calendars
       </button>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}

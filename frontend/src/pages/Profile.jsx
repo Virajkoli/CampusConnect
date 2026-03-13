@@ -16,7 +16,7 @@ function Profile() {
   useEffect(() => {
     const fetchUserData = async () => {
       setLoading(true);
-      
+
       const currentUser = auth.currentUser;
       if (!currentUser) {
         navigate("/login");
@@ -28,13 +28,15 @@ function Profile() {
         await currentUser.reload();
         const tokenResult = await currentUser.getIdTokenResult(true);
         const claims = tokenResult.claims;
-        
+
         setUser(currentUser);
-        
+
         // Determine user role and fetch appropriate data
         if (claims.admin) {
           setUserRole("admin");
-          const adminDoc = await getDoc(doc(firestore, "admins", currentUser.uid));
+          const adminDoc = await getDoc(
+            doc(firestore, "admins", currentUser.uid)
+          );
           if (adminDoc.exists()) {
             setUserData({ ...adminDoc.data(), ...currentUser });
           } else {
@@ -42,7 +44,9 @@ function Profile() {
           }
         } else if (claims.teacher) {
           setUserRole("teacher");
-          const teacherDoc = await getDoc(doc(firestore, "teachers", currentUser.uid));
+          const teacherDoc = await getDoc(
+            doc(firestore, "teachers", currentUser.uid)
+          );
           if (teacherDoc.exists()) {
             setUserData({ ...teacherDoc.data(), ...currentUser });
           } else {
@@ -50,16 +54,51 @@ function Profile() {
           }
         } else {
           setUserRole("student");
-          const studentDoc = await getDoc(doc(firestore, "students", currentUser.uid));
-          if (studentDoc.exists()) {
-            setUserData({ ...studentDoc.data(), ...currentUser });
+          // Try users collection first (where admin creates students)
+          const userDoc = await getDoc(
+            doc(firestore, "users", currentUser.uid)
+          );
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            // Normalize field names (rollNo -> rollNumber)
+            setUserData({
+              ...data,
+              displayName: data.name || currentUser.displayName || "Student",
+              rollNumber: data.rollNumber || data.rollNo || "",
+              dept: data.dept || data.department || "",
+              year: data.year || "",
+              semester: data.semester || "",
+              email: currentUser.email,
+              photoURL: data.photoURL || currentUser.photoURL || "",
+            });
           } else {
-            // Fallback to users collection if student-specific data isn't found
-            const userDoc = await getDoc(doc(firestore, "users", currentUser.uid));
-            if (userDoc.exists()) {
-              setUserData({ ...userDoc.data(), ...currentUser });
+            // Fallback to students collection
+            const studentDoc = await getDoc(
+              doc(firestore, "students", currentUser.uid)
+            );
+            if (studentDoc.exists()) {
+              const data = studentDoc.data();
+              setUserData({
+                ...data,
+                displayName: data.name || currentUser.displayName || "Student",
+                rollNumber: data.rollNumber || data.rollNo || "",
+                dept: data.dept || data.department || "",
+                year: data.year || "",
+                semester: data.semester || "",
+                email: currentUser.email,
+                photoURL: data.photoURL || currentUser.photoURL || "",
+              });
             } else {
-              setUserData(currentUser);
+              // No Firestore doc found, use Auth data only
+              setUserData({
+                displayName: currentUser.displayName || "Student",
+                email: currentUser.email,
+                photoURL: currentUser.photoURL || "",
+                rollNumber: "",
+                dept: "",
+                year: "",
+                semester: "",
+              });
             }
           }
         }
@@ -73,12 +112,10 @@ function Profile() {
     fetchUserData();
   }, [navigate]);
 
-   const handleLogout = async () => {
+  const handleLogout = async () => {
     await auth.signOut();
     navigate("/login");
   };
-
-  
 
   if (loading) {
     return (

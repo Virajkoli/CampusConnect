@@ -23,6 +23,8 @@ const departments = [
   "Electrical Engineering",
   "Instrumentation Engineering",
 ];
+const years = ["1st", "2nd", "3rd", "4th"];
+const semesters = ["1", "2", "3", "4", "5", "6", "7", "8"];
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
@@ -34,6 +36,8 @@ const UserManagement = () => {
     rollNo: "",
     role: "Student",
     dept: "",
+    year: "",
+    semester: "",
   });
   const [isEditing, setIsEditing] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -182,8 +186,15 @@ const UserManagement = () => {
       if (!validateEmail(formData.email)) {
         throw new Error("Please enter a valid email address");
       }
-      if (!formData.rollNo || !formData.dept) {
-        throw new Error("Please fill all required fields.");
+      if (
+        !formData.rollNo ||
+        !formData.dept ||
+        !formData.year ||
+        !formData.semester
+      ) {
+        throw new Error(
+          "Please fill all required fields including year and semester."
+        );
       }
 
       if (isEditing && editId) {
@@ -200,8 +211,11 @@ const UserManagement = () => {
           name: formData.name,
           email: formData.email,
           rollNo: formData.rollNo,
+          rollNumber: formData.rollNo,
           role: formData.role,
           dept: formData.dept,
+          year: formData.year,
+          semester: formData.semester,
           updatedAt: new Date().toISOString(),
         });
 
@@ -227,6 +241,8 @@ const UserManagement = () => {
               rollNo: formData.rollNo,
               dept: formData.dept,
               role: formData.role,
+              year: formData.year,
+              semester: formData.semester,
             }),
           }
         );
@@ -247,6 +263,8 @@ const UserManagement = () => {
         rollNo: "",
         role: "Student",
         dept: "",
+        year: "",
+        semester: "",
       });
       setIsEditing(false);
       setEditId(null);
@@ -428,7 +446,11 @@ const UserManagement = () => {
                 <input
                   key={field}
                   type={field === "email" ? "email" : "text"}
-                  placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
+                  placeholder={
+                    field === "rollNo"
+                      ? "Roll Number"
+                      : field.charAt(0).toUpperCase() + field.slice(1)
+                  }
                   className="border px-3 py-2 rounded"
                   value={formData[field]}
                   onChange={(e) =>
@@ -463,6 +485,36 @@ const UserManagement = () => {
                 {departments.map((department) => (
                   <option key={department} value={department}>
                     {department}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={formData.year}
+                onChange={(e) =>
+                  setFormData({ ...formData, year: e.target.value })
+                }
+                className="border px-3 py-2 rounded"
+                required
+              >
+                <option value="">Select Year</option>
+                {years.map((y) => (
+                  <option key={y} value={y}>
+                    {y} Year
+                  </option>
+                ))}
+              </select>
+              <select
+                value={formData.semester}
+                onChange={(e) =>
+                  setFormData({ ...formData, semester: e.target.value })
+                }
+                className="border px-3 py-2 rounded"
+                required
+              >
+                <option value="">Select Semester</option>
+                {semesters.map((s) => (
+                  <option key={s} value={s}>
+                    Semester {s}
                   </option>
                 ))}
               </select>

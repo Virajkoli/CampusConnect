@@ -227,6 +227,11 @@ export default function TeacherDashboard() {
             path="/teacher-dashboard"
           />
           <SidebarItem
+            icon={<FaComments />}
+            label="Student Chats"
+            path="/chat"
+          />
+          <SidebarItem
             icon={<FaBook />}
             label="Courses"
             path="/teacher-courses"
