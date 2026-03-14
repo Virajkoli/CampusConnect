@@ -28,7 +28,7 @@ const io = socketIO(server, {
 app.use(
   cors({
     origin: FRONTEND_URL,
-  })
+  }),
 );
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -44,6 +44,10 @@ const upload = multer({
     // Allow specific file types
     const allowedTypes = [
       "application/pdf",
+      "text/csv",
+      "application/csv",
+      "text/comma-separated-values",
+      "application/vnd.ms-excel",
       "application/msword",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       "application/vnd.ms-powerpoint",
@@ -58,17 +62,635 @@ const upload = multer({
       "application/x-rar-compressed",
     ];
 
-    if (allowedTypes.includes(file.mimetype)) {
+    const fileName = (file.originalname || "").toLowerCase();
+    const isCsvByExtension = fileName.endsWith(".csv");
+
+    if (allowedTypes.includes(file.mimetype) || isCsvByExtension) {
       cb(null, true);
     } else {
       cb(
         new Error(
-          "Invalid file type. Only documents, images, and archives are allowed."
-        )
+          "Invalid file type. Only documents, images, and archives are allowed.",
+        ),
       );
     }
   },
 });
+
+const BRANCHES = [
+  "Computer Engineering",
+  "Electrical Engineering",
+  "Civil Engineering",
+  "Mechanical Engineering",
+  "Electronics And TeleCommunication Engineering",
+  "Instrumentation Engineering",
+];
+
+const YEAR_KEYS = ["1st", "2nd", "3rd", "4th"];
+
+const DEFAULT_SUBJECT_SETS = {
+  "Computer Engineering": {
+    "1st": [
+      "Introduction to Programming",
+      "Mathematics I",
+      "Physics",
+      "Chemistry",
+      "Environmental Studies",
+    ],
+    "2nd": [
+      "Data Structures",
+      "Algorithms",
+      "Computer Networks",
+      "Database Systems",
+      "Software Engineering",
+    ],
+    "3rd": [
+      "Operating Systems",
+      "Database Management",
+      "Computer Graphics",
+      "Web Development",
+      "Mobile App Development",
+    ],
+    "4th": [
+      "Machine Learning",
+      "Cloud Computing",
+      "Artificial Intelligence",
+      "Information Security",
+      "Project Management",
+    ],
+  },
+  "Electrical Engineering": {
+    "1st": [
+      "Basic Electrical",
+      "Mathematics I",
+      "Physics",
+      "Chemistry",
+      "Environmental Studies",
+    ],
+    "2nd": [
+      "Circuit Theory",
+      "Electromagnetic Fields",
+      "Electrical Measurements",
+      "Power Systems",
+      "Control Systems",
+    ],
+    "3rd": [
+      "Power Electronics",
+      "Electrical Machines",
+      "Digital Signal Processing",
+      "Microprocessors",
+      "Renewable Energy",
+    ],
+    "4th": [
+      "High Voltage Engineering",
+      "Power System Protection",
+      "Electric Drives",
+      "Smart Grid",
+      "Energy Management",
+    ],
+  },
+  "Civil Engineering": {
+    "1st": [
+      "Engineering Drawing",
+      "Mathematics I",
+      "Physics",
+      "Chemistry",
+      "Environmental Studies",
+    ],
+    "2nd": [
+      "Structural Mechanics",
+      "Fluid Mechanics",
+      "Surveying",
+      "Building Materials",
+      "Geology",
+    ],
+    "3rd": [
+      "Design of Structures",
+      "Geotechnical Engineering",
+      "Transportation Engineering",
+      "Water Resources",
+      "Environmental Engineering",
+    ],
+    "4th": [
+      "Construction Management",
+      "Advanced Structures",
+      "Urban Planning",
+      "Earthquake Engineering",
+      "Project Management",
+    ],
+  },
+  "Mechanical Engineering": {
+    "1st": [
+      "Engineering Mechanics",
+      "Mathematics I",
+      "Physics",
+      "Chemistry",
+      "Environmental Studies",
+    ],
+    "2nd": [
+      "Thermodynamics",
+      "Fluid Mechanics",
+      "Manufacturing Processes",
+      "Materials Science",
+      "Machine Drawing",
+    ],
+    "3rd": [
+      "Heat Transfer",
+      "Machine Design",
+      "CAD/CAM",
+      "Industrial Engineering",
+      "Metrology",
+    ],
+    "4th": [
+      "Robotics",
+      "Power Plant Engineering",
+      "Automobile Engineering",
+      "Refrigeration",
+      "Project Management",
+    ],
+  },
+  "Electronics And TeleCommunication Engineering": {
+    "1st": [
+      "Basic Electronics",
+      "Mathematics I",
+      "Physics",
+      "Chemistry",
+      "Environmental Studies",
+    ],
+    "2nd": [
+      "Signals and Systems",
+      "Digital Electronics",
+      "Circuit Theory",
+      "Microprocessors",
+      "Communication Principles",
+    ],
+    "3rd": [
+      "Communication Systems",
+      "Microprocessors",
+      "Control Systems",
+      "Digital Signal Processing",
+      "Antenna Theory",
+    ],
+    "4th": [
+      "VLSI Design",
+      "Wireless Communication",
+      "Optical Communication",
+      "Embedded Systems",
+      "Satellite Communication",
+    ],
+  },
+  "Instrumentation Engineering": {
+    "1st": [
+      "Basic Instrumentation",
+      "Mathematics I",
+      "Physics",
+      "Chemistry",
+      "Environmental Studies",
+    ],
+    "2nd": [
+      "Transducers",
+      "Signal Conditioning",
+      "Control Systems",
+      "Digital Electronics",
+      "Process Control",
+    ],
+    "3rd": [
+      "Industrial Instrumentation",
+      "Microprocessors",
+      "Digital Signal Processing",
+      "Biomedical Instrumentation",
+      "Analytical Instrumentation",
+    ],
+    "4th": [
+      "Advanced Control Systems",
+      "VLSI Design",
+      "Robotics",
+      "IoT Systems",
+      "Automation",
+    ],
+  },
+};
+
+const BRANCH_ALIASES = {
+  computer: "Computer Engineering",
+  "computer engineering": "Computer Engineering",
+  electrical: "Electrical Engineering",
+  "electrical engineering": "Electrical Engineering",
+  civil: "Civil Engineering",
+  "civil engineering": "Civil Engineering",
+  mechanical: "Mechanical Engineering",
+  "mechanical engineering": "Mechanical Engineering",
+  entc: "Electronics And TeleCommunication Engineering",
+  electronics: "Electronics And TeleCommunication Engineering",
+  "electronics and telecommunication":
+    "Electronics And TeleCommunication Engineering",
+  "electronics and telecommunication engineering":
+    "Electronics And TeleCommunication Engineering",
+  instrumentation: "Instrumentation Engineering",
+  "instrumentation engineering": "Instrumentation Engineering",
+};
+
+const YEAR_ALIASES = {
+  1: "1st",
+  "1st": "1st",
+  first: "1st",
+  2: "2nd",
+  "2nd": "2nd",
+  second: "2nd",
+  3: "3rd",
+  "3rd": "3rd",
+  third: "3rd",
+  4: "4th",
+  "4th": "4th",
+  fourth: "4th",
+};
+
+const createMailTransporter = () => {
+  return nodemailer.createTransport({
+    service: "Gmail",
+    auth: {
+      user: process.env.EMAIL_USERNAME,
+      pass: process.env.EMAIL_PASSWORD,
+    },
+  });
+};
+
+const normalizeBranch = (value = "") => {
+  const key = String(value).trim().toLowerCase();
+  if (!key) return "";
+  return BRANCH_ALIASES[key] || "";
+};
+
+const normalizeYear = (value = "") => {
+  const key = String(value).trim().toLowerCase();
+  if (!key) return "";
+  return YEAR_ALIASES[key] || "";
+};
+
+const normalizePhone = (value = "") => {
+  const digits = String(value).replace(/\D/g, "");
+  return digits.length === 10 ? digits : "";
+};
+
+const makeSubjectSetDocId = (branch, year) => {
+  return `${branch}_${year}`.replace(/[^a-zA-Z0-9]+/g, "_").toLowerCase();
+};
+
+const verifyAdminFromRequest = async (req) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    throw new Error("No authorization token provided");
+  }
+
+  const token = authHeader.split("Bearer ")[1];
+  const decodedToken = await admin.auth().verifyIdToken(token);
+  if (decodedToken.admin) {
+    return decodedToken;
+  }
+
+  const adminDoc = await admin
+    .firestore()
+    .collection("admins")
+    .doc(decodedToken.uid)
+    .get();
+  if (!adminDoc.exists) {
+    throw new Error("Only admins are authorized");
+  }
+
+  return decodedToken;
+};
+
+const ensureSubjectSetsInitialized = async () => {
+  const firestore = admin.firestore();
+  const snapshot = await firestore.collection("subjectSets").limit(1).get();
+  if (!snapshot.empty) return;
+
+  const batch = firestore.batch();
+  BRANCHES.forEach((branch) => {
+    YEAR_KEYS.forEach((year) => {
+      const docRef = firestore
+        .collection("subjectSets")
+        .doc(makeSubjectSetDocId(branch, year));
+      batch.set(docRef, {
+        branch,
+        year,
+        subjects: DEFAULT_SUBJECT_SETS?.[branch]?.[year] || [],
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    });
+  });
+  await batch.commit();
+};
+
+const getSubjectSetsMap = async () => {
+  await ensureSubjectSetsInitialized();
+
+  const subjectSetsMap = {};
+  const firestore = admin.firestore();
+  const snapshot = await firestore.collection("subjectSets").get();
+
+  snapshot.docs.forEach((docSnap) => {
+    const data = docSnap.data();
+    if (!subjectSetsMap[data.branch]) {
+      subjectSetsMap[data.branch] = {};
+    }
+    subjectSetsMap[data.branch][data.year] = data.subjects || [];
+  });
+
+  return subjectSetsMap;
+};
+
+const isCsvFile = (file) => {
+  const csvMimeTypes = [
+    "text/csv",
+    "application/csv",
+    "application/vnd.ms-excel",
+    "text/plain",
+  ];
+  const byMime = csvMimeTypes.includes(file.mimetype || "");
+  const byName = (file.originalname || "").toLowerCase().endsWith(".csv");
+  return byMime || byName;
+};
+
+const extractTextFromUploadedFile = async (file) => {
+  if (isCsvFile(file)) {
+    return file.buffer.toString("utf-8");
+  }
+
+  if (file.mimetype === "application/pdf") {
+    const pdfParse = require("pdf-parse");
+    const pdfData = await pdfParse(file.buffer);
+    return pdfData.text || "";
+  }
+
+  if (file.mimetype.startsWith("image/")) {
+    const Tesseract = require("tesseract.js");
+    const result = await Tesseract.recognize(file.buffer, "eng");
+    return result.data.text || "";
+  }
+
+  throw new Error("Only PDF and image files are supported");
+};
+
+const parseCsvLine = (line, delimiter) => {
+  const result = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === delimiter && !inQuotes) {
+      result.push(current.trim());
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  result.push(current.trim());
+  return result;
+};
+
+const parseStudentsFromCsv = (csvText) => {
+  const lines = csvText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (!lines.length) {
+    return [];
+  }
+
+  const delimiter = lines[0].includes(";")
+    ? ";"
+    : lines[0].includes("\t")
+      ? "\t"
+      : ",";
+  const headers = parseCsvLine(lines[0], delimiter).map((h) =>
+    h.toLowerCase().replace(/\s+/g, "").trim(),
+  );
+
+  const idx = {
+    name: headers.findIndex((h) => h === "name" || h === "studentname"),
+    prn: headers.findIndex(
+      (h) => h === "prn" || h === "rollno" || h === "rollnumber",
+    ),
+    phone: headers.findIndex(
+      (h) =>
+        h === "mobile" ||
+        h === "mobileno" ||
+        h === "phone" ||
+        h === "phonenumber",
+    ),
+    branch: headers.findIndex(
+      (h) => h === "branch" || h === "department" || h === "dept",
+    ),
+    year: headers.findIndex((h) => h === "year" || h === "academicyear"),
+    email: headers.findIndex((h) => h === "email" || h === "contactemail"),
+  };
+
+  const parsed = [];
+  const seenPrn = new Set();
+
+  for (let i = 1; i < lines.length; i += 1) {
+    const columns = parseCsvLine(lines[i], delimiter);
+    const name = idx.name >= 0 ? String(columns[idx.name] || "").trim() : "";
+    const prn =
+      idx.prn >= 0
+        ? String(columns[idx.prn] || "")
+            .trim()
+            .toUpperCase()
+        : "";
+    const phone =
+      idx.phone >= 0 ? normalizePhone(columns[idx.phone] || "") : "";
+    const branch =
+      idx.branch >= 0 ? normalizeBranch(columns[idx.branch] || "") : "";
+    const year = idx.year >= 0 ? normalizeYear(columns[idx.year] || "") : "";
+    const email =
+      idx.email >= 0
+        ? String(columns[idx.email] || "")
+            .trim()
+            .toLowerCase()
+        : "";
+
+    const validationErrors = [];
+    if (!name) validationErrors.push("Missing name");
+    if (!prn) validationErrors.push("Missing PRN");
+    if (!phone) validationErrors.push("Missing/invalid phone");
+    if (!branch) validationErrors.push("Missing/invalid branch");
+    if (!year) validationErrors.push("Missing/invalid year");
+    if (prn && seenPrn.has(prn)) validationErrors.push("Duplicate PRN in file");
+
+    if (prn) {
+      seenPrn.add(prn);
+    }
+
+    parsed.push({
+      name,
+      prn,
+      phone,
+      branch,
+      year,
+      email,
+      sourceLine: lines[i],
+      validationErrors,
+    });
+  }
+
+  return parsed;
+};
+
+const parseStudentsFromText = (text) => {
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  const parsed = [];
+
+  for (const line of lines) {
+    const lower = line.toLowerCase();
+    if (
+      lower.includes("name") &&
+      lower.includes("prn") &&
+      (lower.includes("mobile") || lower.includes("phone"))
+    ) {
+      continue;
+    }
+
+    const phoneMatch = line.match(/\b\d{10}\b/);
+    const prnMatch = line.match(/\b[A-Za-z0-9]{8,20}\b/);
+    const emailMatch = line.match(
+      /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/,
+    );
+
+    const yearMatch = line.match(
+      /\b(1st|2nd|3rd|4th|first|second|third|fourth|1|2|3|4)\b/i,
+    );
+
+    const detectedBranch = BRANCHES.find((b) =>
+      lower.includes(b.toLowerCase()),
+    );
+
+    if (!phoneMatch && !prnMatch && !detectedBranch) {
+      continue;
+    }
+
+    const branch = detectedBranch || normalizeBranch(line);
+    const year = normalizeYear(yearMatch ? yearMatch[1] : "");
+    const phone = normalizePhone(phoneMatch ? phoneMatch[0] : "");
+    const prn = (prnMatch ? prnMatch[0] : "").toUpperCase();
+
+    let name = line;
+    if (prn) name = name.replace(prn, " ");
+    if (phone) name = name.replace(phone, " ");
+    if (yearMatch) name = name.replace(yearMatch[0], " ");
+    if (branch) name = name.replace(branch, " ");
+    if (emailMatch) name = name.replace(emailMatch[0], " ");
+    name = name.replace(/\s{2,}/g, " ").trim();
+
+    parsed.push({
+      name,
+      prn,
+      phone,
+      branch,
+      year,
+      email: emailMatch ? emailMatch[0].toLowerCase() : "",
+      sourceLine: line,
+    });
+  }
+
+  const seenPrn = new Set();
+  return parsed.map((entry) => {
+    const validationErrors = [];
+    if (!entry.name) validationErrors.push("Missing name");
+    if (!entry.prn) validationErrors.push("Missing PRN");
+    if (!entry.phone) validationErrors.push("Missing/invalid phone");
+    if (!entry.branch) validationErrors.push("Missing/invalid branch");
+    if (!entry.year) validationErrors.push("Missing/invalid year");
+
+    if (entry.prn) {
+      if (seenPrn.has(entry.prn)) {
+        validationErrors.push("Duplicate PRN in file");
+      }
+      seenPrn.add(entry.prn);
+    }
+
+    return {
+      ...entry,
+      validationErrors,
+    };
+  });
+};
+
+const buildStudentPassword = (name, phone, prn) => {
+  const compactName = String(name || "student")
+    .toLowerCase()
+    .replace(/[^a-z]/g, "")
+    .slice(0, 8);
+  return `${compactName}${phone}${String(prn || "").toLowerCase()}`;
+};
+
+const makeStudentAuthEmail = (prn) => {
+  return `${String(prn).toLowerCase()}@campusconnect.student`;
+};
+
+const getPrnFromRecord = (data = {}) => {
+  return (data.rollNo || data.rollNumber || data.prn || "")
+    .toString()
+    .trim()
+    .toUpperCase();
+};
+
+const buildExistingStudentIndex = async (firestore) => {
+  const usersSnapshot = await firestore.collection("users").get();
+  const studentsSnapshot = await firestore.collection("students").get();
+
+  const byPrn = new Map();
+
+  usersSnapshot.docs.forEach((docSnap) => {
+    const data = docSnap.data();
+    const prn = getPrnFromRecord(data);
+    if (!prn) return;
+
+    const current = byPrn.get(prn) || { prn };
+    byPrn.set(prn, {
+      ...current,
+      uid: current.uid || data.uid || docSnap.id,
+      email: current.email || data.email || "",
+      userDocId: docSnap.id,
+    });
+  });
+
+  studentsSnapshot.docs.forEach((docSnap) => {
+    const data = docSnap.data();
+    const prn = getPrnFromRecord(data);
+    if (!prn) return;
+
+    const current = byPrn.get(prn) || { prn };
+    byPrn.set(prn, {
+      ...current,
+      uid: current.uid || data.uid || docSnap.id,
+      email: current.email || data.email || "",
+      studentDocId: docSnap.id,
+    });
+  });
+
+  return byPrn;
+};
 
 // Socket.IO Connection Logic
 io.on("connection", (socket) => {
@@ -430,28 +1052,413 @@ app.get("/api/subjects", async (req, res) => {
   }
 
   try {
-    const subjectsList = {
-      "Computer Engineering": {
-        "1st": ["Introduction to Programming", "Mathematics I"],
-        "2nd": ["Data Structures", "Algorithms"],
-        "3rd": ["Operating Systems", "Database Management"],
-        "4th": ["Machine Learning", "Cloud Computing"],
-      },
-      "Electronics And TeleCommunication Engineering": {
-        "1st": ["Basic Electronics", "Mathematics I"],
-        "2nd": ["Signals and Systems", "Digital Electronics"],
-        "3rd": ["Communication Systems", "Microprocessors"],
-        "4th": ["VLSI Design", "Embedded Systems"],
-      },
-      // Add other departments and their subjects here
-    };
-
-    const subjects = subjectsList[department]?.[year] || [];
+    const subjectSetsMap = await getSubjectSetsMap();
+    const subjects = subjectSetsMap[department]?.[year] || [];
     res.status(200).json({ subjects });
   } catch (error) {
     res
       .status(500)
       .json({ message: "Failed to fetch subjects.", error: error.message });
+  }
+});
+
+app.get("/api/admin/subject-sets", async (req, res) => {
+  try {
+    await verifyAdminFromRequest(req);
+    const subjectSets = await getSubjectSetsMap();
+    res.status(200).json({ success: true, subjectSets });
+  } catch (error) {
+    const status = /authorized|token/i.test(error.message) ? 403 : 500;
+    res.status(status).json({ message: error.message });
+  }
+});
+
+app.put("/api/admin/subject-sets", async (req, res) => {
+  try {
+    await verifyAdminFromRequest(req);
+
+    const { branch, year, subjects } = req.body;
+    const normalizedBranch = normalizeBranch(branch);
+    const normalizedYear = normalizeYear(year);
+    const cleanedSubjects = Array.isArray(subjects)
+      ? subjects.map((s) => String(s).trim()).filter(Boolean)
+      : [];
+
+    if (!normalizedBranch || !normalizedYear || cleanedSubjects.length === 0) {
+      return res.status(400).json({
+        message: "Branch, year and at least one subject are required",
+      });
+    }
+
+    const docId = makeSubjectSetDocId(normalizedBranch, normalizedYear);
+    await admin.firestore().collection("subjectSets").doc(docId).set(
+      {
+        branch: normalizedBranch,
+        year: normalizedYear,
+        subjects: cleanedSubjects,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+
+    const subjectSets = await getSubjectSetsMap();
+    res.status(200).json({
+      success: true,
+      message: "Subject set updated successfully",
+      subjectSets,
+    });
+  } catch (error) {
+    const status = /authorized|token/i.test(error.message) ? 403 : 500;
+    res.status(status).json({ message: error.message });
+  }
+});
+
+app.post(
+  "/api/admin/parse-student-onboarding",
+  upload.single("file"),
+  async (req, res) => {
+    try {
+      await verifyAdminFromRequest(req);
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const extractedText = await extractTextFromUploadedFile(req.file);
+      const entries = isCsvFile(req.file)
+        ? parseStudentsFromCsv(extractedText)
+        : parseStudentsFromText(extractedText);
+
+      res.status(200).json({
+        success: true,
+        extractedText,
+        entries,
+      });
+    } catch (error) {
+      const status = /authorized|token/i.test(error.message) ? 403 : 500;
+      res.status(status).json({ message: error.message });
+    }
+  },
+);
+
+app.post("/api/admin/precheck-student-onboarding", async (req, res) => {
+  try {
+    await verifyAdminFromRequest(req);
+
+    const { students } = req.body;
+    if (!Array.isArray(students) || students.length === 0) {
+      return res.status(400).json({ message: "No student entries provided" });
+    }
+
+    const firestore = admin.firestore();
+    const existingByPrn = await buildExistingStudentIndex(firestore);
+
+    const inFilePrn = new Set();
+    const duplicateInDb = [];
+    const duplicateInFile = [];
+
+    students.forEach((rawEntry) => {
+      const prn = String(rawEntry.prn || "")
+        .trim()
+        .toUpperCase();
+      const name = String(rawEntry.name || "").trim();
+
+      if (!prn) return;
+
+      if (inFilePrn.has(prn)) {
+        duplicateInFile.push({ prn, name });
+      }
+      inFilePrn.add(prn);
+
+      if (existingByPrn.has(prn)) {
+        const existing = existingByPrn.get(prn);
+        duplicateInDb.push({
+          prn,
+          name,
+          existingUid: existing.uid || "",
+          existingEmail: existing.email || "",
+        });
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      precheck: {
+        totalRows: students.length,
+        duplicateDbCount: duplicateInDb.length,
+        duplicateFileCount: duplicateInFile.length,
+        duplicateInDb,
+        duplicateInFile,
+      },
+    });
+  } catch (error) {
+    const status = /authorized|token/i.test(error.message) ? 403 : 500;
+    res.status(status).json({ message: error.message });
+  }
+});
+
+app.post("/api/admin/bulk-onboard-students", async (req, res) => {
+  try {
+    await verifyAdminFromRequest(req);
+
+    const { students, duplicateStrategy = "skip" } = req.body;
+    if (!Array.isArray(students) || students.length === 0) {
+      return res.status(400).json({ message: "No student entries provided" });
+    }
+
+    if (!["skip", "update"].includes(duplicateStrategy)) {
+      return res.status(400).json({
+        message: "Invalid duplicate strategy. Use 'skip' or 'update'.",
+      });
+    }
+
+    const firestore = admin.firestore();
+    const subjectSets = await getSubjectSetsMap();
+    const existingByPrn = await buildExistingStudentIndex(firestore);
+
+    const inBatchPrns = new Set();
+    const failedEntries = [];
+    const createdEntries = [];
+    const skippedExistingEntries = [];
+    const updatedEntries = [];
+    const manualCredentialEntries = [];
+    let credentialsSentCount = 0;
+
+    for (const rawEntry of students) {
+      const name = String(rawEntry.name || "").trim();
+      const prn = String(rawEntry.prn || "")
+        .trim()
+        .toUpperCase();
+      const phone = normalizePhone(rawEntry.phone || "");
+      const branch = normalizeBranch(rawEntry.branch || "");
+      const year = normalizeYear(rawEntry.year || "");
+      const contactEmail = String(rawEntry.email || "")
+        .trim()
+        .toLowerCase();
+
+      const rowErrors = [];
+      if (!name) rowErrors.push("Missing name");
+      if (!prn) rowErrors.push("Missing PRN");
+      if (!phone) rowErrors.push("Missing/invalid mobile number");
+      if (!branch) rowErrors.push("Missing/invalid branch");
+      if (!year) rowErrors.push("Missing/invalid year");
+      if (prn && inBatchPrns.has(prn))
+        rowErrors.push("Duplicate PRN in upload");
+
+      const subjects = subjectSets?.[branch]?.[year] || [];
+      if (subjects.length === 0) {
+        rowErrors.push("No subject set configured for branch/year");
+      }
+
+      if (rowErrors.length > 0) {
+        failedEntries.push({ name, prn, reason: rowErrors.join(", ") });
+        continue;
+      }
+
+      inBatchPrns.add(prn);
+      const authEmail = makeStudentAuthEmail(prn);
+      const password = buildStudentPassword(name, phone, prn);
+
+      if (existingByPrn.has(prn)) {
+        const existing = existingByPrn.get(prn);
+
+        if (duplicateStrategy === "skip") {
+          skippedExistingEntries.push({
+            name,
+            prn,
+            reason: "Already enrolled (PRN exists)",
+            existingUid: existing.uid || "",
+            existingEmail: existing.email || "",
+          });
+          continue;
+        }
+
+        const mergedPayload = {
+          name,
+          prn,
+          rollNo: prn,
+          rollNumber: prn,
+          phone,
+          mobile: phone,
+          dept: branch,
+          department: branch,
+          year,
+          subjects,
+          role: "Student",
+          contactEmail: contactEmail || "",
+          onboardingSource: "bulk_upload_update",
+          updatedAt: new Date().toISOString(),
+        };
+
+        const targetUid =
+          existing.uid || existing.userDocId || existing.studentDocId;
+        const keepEmail = existing.email || "";
+        if (keepEmail) {
+          mergedPayload.email = keepEmail;
+        }
+        if (targetUid) {
+          mergedPayload.uid = targetUid;
+        }
+
+        if (existing.userDocId || targetUid) {
+          await firestore
+            .collection("users")
+            .doc(existing.userDocId || targetUid)
+            .set(mergedPayload, { merge: true });
+        }
+
+        if (existing.studentDocId || targetUid) {
+          await firestore
+            .collection("students")
+            .doc(existing.studentDocId || targetUid)
+            .set(mergedPayload, { merge: true });
+        }
+
+        updatedEntries.push({
+          name,
+          prn,
+          existingUid: existing.uid || "",
+          existingEmail: existing.email || "",
+        });
+        continue;
+      }
+
+      try {
+        const existingAuthUser = await admin
+          .auth()
+          .getUserByEmail(authEmail)
+          .catch((e) => {
+            if (e.code === "auth/user-not-found") return null;
+            throw e;
+          });
+
+        if (existingAuthUser) {
+          failedEntries.push({
+            name,
+            prn,
+            reason: "Duplicate PRN (auth account already exists)",
+          });
+          continue;
+        }
+
+        const userRecord = await admin.auth().createUser({
+          email: authEmail,
+          password,
+          displayName: name,
+        });
+
+        const studentPayload = {
+          uid: userRecord.uid,
+          name,
+          email: authEmail,
+          loginId: prn,
+          prn,
+          rollNo: prn,
+          rollNumber: prn,
+          phone,
+          mobile: phone,
+          dept: branch,
+          department: branch,
+          year,
+          subjects,
+          role: "Student",
+          contactEmail: contactEmail || "",
+          onboardingSource: "bulk_upload",
+          createdAt: new Date().toISOString(),
+        };
+
+        await firestore
+          .collection("users")
+          .doc(userRecord.uid)
+          .set(studentPayload);
+        await firestore
+          .collection("students")
+          .doc(userRecord.uid)
+          .set(studentPayload, { merge: true });
+
+        if (contactEmail) {
+          try {
+            const transporter = createMailTransporter();
+            await transporter.verify();
+            await transporter.sendMail({
+              from: `"Campus Connect" <${process.env.EMAIL_USERNAME}>`,
+              to: contactEmail,
+              subject: "CampusConnect Student Login Credentials",
+              text: `Hi ${name},\n\nYour CampusConnect account is ready.\nLogin ID: ${prn}\nSystem Email: ${authEmail}\nPassword: ${password}\n\nPlease change your password after first login.`,
+            });
+            credentialsSentCount += 1;
+          } catch (mailError) {
+            console.error("Credential email failed:", mailError.message);
+            manualCredentialEntries.push({
+              name,
+              prn,
+              phone,
+              branch,
+              year,
+              contactEmail,
+              loginId: prn,
+              systemEmail: authEmail,
+              password,
+              reason: `Email delivery failed: ${mailError.message}`,
+            });
+          }
+        } else {
+          manualCredentialEntries.push({
+            name,
+            prn,
+            phone,
+            branch,
+            year,
+            contactEmail: "",
+            loginId: prn,
+            systemEmail: authEmail,
+            password,
+            reason: "Contact email missing in uploaded data",
+          });
+        }
+
+        createdEntries.push({
+          uid: userRecord.uid,
+          name,
+          prn,
+          email: authEmail,
+        });
+        existingByPrn.set(prn, {
+          prn,
+          uid: userRecord.uid,
+          email: authEmail,
+          userDocId: userRecord.uid,
+          studentDocId: userRecord.uid,
+        });
+      } catch (createError) {
+        failedEntries.push({
+          name,
+          prn,
+          reason: createError.message,
+        });
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      summary: {
+        totalProcessed: students.length,
+        createdCount: createdEntries.length,
+        updatedCount: updatedEntries.length,
+        skippedExistingCount: skippedExistingEntries.length,
+        failedCount: failedEntries.length,
+        credentialsSentCount,
+        manualCredentialCount: manualCredentialEntries.length,
+        createdEntries,
+        updatedEntries,
+        skippedExistingEntries,
+        failedEntries,
+        manualCredentialEntries,
+        duplicateStrategy,
+      },
+    });
+  } catch (error) {
+    const status = /authorized|token/i.test(error.message) ? 403 : 500;
+    res.status(status).json({ message: error.message });
   }
 });
 
@@ -476,7 +1483,7 @@ app.post("/api/upload-profile", upload.single("file"), async (req, res) => {
         (error, result) => {
           if (error) reject(error);
           else resolve(result);
-        }
+        },
       );
 
       uploadStream.end(req.file.buffer);
@@ -533,7 +1540,7 @@ app.post("/api/upload-material", upload.single("file"), async (req, res) => {
         (error, result) => {
           if (error) reject(error);
           else resolve(result);
-        }
+        },
       );
 
       uploadStream.end(req.file.buffer);
@@ -663,7 +1670,7 @@ app.post(
           (error, result) => {
             if (error) reject(error);
             else resolve(result);
-          }
+          },
         );
         uploadStream.end(req.file.buffer);
       });
@@ -681,7 +1688,7 @@ app.post(
         error: error.message,
       });
     }
-  }
+  },
 );
 
 // Clear all exam timetable data for a specific year/branch
@@ -788,8 +1795,8 @@ app.post("/api/save-exam-timetable", async (req, res) => {
     // Create a Set of existing exam keys for fast lookup
     const existingKeys = new Set(
       existingExams.map(
-        (e) => `${e.date}|${e.courseCode}|${e.year}|${e.branch}`
-      )
+        (e) => `${e.date}|${e.courseCode}|${e.year}|${e.branch}`,
+      ),
     );
 
     // Filter out duplicates

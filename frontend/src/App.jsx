@@ -33,6 +33,8 @@ import UserManagement from "./pages/admin/UserManagement";
 import TeacherAuthPage from "./pages/teacher/TeacherAuthPage";
 import TeacherDashboard from "./pages/teacher/TeacherDashboard";
 import TeacherManagement from "./pages/admin/TeacherManagement";
+import SubjectSetManagement from "./pages/admin/SubjectSetManagement";
+import BulkStudentOnboarding from "./pages/admin/BulkStudentOnboarding";
 import TeacherCourses from "./pages/teacher/TeacherCourses";
 import AnnouncementManagement from "./pages/admin/AnnouncementManagement";
 import StudyMaterials from "./pages/common/StudyMaterials";
@@ -204,6 +206,22 @@ function AppContent() {
           element={
             <AdminRoute>
               <TeacherManagement />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/subject-sets"
+          element={
+            <AdminRoute>
+              <SubjectSetManagement />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/upload-students"
+          element={
+            <AdminRoute>
+              <BulkStudentOnboarding />
             </AdminRoute>
           }
         />

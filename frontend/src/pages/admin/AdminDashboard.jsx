@@ -31,6 +31,8 @@ import {
   FiActivity,
   FiMenu,
   FiX,
+  FiUpload,
+  FiLayers,
 } from "react-icons/fi";
 import { FaEnvelope, FaPhoneAlt } from "react-icons/fa";
 import CalendarComponent from "../../components/common/CalendarComponent";
@@ -644,6 +646,22 @@ export default function AdminDashboard() {
                   itemOnClick={() => setIsMobileSidebarOpen(false)}
                 />
                 <SidebarItem
+                  icon={<FiLayers />}
+                  label="Subject Sets"
+                  path="/admin/subject-sets"
+                  isOpen={true}
+                  color="blue"
+                  itemOnClick={() => setIsMobileSidebarOpen(false)}
+                />
+                <SidebarItem
+                  icon={<FiUpload />}
+                  label="Upload Students"
+                  path="/admin/upload-students"
+                  isOpen={true}
+                  color="amber"
+                  itemOnClick={() => setIsMobileSidebarOpen(false)}
+                />
+                <SidebarItem
                   icon={<FiBell />}
                   label="Notifications"
                   path="/admin/announcements"
@@ -761,6 +779,20 @@ export default function AdminDashboard() {
               path="/admin/teachermanagement"
               isOpen={isOpen}
               color="green"
+            />
+            <SidebarItem
+              icon={<FiLayers />}
+              label="Subject Sets"
+              path="/admin/subject-sets"
+              isOpen={isOpen}
+              color="blue"
+            />
+            <SidebarItem
+              icon={<FiUpload />}
+              label="Upload Students"
+              path="/admin/upload-students"
+              isOpen={isOpen}
+              color="amber"
             />
 
             <div className="px-3 my-3">
@@ -1375,13 +1407,19 @@ export default function AdminDashboard() {
                       color="purple"
                       delay={0.3}
                     />
-                    {/* Using dashboard as fallback for Reports since no reports page exists yet */}
                     <QuickAccessLink
-                      to="/admin/dashboard"
-                      icon={<FiActivity />}
-                      label="Dashboard"
+                      to="/admin/subject-sets"
+                      icon={<FiLayers />}
+                      label="Subject Sets"
                       color="orange"
                       delay={0.4}
+                    />
+                    <QuickAccessLink
+                      to="/admin/upload-students"
+                      icon={<FiUpload />}
+                      label="Upload Students"
+                      color="blue"
+                      delay={0.5}
                     />
                   </div>
                 </motion.div>
