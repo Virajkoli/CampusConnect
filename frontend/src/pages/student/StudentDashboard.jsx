@@ -125,35 +125,15 @@ function StudentDashboard() {
             );
           }
 
-          // Mock course data based on department
-          const mockCourses = [
-            {
-              id: 1,
-              code: "CS101",
-              name: "Introduction to Programming",
-              professor: "Dr. Smith",
-            },
-            {
-              id: 2,
-              code: "CS201",
-              name: "Data Structures and Algorithms",
-              professor: "Dr. Williams",
-            },
-            {
-              id: 3,
-              code: "CS301",
-              name: "Database Management Systems",
-              professor: "Dr. Johnson",
-            },
-            {
-              id: 4,
-              code: "CS401",
-              name: "Computer Networks",
-              professor: "Dr. Brown",
-            },
-          ];
-
-          setCourses(mockCourses);
+          const assignedSubjects = Array.isArray(studentData.subjects)
+            ? studentData.subjects
+            : [];
+          setCourses(
+            assignedSubjects.map((subject, index) => ({
+              id: index + 1,
+              name: subject,
+            })),
+          );
         }
 
         setLoading(false);
@@ -502,6 +482,43 @@ function StudentDashboard() {
                     <div className="text-sm text-gray-600">Weekly Classes</div>
                   </div>
                 </div>
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.25 }}
+              className="bg-white rounded-xl shadow-md overflow-hidden"
+            >
+              <div className="p-6 bg-gradient-to-r from-cyan-50 to-blue-100 border-b border-cyan-200">
+                <div className="flex items-center space-x-2">
+                  <FiBook className="text-lg text-cyan-700" />
+                  <h2 className="text-xl font-semibold text-gray-800">
+                    Semester Subjects
+                  </h2>
+                </div>
+              </div>
+              <div className="p-6">
+                {courses.length > 0 ? (
+                  <div className="space-y-2">
+                    {courses.map((course, index) => {
+                      const colors = getSubjectColor(index);
+                      return (
+                        <div
+                          key={course.id}
+                          className={`px-3 py-2 rounded-lg border ${colors.border} ${colors.bg} ${colors.text}`}
+                        >
+                          {course.name}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-gray-500">
+                    No semester subjects assigned yet.
+                  </p>
+                )}
               </div>
             </motion.div>
 

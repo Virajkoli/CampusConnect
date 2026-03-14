@@ -5,6 +5,7 @@ import { auth } from "../../firebase";
 import {
   BRANCHES,
   YEARS,
+  SEMESTERS,
   DEFAULT_SUBJECT_SETS,
 } from "../../utils/branchYearSubjects";
 
@@ -15,6 +16,7 @@ export default function SubjectSetManagement() {
   const [subjectSets, setSubjectSets] = useState(DEFAULT_SUBJECT_SETS);
   const [selectedBranch, setSelectedBranch] = useState(BRANCHES[0]);
   const [selectedYear, setSelectedYear] = useState(YEARS[0]);
+  const [selectedSemester, setSelectedSemester] = useState(SEMESTERS[0]);
   const [subjectText, setSubjectText] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -22,8 +24,10 @@ export default function SubjectSetManagement() {
   const [error, setError] = useState("");
 
   const selectedSubjects = useMemo(() => {
-    return subjectSets?.[selectedBranch]?.[selectedYear] || [];
-  }, [subjectSets, selectedBranch, selectedYear]);
+    return (
+      subjectSets?.[selectedBranch]?.[selectedYear]?.[selectedSemester] || []
+    );
+  }, [subjectSets, selectedBranch, selectedYear, selectedSemester]);
 
   useEffect(() => {
     setSubjectText(selectedSubjects.join("\n"));
@@ -91,6 +95,7 @@ export default function SubjectSetManagement() {
         body: JSON.stringify({
           branch: selectedBranch,
           year: selectedYear,
+          semester: selectedSemester,
           subjects,
         }),
       });
@@ -142,7 +147,7 @@ export default function SubjectSetManagement() {
         )}
 
         <div className="bg-white rounded-xl shadow-md border border-indigo-100 p-5 sm:p-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Branch
@@ -175,6 +180,22 @@ export default function SubjectSetManagement() {
                 ))}
               </select>
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Semester
+              </label>
+              <select
+                className="w-full border rounded-lg px-3 py-2"
+                value={selectedSemester}
+                onChange={(e) => setSelectedSemester(e.target.value)}
+              >
+                {SEMESTERS.map((semester) => (
+                  <option key={semester} value={semester}>
+                    Semester {semester}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="flex items-end gap-2">
               <button
                 onClick={fetchSubjectSets}
@@ -195,7 +216,8 @@ export default function SubjectSetManagement() {
           </div>
 
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Subjects for {selectedBranch} - {selectedYear} Year (one per line)
+            Subjects for {selectedBranch} - {selectedYear} Year - Semester{" "}
+            {selectedSemester} (one per line)
           </label>
           <textarea
             className="w-full min-h-[220px] border rounded-lg px-3 py-2"
@@ -210,14 +232,18 @@ export default function SubjectSetManagement() {
             Current Subject Matrix
           </h2>
           <div className="overflow-x-auto">
-            <table className="min-w-[760px] w-full text-sm border border-gray-200">
+            <table className="min-w-[1200px] w-full text-sm border border-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="text-left p-3 border-b">Branch</th>
-                  <th className="text-left p-3 border-b">1st</th>
-                  <th className="text-left p-3 border-b">2nd</th>
-                  <th className="text-left p-3 border-b">3rd</th>
-                  <th className="text-left p-3 border-b">4th</th>
+                  <th className="text-left p-3 border-b">1st - Sem 1</th>
+                  <th className="text-left p-3 border-b">1st - Sem 2</th>
+                  <th className="text-left p-3 border-b">2nd - Sem 1</th>
+                  <th className="text-left p-3 border-b">2nd - Sem 2</th>
+                  <th className="text-left p-3 border-b">3rd - Sem 1</th>
+                  <th className="text-left p-3 border-b">3rd - Sem 2</th>
+                  <th className="text-left p-3 border-b">4th - Sem 1</th>
+                  <th className="text-left p-3 border-b">4th - Sem 2</th>
                 </tr>
               </thead>
               <tbody>
@@ -225,13 +251,18 @@ export default function SubjectSetManagement() {
                   <tr key={branch} className="align-top">
                     <td className="p-3 border-b font-medium">{branch}</td>
                     {YEARS.map((year) => (
-                      <td
-                        key={`${branch}-${year}`}
-                        className="p-3 border-b text-xs text-gray-600"
-                      >
-                        {(subjectSets?.[branch]?.[year] || []).join(", ") ||
-                          "-"}
-                      </td>
+                      <React.Fragment key={`${branch}-${year}`}>
+                        {SEMESTERS.map((semester) => (
+                          <td
+                            key={`${branch}-${year}-${semester}`}
+                            className="p-3 border-b text-xs text-gray-600"
+                          >
+                            {(
+                              subjectSets?.[branch]?.[year]?.[semester] || []
+                            ).join(", ") || "-"}
+                          </td>
+                        ))}
+                      </React.Fragment>
                     ))}
                   </tr>
                 ))}

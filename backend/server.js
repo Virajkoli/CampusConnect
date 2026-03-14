@@ -87,8 +87,9 @@ const BRANCHES = [
 ];
 
 const YEAR_KEYS = ["1st", "2nd", "3rd", "4th"];
+const SEMESTER_KEYS = ["1", "2"];
 
-const DEFAULT_SUBJECT_SETS = {
+const LEGACY_DEFAULT_SUBJECT_SETS = {
   "Computer Engineering": {
     "1st": [
       "Introduction to Programming",
@@ -271,6 +272,26 @@ const DEFAULT_SUBJECT_SETS = {
   },
 };
 
+const splitYearSubjectsBySemester = (subjects = []) => {
+  const midpoint = Math.ceil(subjects.length / 2);
+  return {
+    1: subjects.slice(0, midpoint),
+    2: subjects.slice(midpoint),
+  };
+};
+
+const DEFAULT_SUBJECT_SETS = Object.fromEntries(
+  Object.entries(LEGACY_DEFAULT_SUBJECT_SETS).map(([branch, yearsMap]) => {
+    const semesterWiseYears = Object.fromEntries(
+      Object.entries(yearsMap).map(([year, subjects]) => {
+        return [year, splitYearSubjectsBySemester(subjects)];
+      }),
+    );
+
+    return [branch, semesterWiseYears];
+  }),
+);
+
 const BRANCH_ALIASES = {
   computer: "Computer Engineering",
   "computer engineering": "Computer Engineering",
@@ -305,6 +326,25 @@ const YEAR_ALIASES = {
   fourth: "4th",
 };
 
+const SEMESTER_ALIASES = {
+  1: "1",
+  1: "1",
+  sem1: "1",
+  "1sem": "1",
+  "1stsem": "1",
+  semester1: "1",
+  "semester 1": "1",
+  first: "1",
+  2: "2",
+  2: "2",
+  sem2: "2",
+  "2sem": "2",
+  "2ndsem": "2",
+  semester2: "2",
+  "semester 2": "2",
+  second: "2",
+};
+
 const createMailTransporter = () => {
   return nodemailer.createTransport({
     service: "Gmail",
@@ -327,13 +367,21 @@ const normalizeYear = (value = "") => {
   return YEAR_ALIASES[key] || "";
 };
 
+const normalizeSemester = (value = "") => {
+  const key = String(value).trim().toLowerCase().replace(/\s+/g, "");
+  if (!key) return "";
+  return SEMESTER_ALIASES[key] || "";
+};
+
 const normalizePhone = (value = "") => {
   const digits = String(value).replace(/\D/g, "");
   return digits.length === 10 ? digits : "";
 };
 
-const makeSubjectSetDocId = (branch, year) => {
-  return `${branch}_${year}`.replace(/[^a-zA-Z0-9]+/g, "_").toLowerCase();
+const makeSubjectSetDocId = (branch, year, semester) => {
+  return `${branch}_${year}_${semester}`
+    .replace(/[^a-zA-Z0-9]+/g, "_")
+    .toLowerCase();
 };
 
 const verifyAdminFromRequest = async (req) => {
@@ -362,24 +410,35 @@ const verifyAdminFromRequest = async (req) => {
 
 const ensureSubjectSetsInitialized = async () => {
   const firestore = admin.firestore();
-  const snapshot = await firestore.collection("subjectSets").limit(1).get();
-  if (!snapshot.empty) return;
+  const snapshot = await firestore.collection("subjectSets").get();
+  const existingIds = new Set(snapshot.docs.map((docSnap) => docSnap.id));
 
   const batch = firestore.batch();
+  let hasWrites = false;
   BRANCHES.forEach((branch) => {
     YEAR_KEYS.forEach((year) => {
-      const docRef = firestore
-        .collection("subjectSets")
-        .doc(makeSubjectSetDocId(branch, year));
-      batch.set(docRef, {
-        branch,
-        year,
-        subjects: DEFAULT_SUBJECT_SETS?.[branch]?.[year] || [],
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      SEMESTER_KEYS.forEach((semester) => {
+        const docId = makeSubjectSetDocId(branch, year, semester);
+        if (existingIds.has(docId)) return;
+
+        const docRef = firestore.collection("subjectSets").doc(docId);
+        batch.set(docRef, {
+          branch,
+          year,
+          semester,
+          subjects: DEFAULT_SUBJECT_SETS?.[branch]?.[year]?.[semester] || [],
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        hasWrites = true;
       });
     });
   });
+
+  if (!hasWrites) {
+    return;
+  }
+
   await batch.commit();
 };
 
@@ -395,7 +454,12 @@ const getSubjectSetsMap = async () => {
     if (!subjectSetsMap[data.branch]) {
       subjectSetsMap[data.branch] = {};
     }
-    subjectSetsMap[data.branch][data.year] = data.subjects || [];
+    if (!subjectSetsMap[data.branch][data.year]) {
+      subjectSetsMap[data.branch][data.year] = {};
+    }
+
+    const semester = normalizeSemester(data.semester) || "1";
+    subjectSetsMap[data.branch][data.year][semester] = data.subjects || [];
   });
 
   return subjectSetsMap;
@@ -499,6 +563,9 @@ const parseStudentsFromCsv = (csvText) => {
       (h) => h === "branch" || h === "department" || h === "dept",
     ),
     year: headers.findIndex((h) => h === "year" || h === "academicyear"),
+    semester: headers.findIndex(
+      (h) => h === "semester" || h === "sem" || h === "term",
+    ),
     email: headers.findIndex((h) => h === "email" || h === "contactemail"),
   };
 
@@ -519,6 +586,8 @@ const parseStudentsFromCsv = (csvText) => {
     const branch =
       idx.branch >= 0 ? normalizeBranch(columns[idx.branch] || "") : "";
     const year = idx.year >= 0 ? normalizeYear(columns[idx.year] || "") : "";
+    const semester =
+      idx.semester >= 0 ? normalizeSemester(columns[idx.semester] || "") : "";
     const email =
       idx.email >= 0
         ? String(columns[idx.email] || "")
@@ -532,6 +601,7 @@ const parseStudentsFromCsv = (csvText) => {
     if (!phone) validationErrors.push("Missing/invalid phone");
     if (!branch) validationErrors.push("Missing/invalid branch");
     if (!year) validationErrors.push("Missing/invalid year");
+    if (!semester) validationErrors.push("Missing/invalid semester");
     if (prn && seenPrn.has(prn)) validationErrors.push("Duplicate PRN in file");
 
     if (prn) {
@@ -544,6 +614,7 @@ const parseStudentsFromCsv = (csvText) => {
       phone,
       branch,
       year,
+      semester,
       email,
       sourceLine: lines[i],
       validationErrors,
@@ -580,6 +651,9 @@ const parseStudentsFromText = (text) => {
     const yearMatch = line.match(
       /\b(1st|2nd|3rd|4th|first|second|third|fourth|1|2|3|4)\b/i,
     );
+    const semesterMatch = line.match(
+      /\b(sem(?:ester)?\s*[12]|[12](?:st|nd)?\s*sem(?:ester)?)\b/i,
+    );
 
     const detectedBranch = BRANCHES.find((b) =>
       lower.includes(b.toLowerCase()),
@@ -591,6 +665,7 @@ const parseStudentsFromText = (text) => {
 
     const branch = detectedBranch || normalizeBranch(line);
     const year = normalizeYear(yearMatch ? yearMatch[1] : "");
+    const semester = normalizeSemester(semesterMatch ? semesterMatch[0] : "");
     const phone = normalizePhone(phoneMatch ? phoneMatch[0] : "");
     const prn = (prnMatch ? prnMatch[0] : "").toUpperCase();
 
@@ -598,6 +673,7 @@ const parseStudentsFromText = (text) => {
     if (prn) name = name.replace(prn, " ");
     if (phone) name = name.replace(phone, " ");
     if (yearMatch) name = name.replace(yearMatch[0], " ");
+    if (semesterMatch) name = name.replace(semesterMatch[0], " ");
     if (branch) name = name.replace(branch, " ");
     if (emailMatch) name = name.replace(emailMatch[0], " ");
     name = name.replace(/\s{2,}/g, " ").trim();
@@ -608,6 +684,7 @@ const parseStudentsFromText = (text) => {
       phone,
       branch,
       year,
+      semester,
       email: emailMatch ? emailMatch[0].toLowerCase() : "",
       sourceLine: line,
     });
@@ -621,6 +698,7 @@ const parseStudentsFromText = (text) => {
     if (!entry.phone) validationErrors.push("Missing/invalid phone");
     if (!entry.branch) validationErrors.push("Missing/invalid branch");
     if (!entry.year) validationErrors.push("Missing/invalid year");
+    if (!entry.semester) validationErrors.push("Missing/invalid semester");
 
     if (entry.prn) {
       if (seenPrn.has(entry.prn)) {
@@ -1043,7 +1121,7 @@ app.get("/test-mail", async (req, res) => {
 });
 
 app.get("/api/subjects", async (req, res) => {
-  const { department, year } = req.query;
+  const { department, year, semester } = req.query;
 
   if (!department || !year) {
     return res
@@ -1053,7 +1131,11 @@ app.get("/api/subjects", async (req, res) => {
 
   try {
     const subjectSetsMap = await getSubjectSetsMap();
-    const subjects = subjectSetsMap[department]?.[year] || [];
+    const normalizedSemester = normalizeSemester(semester || "");
+    const subjectsForYear = subjectSetsMap[department]?.[year] || {};
+    const subjects = normalizedSemester
+      ? subjectsForYear?.[normalizedSemester] || []
+      : [...(subjectsForYear?.["1"] || []), ...(subjectsForYear?.["2"] || [])];
     res.status(200).json({ subjects });
   } catch (error) {
     res
@@ -1077,24 +1159,35 @@ app.put("/api/admin/subject-sets", async (req, res) => {
   try {
     await verifyAdminFromRequest(req);
 
-    const { branch, year, subjects } = req.body;
+    const { branch, year, semester, subjects } = req.body;
     const normalizedBranch = normalizeBranch(branch);
     const normalizedYear = normalizeYear(year);
+    const normalizedSemester = normalizeSemester(semester);
     const cleanedSubjects = Array.isArray(subjects)
       ? subjects.map((s) => String(s).trim()).filter(Boolean)
       : [];
 
-    if (!normalizedBranch || !normalizedYear || cleanedSubjects.length === 0) {
+    if (
+      !normalizedBranch ||
+      !normalizedYear ||
+      !normalizedSemester ||
+      cleanedSubjects.length === 0
+    ) {
       return res.status(400).json({
-        message: "Branch, year and at least one subject are required",
+        message: "Branch, year, semester and at least one subject are required",
       });
     }
 
-    const docId = makeSubjectSetDocId(normalizedBranch, normalizedYear);
+    const docId = makeSubjectSetDocId(
+      normalizedBranch,
+      normalizedYear,
+      normalizedSemester,
+    );
     await admin.firestore().collection("subjectSets").doc(docId).set(
       {
         branch: normalizedBranch,
         year: normalizedYear,
+        semester: normalizedSemester,
         subjects: cleanedSubjects,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       },
@@ -1231,6 +1324,7 @@ app.post("/api/admin/bulk-onboard-students", async (req, res) => {
       const phone = normalizePhone(rawEntry.phone || "");
       const branch = normalizeBranch(rawEntry.branch || "");
       const year = normalizeYear(rawEntry.year || "");
+      const semester = normalizeSemester(rawEntry.semester || "");
       const contactEmail = String(rawEntry.email || "")
         .trim()
         .toLowerCase();
@@ -1241,12 +1335,13 @@ app.post("/api/admin/bulk-onboard-students", async (req, res) => {
       if (!phone) rowErrors.push("Missing/invalid mobile number");
       if (!branch) rowErrors.push("Missing/invalid branch");
       if (!year) rowErrors.push("Missing/invalid year");
+      if (!semester) rowErrors.push("Missing/invalid semester");
       if (prn && inBatchPrns.has(prn))
         rowErrors.push("Duplicate PRN in upload");
 
-      const subjects = subjectSets?.[branch]?.[year] || [];
+      const subjects = subjectSets?.[branch]?.[year]?.[semester] || [];
       if (subjects.length === 0) {
-        rowErrors.push("No subject set configured for branch/year");
+        rowErrors.push("No subject set configured for branch/year/semester");
       }
 
       if (rowErrors.length > 0) {
@@ -1282,6 +1377,7 @@ app.post("/api/admin/bulk-onboard-students", async (req, res) => {
           dept: branch,
           department: branch,
           year,
+          semester,
           subjects,
           role: "Student",
           contactEmail: contactEmail || "",
@@ -1359,6 +1455,7 @@ app.post("/api/admin/bulk-onboard-students", async (req, res) => {
           dept: branch,
           department: branch,
           year,
+          semester,
           subjects,
           role: "Student",
           contactEmail: contactEmail || "",
@@ -1394,6 +1491,7 @@ app.post("/api/admin/bulk-onboard-students", async (req, res) => {
               phone,
               branch,
               year,
+              semester,
               contactEmail,
               loginId: prn,
               systemEmail: authEmail,
@@ -1408,6 +1506,7 @@ app.post("/api/admin/bulk-onboard-students", async (req, res) => {
             phone,
             branch,
             year,
+            semester,
             contactEmail: "",
             loginId: prn,
             systemEmail: authEmail,
@@ -1454,6 +1553,149 @@ app.post("/api/admin/bulk-onboard-students", async (req, res) => {
         failedEntries,
         manualCredentialEntries,
         duplicateStrategy,
+      },
+    });
+  } catch (error) {
+    const status = /authorized|token/i.test(error.message) ? 403 : 500;
+    res.status(status).json({ message: error.message });
+  }
+});
+
+app.post("/api/admin/bulk-update-student-academics", async (req, res) => {
+  try {
+    await verifyAdminFromRequest(req);
+
+    const { updates } = req.body;
+    if (!Array.isArray(updates) || updates.length === 0) {
+      return res.status(400).json({ message: "No update rows provided" });
+    }
+
+    const firestore = admin.firestore();
+    const subjectSets = await getSubjectSetsMap();
+    const existingByPrn = await buildExistingStudentIndex(firestore);
+
+    const updatedEntries = [];
+    const notFoundEntries = [];
+    const failedEntries = [];
+
+    for (const rawUpdate of updates) {
+      const prn = String(rawUpdate.prn || "")
+        .trim()
+        .toUpperCase();
+      const inputYear = normalizeYear(rawUpdate.year || "");
+      const inputSemester = normalizeSemester(rawUpdate.semester || "");
+
+      if (!prn) {
+        failedEntries.push({
+          prn: "",
+          reason: "Missing PRN",
+        });
+        continue;
+      }
+
+      if (!existingByPrn.has(prn)) {
+        notFoundEntries.push({ prn, reason: "Student not found" });
+        continue;
+      }
+
+      try {
+        const existing = existingByPrn.get(prn);
+        const targetUid =
+          existing.uid || existing.userDocId || existing.studentDocId || "";
+
+        let currentUserData = {};
+        let currentStudentData = {};
+
+        if (existing.userDocId || targetUid) {
+          const userDoc = await firestore
+            .collection("users")
+            .doc(existing.userDocId || targetUid)
+            .get();
+          currentUserData = userDoc.exists ? userDoc.data() : {};
+        }
+
+        if (existing.studentDocId || targetUid) {
+          const studentDoc = await firestore
+            .collection("students")
+            .doc(existing.studentDocId || targetUid)
+            .get();
+          currentStudentData = studentDoc.exists ? studentDoc.data() : {};
+        }
+
+        const mergedData = { ...currentStudentData, ...currentUserData };
+        const branch = normalizeBranch(
+          mergedData.dept || mergedData.department || rawUpdate.branch || "",
+        );
+        const year = inputYear || normalizeYear(mergedData.year || "");
+        const semester =
+          inputSemester || normalizeSemester(mergedData.semester || "");
+
+        if (!branch || !year || !semester) {
+          failedEntries.push({
+            prn,
+            reason: "Missing branch/year/semester to update",
+          });
+          continue;
+        }
+
+        const subjects = subjectSets?.[branch]?.[year]?.[semester] || [];
+        if (subjects.length === 0) {
+          failedEntries.push({
+            prn,
+            reason: "No subject set configured for branch/year/semester",
+          });
+          continue;
+        }
+
+        const academicUpdatePayload = {
+          year,
+          semester,
+          dept: branch,
+          department: branch,
+          subjects,
+          updatedAt: new Date().toISOString(),
+          onboardingSource: "bulk_academic_update",
+        };
+
+        if (existing.userDocId || targetUid) {
+          await firestore
+            .collection("users")
+            .doc(existing.userDocId || targetUid)
+            .set(academicUpdatePayload, { merge: true });
+        }
+
+        if (existing.studentDocId || targetUid) {
+          await firestore
+            .collection("students")
+            .doc(existing.studentDocId || targetUid)
+            .set(academicUpdatePayload, { merge: true });
+        }
+
+        updatedEntries.push({
+          prn,
+          year,
+          semester,
+          branch,
+          subjectCount: subjects.length,
+        });
+      } catch (rowError) {
+        failedEntries.push({
+          prn,
+          reason: rowError.message,
+        });
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      summary: {
+        totalRows: updates.length,
+        updatedCount: updatedEntries.length,
+        notFoundCount: notFoundEntries.length,
+        failedCount: failedEntries.length,
+        updatedEntries,
+        notFoundEntries,
+        failedEntries,
       },
     });
   } catch (error) {

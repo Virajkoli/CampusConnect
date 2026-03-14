@@ -30,7 +30,10 @@ function AdminRoute({ children }) {
   const isManagementPage =
     location.pathname.includes("/admin/usermanagement") ||
     location.pathname.includes("/admin/teachermanagement") ||
-    location.pathname.includes("/admin/announcements");
+    location.pathname.includes("/admin/announcements") ||
+    location.pathname.includes("/admin/upload-students") ||
+    location.pathname.includes("/admin/subject-sets") ||
+    location.pathname.includes("/admin/bulk-academic-update");
 
   // Show loading state only if we're not on a management page
   if ((loading || checking) && !isManagementPage) {

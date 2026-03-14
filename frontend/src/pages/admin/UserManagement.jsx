@@ -11,7 +11,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import Button from "../../components/common/Button";
 import { firestore, auth } from "../../firebase";
-import { FiRefreshCw, FiArrowLeft } from "react-icons/fi";
+import { FiRefreshCw, FiArrowLeft, FiEdit3 } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 
 const roles = ["Student"];
@@ -433,6 +433,13 @@ const UserManagement = () => {
           className="w-full sm:w-auto"
         >
           {showForm ? "Close" : "Add User"}
+        </Button>
+        <Button
+          onClick={() => navigate("/admin/bulk-academic-update")}
+          className="w-full sm:w-auto flex items-center justify-center gap-2"
+        >
+          <FiEdit3 className="w-4 h-4" />
+          <span>Bulk Academic Update</span>
         </Button>
       </div>
 

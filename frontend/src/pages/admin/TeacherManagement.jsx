@@ -16,6 +16,7 @@ import {
   BRANCHES as departments,
   YEARS as years,
   DEFAULT_SUBJECT_SETS as subjectsList,
+  getSubjectsForBranchYear,
 } from "../../utils/branchYearSubjects";
 
 const TeacherManagement = () => {
@@ -177,7 +178,7 @@ const TeacherManagement = () => {
 
   const getAvailableSubjects = () => {
     if (formData.dept && currentYear) {
-      return subjectsList[formData.dept]?.[currentYear] || [];
+      return getSubjectsForBranchYear(subjectsList, formData.dept, currentYear);
     }
     return [];
   };

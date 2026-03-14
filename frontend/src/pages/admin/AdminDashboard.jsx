@@ -33,6 +33,7 @@ import {
   FiX,
   FiUpload,
   FiLayers,
+  FiEdit3,
 } from "react-icons/fi";
 import { FaEnvelope, FaPhoneAlt } from "react-icons/fa";
 import CalendarComponent from "../../components/common/CalendarComponent";
@@ -662,6 +663,14 @@ export default function AdminDashboard() {
                   itemOnClick={() => setIsMobileSidebarOpen(false)}
                 />
                 <SidebarItem
+                  icon={<FiEdit3 />}
+                  label="Bulk Academic Update"
+                  path="/admin/bulk-academic-update"
+                  isOpen={true}
+                  color="blue"
+                  itemOnClick={() => setIsMobileSidebarOpen(false)}
+                />
+                <SidebarItem
                   icon={<FiBell />}
                   label="Notifications"
                   path="/admin/announcements"
@@ -793,6 +802,13 @@ export default function AdminDashboard() {
               path="/admin/upload-students"
               isOpen={isOpen}
               color="amber"
+            />
+            <SidebarItem
+              icon={<FiEdit3 />}
+              label="Bulk Academic Update"
+              path="/admin/bulk-academic-update"
+              isOpen={isOpen}
+              color="blue"
             />
 
             <div className="px-3 my-3">
@@ -1053,6 +1069,13 @@ export default function AdminDashboard() {
                       icon={<FiBell />}
                       label="Announcements"
                       bgColor="from-pink-500 to-pink-600"
+                    />
+                    <NavLink
+                      to="/admin/bulk-academic-update"
+                      active={false}
+                      icon={<FiEdit3 />}
+                      label="Bulk Update"
+                      bgColor="from-cyan-500 to-cyan-600"
                     />
                   </nav>
                 </div>

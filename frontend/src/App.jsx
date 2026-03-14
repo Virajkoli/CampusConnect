@@ -35,6 +35,7 @@ import TeacherDashboard from "./pages/teacher/TeacherDashboard";
 import TeacherManagement from "./pages/admin/TeacherManagement";
 import SubjectSetManagement from "./pages/admin/SubjectSetManagement";
 import BulkStudentOnboarding from "./pages/admin/BulkStudentOnboarding";
+import BulkAcademicUpdate from "./pages/admin/BulkAcademicUpdate";
 import TeacherCourses from "./pages/teacher/TeacherCourses";
 import AnnouncementManagement from "./pages/admin/AnnouncementManagement";
 import StudyMaterials from "./pages/common/StudyMaterials";
@@ -222,6 +223,14 @@ function AppContent() {
           element={
             <AdminRoute>
               <BulkStudentOnboarding />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/bulk-academic-update"
+          element={
+            <AdminRoute>
+              <BulkAcademicUpdate />
             </AdminRoute>
           }
         />

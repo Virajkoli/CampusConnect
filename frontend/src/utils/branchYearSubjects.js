@@ -8,8 +8,9 @@ export const BRANCHES = [
 ];
 
 export const YEARS = ["1st", "2nd", "3rd", "4th"];
+export const SEMESTERS = ["1", "2"];
 
-export const DEFAULT_SUBJECT_SETS = {
+const LEGACY_DEFAULT_SUBJECT_SETS = {
   "Computer Engineering": {
     "1st": [
       "Introduction to Programming",
@@ -190,4 +191,40 @@ export const DEFAULT_SUBJECT_SETS = {
       "Automation",
     ],
   },
+};
+
+const splitYearSubjectsBySemester = (subjects = []) => {
+  const midpoint = Math.ceil(subjects.length / 2);
+  return {
+    1: subjects.slice(0, midpoint),
+    2: subjects.slice(midpoint),
+  };
+};
+
+export const DEFAULT_SUBJECT_SETS = Object.fromEntries(
+  Object.entries(LEGACY_DEFAULT_SUBJECT_SETS).map(([branch, yearsMap]) => {
+    const semesterWiseYears = Object.fromEntries(
+      Object.entries(yearsMap).map(([year, subjects]) => {
+        return [year, splitYearSubjectsBySemester(subjects)];
+      }),
+    );
+
+    return [branch, semesterWiseYears];
+  }),
+);
+
+export const getSubjectsForBranchYearSemester = (
+  subjectSets,
+  branch,
+  year,
+  semester,
+) => {
+  return subjectSets?.[branch]?.[year]?.[semester] || [];
+};
+
+export const getSubjectsForBranchYear = (subjectSets, branch, year) => {
+  const semMap = subjectSets?.[branch]?.[year] || {};
+  const sem1 = semMap?.["1"] || [];
+  const sem2 = semMap?.["2"] || [];
+  return [...sem1, ...sem2];
 };

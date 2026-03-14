@@ -33,6 +33,7 @@ export default function BulkStudentOnboarding() {
       "phone",
       "branch",
       "year",
+      "semester",
       "contactEmail",
       "loginId",
       "systemEmail",
@@ -78,7 +79,7 @@ export default function BulkStudentOnboarding() {
     setSummary(null);
     setPrecheck(null);
     if (!file) {
-      setError("Please choose a PDF or image file");
+      setError("Please choose a CSV, PDF, or image file");
       return;
     }
 
@@ -233,7 +234,7 @@ export default function BulkStudentOnboarding() {
           <p className="text-gray-600">
             Upload final admission list (CSV/PDF/image), parse with OCR or CSV
             parser, validate entries, and auto-create student accounts with
-            branch/year subject assignment.
+            branch/year/semester subject assignment.
           </p>
         </div>
 
@@ -262,7 +263,7 @@ export default function BulkStudentOnboarding() {
               />
               <p className="text-xs text-gray-500 mt-2">
                 Recommended: CSV with columns Name, PRN, Mobile, Branch, Year,
-                Email. PDF/image parsing depends on document clarity.
+                Semester, Email. PDF/image parsing depends on document clarity.
               </p>
             </div>
             <div>
@@ -334,6 +335,7 @@ export default function BulkStudentOnboarding() {
                     <th className="text-left p-2 border-b">Phone</th>
                     <th className="text-left p-2 border-b">Branch</th>
                     <th className="text-left p-2 border-b">Year</th>
+                    <th className="text-left p-2 border-b">Semester</th>
                     <th className="text-left p-2 border-b">Contact Email</th>
                     <th className="text-left p-2 border-b">Status</th>
                   </tr>
@@ -351,6 +353,7 @@ export default function BulkStudentOnboarding() {
                         <td className="p-2">{entry.phone || "-"}</td>
                         <td className="p-2">{entry.branch || "-"}</td>
                         <td className="p-2">{entry.year || "-"}</td>
+                        <td className="p-2">{entry.semester || "-"}</td>
                         <td className="p-2">{entry.email || "-"}</td>
                         <td className="p-2">
                           {hasErrors ? (
@@ -492,6 +495,7 @@ export default function BulkStudentOnboarding() {
                     <tr>
                       <th className="text-left p-2 border-b">Name</th>
                       <th className="text-left p-2 border-b">PRN</th>
+                      <th className="text-left p-2 border-b">Semester</th>
                       <th className="text-left p-2 border-b">Login ID</th>
                       <th className="text-left p-2 border-b">System Email</th>
                       <th className="text-left p-2 border-b">Password</th>
@@ -506,6 +510,7 @@ export default function BulkStudentOnboarding() {
                       >
                         <td className="p-2">{entry.name || "-"}</td>
                         <td className="p-2">{entry.prn || "-"}</td>
+                        <td className="p-2">{entry.semester || "-"}</td>
                         <td className="p-2">{entry.loginId || "-"}</td>
                         <td className="p-2">{entry.systemEmail || "-"}</td>
                         <td className="p-2">{entry.password || "-"}</td>
