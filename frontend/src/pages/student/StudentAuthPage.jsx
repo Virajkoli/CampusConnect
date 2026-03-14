@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { signUpWithEmailPassword, loginWithEmailPassword } from "../../firebase";
+import {
+  signUpWithEmailPassword,
+  loginWithEmailPassword,
+} from "../../firebase";
 import { useNavigate } from "react-router-dom";
 
 export default function AuthPage() {
@@ -31,13 +34,13 @@ export default function AuthPage() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 1 }}
-      className="h-screen flex items-center justify-center bg-gradient-to-br from-purple-600 to-blue-500"
+      className="min-h-screen px-4 py-8 flex items-center justify-center bg-gradient-to-br from-purple-600 to-blue-500"
     >
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.6, type: "spring", stiffness: 100 }}
-        className="bg-white/60 rounded-2xl shadow-2xl p-8 w-full max-w-md backdrop-blur-md"
+        className="bg-white/60 rounded-2xl shadow-2xl p-6 sm:p-8 w-full max-w-md backdrop-blur-md"
       >
         <div className="flex justify-center mb-6">
           <motion.button

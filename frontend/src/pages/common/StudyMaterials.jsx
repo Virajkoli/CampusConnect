@@ -48,7 +48,7 @@ const StudyMaterials = () => {
           // Check if user is a teacher
           const teacherQuery = query(
             collection(db, "teachers"),
-            where("uid", "==", user.uid)
+            where("uid", "==", user.uid),
           );
           const teacherSnapshot = await getDocs(teacherQuery);
           const isUserTeacher = !teacherSnapshot.empty;
@@ -62,7 +62,7 @@ const StudyMaterials = () => {
             // Get student department
             const studentQuery = query(
               collection(db, "students"),
-              where("uid", "==", user.uid)
+              where("uid", "==", user.uid),
             );
             const studentSnapshot = await getDocs(studentQuery);
             if (!studentSnapshot.empty) {
@@ -218,20 +218,20 @@ const StudyMaterials = () => {
           collection(db, "studyMaterials"),
           where("department", "==", selectedBranch),
           where("subject", "==", selectedSubject),
-          orderBy("createdAt", "desc")
+          orderBy("createdAt", "desc"),
         );
       } else if (selectedBranch) {
         // Filter by branch only
         materialsQuery = query(
           collection(db, "studyMaterials"),
           where("department", "==", selectedBranch),
-          orderBy("createdAt", "desc")
+          orderBy("createdAt", "desc"),
         );
       } else {
         // No filter, get all materials
         materialsQuery = query(
           collection(db, "studyMaterials"),
-          orderBy("createdAt", "desc")
+          orderBy("createdAt", "desc"),
         );
       }
 
@@ -273,13 +273,13 @@ const StudyMaterials = () => {
       if (cloudinaryPublicId) {
         await axios.delete(
           `${API_URL}/api/delete-material/${encodeURIComponent(
-            cloudinaryPublicId
+            cloudinaryPublicId,
           )}`,
           {
             headers: {
               Authorization: `Bearer ${idToken}`,
             },
-          }
+          },
         );
       }
 
@@ -293,7 +293,7 @@ const StudyMaterials = () => {
       console.error("Error deleting material:", error);
       toast.error(
         "Failed to delete material: " +
-          (error.response?.data?.message || error.message)
+          (error.response?.data?.message || error.message),
       );
     }
   };
@@ -339,7 +339,7 @@ const StudyMaterials = () => {
           .includes(searchQuery.toLowerCase())) ||
       (material.subject &&
         material.subject.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      material.uploadedByName.toLowerCase().includes(searchQuery.toLowerCase())
+      material.uploadedByName.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   // Function to handle file download with better UX
@@ -364,7 +364,7 @@ const StudyMaterials = () => {
   };
 
   return (
-    <div className="container m-6 px-4 py-8">
+    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
       <button
         onClick={() =>
           navigate(isTeacher ? "/teacher-dashboard" : "/student-dashboard")
@@ -374,7 +374,7 @@ const StudyMaterials = () => {
         <FiArrowLeft className="mr-2" />
         Go Back
       </button>
-      <h1 className="text-3xl font-bold mb-6">Study Materials</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold mb-6">Study Materials</h1>
 
       {/* Filter section */}
       <div className="bg-gray-50 p-4 rounded-lg mb-6">
@@ -477,12 +477,12 @@ const StudyMaterials = () => {
             {searchQuery
               ? "No materials found matching your search."
               : selectedSubject
-              ? `No materials available for ${selectedSubject} in ${
-                  selectedBranch || "any department"
-                }.`
-              : selectedBranch
-              ? `No materials available for ${selectedBranch}.`
-              : "No materials available for this course yet."}
+                ? `No materials available for ${selectedSubject} in ${
+                    selectedBranch || "any department"
+                  }.`
+                : selectedBranch
+                  ? `No materials available for ${selectedBranch}.`
+                  : "No materials available for this course yet."}
           </p>
         </div>
       ) : (
@@ -490,7 +490,7 @@ const StudyMaterials = () => {
           {filteredMaterials.map((material) => (
             <div
               key={material.id}
-              className="bg-white p-4 rounded-lg shadow-md hover:shadow-lg transition-shadow"
+              className="w-full bg-white p-4 rounded-lg shadow-md hover:shadow-lg transition-shadow"
             >
               <div className="flex items-center justify-between mb-3">
                 <span className="text-2xl">

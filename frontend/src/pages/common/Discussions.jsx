@@ -84,7 +84,7 @@ function Discussions() {
     try {
       const teachersQuery = query(
         collection(firestore, "teachers"),
-        where("dept", "==", branch)
+        where("dept", "==", branch),
       );
       const snapshot = await getDocs(teachersQuery);
       const teacherList = snapshot.docs.map((doc) => ({
@@ -118,7 +118,7 @@ function Discussions() {
   const filteredTeachers = teachers.filter(
     (teacher) =>
       teacher.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      teacher.email.toLowerCase().includes(searchTerm.toLowerCase())
+      teacher.email.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   return (
@@ -136,7 +136,7 @@ function Discussions() {
         ></div>
       </div>
 
-      <div className="relative z-10 p-6 max-w-7xl mx-auto">
+      <div className="relative z-10 px-3 sm:px-6 py-6 max-w-7xl mx-auto">
         {/* Back Button */}
         <motion.button
           initial={{ opacity: 0, x: -20 }}
@@ -183,7 +183,7 @@ function Discussions() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-gray-100 max-w-5xl mx-auto"
+          className="bg-white/80 backdrop-blur-xl p-4 sm:p-8 rounded-3xl shadow-2xl border border-gray-100 max-w-5xl mx-auto"
         >
           {/* Department Selection */}
           <div className="mb-8">
@@ -287,7 +287,7 @@ function Discussions() {
                         {/* Gradient Overlay on Hover */}
                         <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
 
-                        <div className="relative z-10 flex items-center gap-6">
+                        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
                           {/* Avatar */}
                           <motion.div
                             whileHover={{ rotate: 360, scale: 1.1 }}
@@ -301,13 +301,15 @@ function Discussions() {
                           </motion.div>
 
                           {/* Teacher Info */}
-                          <div className="flex-1">
+                          <div className="flex-1 min-w-0">
                             <h3 className="text-xl font-bold text-gray-800 mb-1 group-hover:text-purple-600 transition-colors">
                               {teacher.name}
                             </h3>
                             <div className="flex items-center gap-2 text-gray-600 mb-2">
                               <FiMail className="text-sm" />
-                              <p className="text-sm">{teacher.email}</p>
+                              <p className="text-sm break-all">
+                                {teacher.email}
+                              </p>
                             </div>
                             <div className="flex items-center gap-2 text-gray-500">
                               <FiBookOpen className="text-sm" />
@@ -320,7 +322,7 @@ function Discussions() {
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => handleChatInitiation(teacher)}
-                            className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center gap-3 group-hover:from-purple-600 group-hover:to-pink-600"
+                            className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3 group-hover:from-purple-600 group-hover:to-pink-600"
                           >
                             <FiMessageCircle className="text-xl" />
                             <span>Start Chat</span>
@@ -389,7 +391,7 @@ function Discussions() {
                   </p>
 
                   {/* Quick Stats */}
-                  <div className="grid grid-cols-3 gap-4 max-w-2xl mx-auto mt-8">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto mt-8">
                     <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-2xl">
                       <FaComments className="text-3xl text-blue-600 mx-auto mb-2" />
                       <p className="text-sm font-semibold text-blue-800">

@@ -39,8 +39,11 @@ export default function ResetConfirm() {
   };
 
   return (
-    <div className="flex items-center justify-center h-screen bg-gray-200">
-      <form onSubmit={handleReset} className="bg-white p-8 rounded-lg shadow-md w-96 space-y-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-200 px-4 py-8">
+      <form
+        onSubmit={handleReset}
+        className="bg-white p-6 sm:p-8 rounded-lg shadow-md w-full max-w-md space-y-4"
+      >
         <h2 className="text-xl font-bold text-center">Reset Your Password</h2>
         {message && <p className="text-green-600 text-center">{message}</p>}
         {error && <p className="text-red-600 text-center">{error}</p>}

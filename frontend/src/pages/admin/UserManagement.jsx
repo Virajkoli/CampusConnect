@@ -103,7 +103,7 @@ const UserManagement = () => {
       (user) =>
         user.name?.toLowerCase()?.includes(search.toLowerCase()) ||
         user.rollNo?.includes(search) ||
-        user.email?.toLowerCase()?.includes(search.toLowerCase())
+        user.email?.toLowerCase()?.includes(search.toLowerCase()),
     );
     setFilteredUsers(filtered);
   }, [search, users]);
@@ -163,7 +163,7 @@ const UserManagement = () => {
           }
 
           setError(
-            "Warning: User not found in database. Changes may not be saved."
+            "Warning: User not found in database. Changes may not be saved.",
           );
         }
       })
@@ -193,7 +193,7 @@ const UserManagement = () => {
         !formData.semester
       ) {
         throw new Error(
-          "Please fill all required fields including year and semester."
+          "Please fill all required fields including year and semester.",
         );
       }
 
@@ -244,7 +244,7 @@ const UserManagement = () => {
               year: formData.year,
               semester: formData.semester,
             }),
-          }
+          },
         );
 
         const data = await response.json();
@@ -300,11 +300,11 @@ const UserManagement = () => {
 
         if (!userDoc.exists()) {
           console.log(
-            "Document doesn't exist in Firestore, removing from UI only"
+            "Document doesn't exist in Firestore, removing from UI only",
           );
           setUsers((prevUsers) => prevUsers.filter((u) => u.id !== id));
           setFilteredUsers((prevFiltered) =>
-            prevFiltered.filter((u) => u.id !== id)
+            prevFiltered.filter((u) => u.id !== id),
           );
           setSuccess("User removed from UI (was not found in database)");
           return;
@@ -322,7 +322,7 @@ const UserManagement = () => {
           try {
             console.log(
               "Attempting to delete from Firebase Auth with UID:",
-              userData.uid
+              userData.uid,
             );
             const response = await fetch(
               `${
@@ -334,33 +334,33 @@ const UserManagement = () => {
                   "Content-Type": "application/json",
                 },
                 body: JSON.stringify({ uid: userData.uid }),
-              }
+              },
             );
 
             if (!response.ok) {
               const errorData = await response.json();
               console.warn(
                 "Could not delete from Firebase Auth:",
-                errorData.error || "API endpoint not available"
+                errorData.error || "API endpoint not available",
               );
               setError(
-                "User deleted from Firestore but could not delete from Firebase Auth"
+                "User deleted from Firestore but could not delete from Firebase Auth",
               );
             } else {
               console.log("Successfully deleted from Firebase Auth");
               setSuccess(
-                "User deleted successfully from both Firestore and Firebase Auth!"
+                "User deleted successfully from both Firestore and Firebase Auth!",
               );
             }
           } catch (authError) {
             console.warn("Could not connect to delete API:", authError.message);
             setError(
-              "User deleted from Firestore but could not connect to Firebase Auth API"
+              "User deleted from Firestore but could not connect to Firebase Auth API",
             );
           }
         } else {
           console.warn(
-            "No UID found in user document, skipping Firebase Auth deletion"
+            "No UID found in user document, skipping Firebase Auth deletion",
           );
           setSuccess("User deleted successfully from Firestore!");
         }
@@ -368,7 +368,7 @@ const UserManagement = () => {
         // Update UI state
         setUsers((prevUsers) => prevUsers.filter((u) => u.id !== id));
         setFilteredUsers((prevFiltered) =>
-          prevFiltered.filter((u) => u.id !== id)
+          prevFiltered.filter((u) => u.id !== id),
         );
 
         // Force a refresh of the data from Firestore
@@ -385,13 +385,13 @@ const UserManagement = () => {
   // Group users by department for department-wise cards
   const usersByDept = departments.reduce((acc, dept) => {
     acc[dept] = filteredUsers.filter(
-      (u) => (u.dept || "").trim().toLowerCase() === dept.trim().toLowerCase()
+      (u) => (u.dept || "").trim().toLowerCase() === dept.trim().toLowerCase(),
     );
     return acc;
   }, {});
 
   return (
-    <div className="p-6 mt-20">
+    <div className="px-4 sm:px-6 py-6 mt-12 sm:mt-16">
       <div className="mb-4">
         <button
           onClick={() => navigate("/admin-dashboard")}
@@ -414,12 +414,12 @@ const UserManagement = () => {
         </div>
       )}
 
-      <div className="flex justify-between items-center mb-4">
-        <div className="flex items-center space-x-4">
+      <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3 mb-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full">
           <input
             type="text"
             placeholder="Search by name, email, or roll number"
-            className="border px-3 py-2 w-1/2 rounded shadow"
+            className="border px-3 py-2 w-full sm:w-1/2 rounded shadow"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -428,7 +428,10 @@ const UserManagement = () => {
             <span>Refresh</span>
           </Button>
         </div>
-        <Button onClick={() => setShowForm(!showForm)}>
+        <Button
+          onClick={() => setShowForm(!showForm)}
+          className="w-full sm:w-auto"
+        >
           {showForm ? "Close" : "Add User"}
         </Button>
       </div>
@@ -441,7 +444,7 @@ const UserManagement = () => {
             exit={{ opacity: 0, y: -20 }}
             className="bg-white p-4 rounded shadow mb-6"
           >
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {["name", "email", "rollNo"].map((field) => (
                 <input
                   key={field}
@@ -525,8 +528,8 @@ const UserManagement = () => {
                 {isLoading
                   ? "Processing..."
                   : isEditing
-                  ? "Update User"
-                  : "Add User"}
+                    ? "Update User"
+                    : "Add User"}
               </Button>
             </div>
           </motion.div>
@@ -557,7 +560,7 @@ const UserManagement = () => {
               </p>
             ) : (
               <div className="overflow-x-auto rounded-lg border border-gray-100">
-                <table className="min-w-full text-sm divide-y divide-gray-100">
+                <table className="min-w-[640px] w-full text-sm divide-y divide-gray-100">
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="p-2 text-left font-semibold text-gray-600">

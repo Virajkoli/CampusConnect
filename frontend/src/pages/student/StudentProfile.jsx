@@ -21,10 +21,9 @@ const StudentProfile = ({ userData }) => {
     navigate("/login");
   };
 
-
   //Initial transitions need to be added rather than typical one.
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 py-8 sm:py-12 px-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -52,7 +51,7 @@ const StudentProfile = ({ userData }) => {
           </div>
 
           {/* Profile Info */}
-          <div className="px-8 pb-8 -mt-16 relative">
+          <div className="px-4 sm:px-8 pb-6 sm:pb-8 -mt-16 relative">
             <div className="flex flex-col md:flex-row items-center md:items-end gap-6">
               {/* Avatar with Ring */}
               <motion.div whileHover={{ scale: 1.05 }} className="relative">
@@ -89,12 +88,12 @@ const StudentProfile = ({ userData }) => {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-3">
+              <div className="flex w-full md:w-auto gap-3">
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => navigate("/edit-profile")}
-                  className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+                  className="w-full md:w-auto px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
                 >
                   <FiEdit className="w-4 h-4" />
                   Edit Profile
@@ -137,7 +136,7 @@ const StudentProfile = ({ userData }) => {
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl text-center">
                   <div className="text-gray-600 text-sm mb-1">Year</div>
                   <div className="text-2xl font-bold text-blue-600">

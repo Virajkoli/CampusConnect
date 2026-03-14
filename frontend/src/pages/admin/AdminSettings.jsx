@@ -42,7 +42,7 @@ const AdminSettings = () => {
   ];
 
   return (
-    <div className="bg-gray-50 min-h-screen p-6">
+    <div className="bg-gray-50 min-h-screen p-4 sm:p-6">
       <button
         onClick={() => navigate("/admin-dashboard")}
         className="flex items-center my-4 text-red-600 hover:text-green-800 transition-colors"
@@ -75,9 +75,9 @@ const AdminSettings = () => {
             initial={{ x: -20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ duration: 0.4 }}
-            className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 h-fit"
+            className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4 h-fit"
           >
-            <nav>
+            <nav className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 gap-2 md:gap-0">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
@@ -100,7 +100,7 @@ const AdminSettings = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 col-span-1 md:col-span-3"
+            className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 col-span-1 md:col-span-3"
           >
             {isLoading ? (
               <div className="flex justify-center py-10">

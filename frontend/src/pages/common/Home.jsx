@@ -85,7 +85,7 @@ function Home() {
 
           <motion.h1
             variants={fadeInUp}
-            className="text-6xl md:text-8xl font-extrabold mb-6 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent"
+            className="text-4xl sm:text-6xl md:text-8xl font-extrabold mb-6 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent"
           >
             CampusConnect
           </motion.h1>

@@ -29,6 +29,8 @@ import {
   FiCreditCard,
   FiSettings,
   FiActivity,
+  FiMenu,
+  FiX,
 } from "react-icons/fi";
 import { FaEnvelope, FaPhoneAlt } from "react-icons/fa";
 import CalendarComponent from "../../components/common/CalendarComponent";
@@ -42,6 +44,7 @@ function SidebarItem({
   active,
   color = "blue",
   onClick,
+  itemOnClick,
 }) {
   const navigate = useNavigate();
 
@@ -101,6 +104,7 @@ function SidebarItem({
       {path && !onClick ? (
         <Link
           to={path}
+          onClick={itemOnClick}
           className={`w-full flex items-center py-3 px-2 rounded-lg ${
             active
               ? `${colorStyle.text} font-medium bg-opacity-80`
@@ -389,7 +393,8 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [error, setError] = useState("");
   const [isOpen, setIsOpen] = useState(true);
-  const [searchTerm] = useState("");
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [lastLoginTime, setLastLoginTime] = useState("");
   const dropdownRef = useRef(null);
@@ -590,10 +595,96 @@ export default function AdminDashboard() {
   return (
     <>
       <style>{styles}</style>
-      <div className=" rounded-full min-h-screen  bg-gray-50 text-gray-800 flex">
+      <div className="min-h-screen bg-gray-50 text-gray-800 flex">
+        {isMobileSidebarOpen && (
+          <div
+            className="lg:hidden fixed inset-0 z-40 bg-black/40"
+            onClick={() => setIsMobileSidebarOpen(false)}
+          >
+            <aside
+              className="fixed left-0 top-0 w-72 max-w-[85vw] h-full bg-white shadow-lg text-gray-800 border-r border-gray-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+                <h2 className="text-lg font-bold text-indigo-700">
+                  CampusConnect
+                </h2>
+                <button
+                  onClick={() => setIsMobileSidebarOpen(false)}
+                  className="p-2 rounded-md hover:bg-gray-100"
+                  aria-label="Close mobile sidebar"
+                >
+                  <FiX className="h-5 w-5" />
+                </button>
+              </div>
+              <nav className="py-4">
+                <SidebarItem
+                  icon={<FiHome />}
+                  label="Dashboard"
+                  path="/admin/dashboard"
+                  isOpen={true}
+                  active={true}
+                  color="blue"
+                  itemOnClick={() => setIsMobileSidebarOpen(false)}
+                />
+                <SidebarItem
+                  icon={<FiUsers />}
+                  label="Students"
+                  path="/admin/usermanagement"
+                  isOpen={true}
+                  color="purple"
+                  itemOnClick={() => setIsMobileSidebarOpen(false)}
+                />
+                <SidebarItem
+                  icon={<FiUser />}
+                  label="Teachers"
+                  path="/admin/teachermanagement"
+                  isOpen={true}
+                  color="green"
+                  itemOnClick={() => setIsMobileSidebarOpen(false)}
+                />
+                <SidebarItem
+                  icon={<FiBell />}
+                  label="Notifications"
+                  path="/admin/announcements"
+                  isOpen={true}
+                  color="purple"
+                  itemOnClick={() => setIsMobileSidebarOpen(false)}
+                />
+                <SidebarItem
+                  icon={<FiCalendar />}
+                  label="Exam Timetable"
+                  path="/admin/exam-timetable"
+                  isOpen={true}
+                  color="green"
+                  itemOnClick={() => setIsMobileSidebarOpen(false)}
+                />
+                <SidebarItem
+                  icon={<FiSettings />}
+                  label="Settings"
+                  path="/admin/settings"
+                  isOpen={true}
+                  color="amber"
+                  itemOnClick={() => setIsMobileSidebarOpen(false)}
+                />
+                <SidebarItem
+                  icon={<FiLogOut />}
+                  label="Logout"
+                  isOpen={true}
+                  color="red"
+                  onClick={() => {
+                    setIsMobileSidebarOpen(false);
+                    handleLogout();
+                  }}
+                />
+              </nav>
+            </aside>
+          </div>
+        )}
+
         {/* Sidebar */}
         <motion.aside
-          className="bg-white shadow-lg text-gray-800 flex flex-col h-screen sticky top-0 z-10 border-r border-gray-200"
+          className="hidden lg:flex bg-white shadow-lg text-gray-800 flex-col h-screen sticky top-0 z-10 border-r border-gray-200"
           variants={sidebarVariants}
           animate={isOpen ? "open" : "closed"}
         >
@@ -736,6 +827,13 @@ export default function AdminDashboard() {
               <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                 {/* Left Side - Logo & Title */}
                 <div className="flex items-center w-full md:w-auto justify-center md:justify-start">
+                  <button
+                    onClick={() => setIsMobileSidebarOpen(true)}
+                    className="lg:hidden mr-3 p-2 rounded-lg bg-white/20 text-white"
+                    aria-label="Open mobile sidebar"
+                  >
+                    <FiMenu className="h-5 w-5" />
+                  </button>
                   <motion.div
                     className="bg-white/20 backdrop-blur-sm p-2 rounded-lg mr-3 text-white"
                     whileHover={{ rotate: 5, scale: 1.1 }}
@@ -893,7 +991,7 @@ export default function AdminDashboard() {
               </div>
 
               {/* Lower Navbar - Navigation Links */}
-              <div className="flex flex-col md:flex-row justify-between gap-2 md:items-center mt-4 pt-2 border-t border-white/10">
+              <div className="hidden lg:flex flex-col md:flex-row justify-between gap-2 md:items-center mt-4 pt-2 border-t border-white/10">
                 <div className="w-full overflow-x-auto scrollbar-hide">
                   <nav className="flex space-x-2 pb-1 min-w-max">
                     <NavLink
@@ -938,7 +1036,7 @@ export default function AdminDashboard() {
           </motion.div>
 
           {/* Dashboard Content */}
-          <div className=" rounded-full container mx-auto px-4 py-6">
+          <div className="container mx-auto px-3 sm:px-4 py-6">
             {/* Welcome Banner */}
             <motion.div
               className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-md p-6 mb-8 text-white overflow-hidden relative"
@@ -963,9 +1061,9 @@ export default function AdminDashboard() {
                   ease: "easeInOut",
                 }}
               />
-              <div className="flex items-center justify-between relative z-10">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 relative z-10">
                 <div>
-                  <h2 className="text-2xl font-bold mb-2">
+                  <h2 className="text-xl sm:text-2xl font-bold mb-2">
                     Welcome to Admin Dashboard
                   </h2>
                   <p className="opacity-90">

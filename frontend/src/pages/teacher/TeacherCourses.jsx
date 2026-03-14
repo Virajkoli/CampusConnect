@@ -35,8 +35,8 @@ export default function TeacherCourses() {
             const subjects = Array.isArray(data.subjects)
               ? data.subjects
               : typeof data.subjects === "string"
-              ? [data.subjects]
-              : [];
+                ? [data.subjects]
+                : [];
 
             if (year && subjects.length > 0) {
               setAssignedCourses([{ year, subjects }]);
@@ -65,7 +65,7 @@ export default function TeacherCourses() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-blue-50 to-white p-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-blue-50 to-white px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
       <button
         onClick={() => navigate("/teacher-dashboard")}
         className="flex items-center my-4 text-red-600 hover:text-green-800 transition-colors"
@@ -74,8 +74,8 @@ export default function TeacherCourses() {
         Go Back
       </button>
       <div className="max-w-5xl mx-auto">
-        <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
-          <h1 className="text-3xl font-bold text-center text-blue-800 mb-2">
+        <div className="bg-white rounded-xl shadow-lg p-5 sm:p-8 mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-center text-blue-800 mb-2">
             Your Teaching Dashboard
           </h1>
           <p className="text-center text-gray-600 mb-6">
@@ -105,7 +105,7 @@ export default function TeacherCourses() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.1 }}
                     className={`rounded-lg shadow-md overflow-hidden bg-gradient-to-r ${getYearColor(
-                      course.year
+                      course.year,
                     )}`}
                   >
                     <div className="p-6">
@@ -145,7 +145,7 @@ export default function TeacherCourses() {
             You have{" "}
             {assignedCourses.reduce(
               (total, course) => total + course.subjects.length,
-              0
+              0,
             )}{" "}
             subject(s) across {assignedCourses.length} year(s).
           </p>

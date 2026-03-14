@@ -61,7 +61,7 @@ const TeacherStudyMaterial = () => {
         if (!idTokenResult.claims.teacher) {
           console.log("User does not have teacher claim");
           toast.warning(
-            "Teacher permissions may be required for uploading files"
+            "Teacher permissions may be required for uploading files",
           );
         }
       } catch (error) {
@@ -78,7 +78,7 @@ const TeacherStudyMaterial = () => {
           "Query result:",
           snapshot.empty
             ? "No documents found"
-            : `Found ${snapshot.docs.length} documents`
+            : `Found ${snapshot.docs.length} documents`,
         );
 
         if (snapshot.empty) {
@@ -205,7 +205,7 @@ const TeacherStudyMaterial = () => {
           materialsRef,
           where("department", "==", selectedBranch),
           where("subject", "==", selectedSubject),
-          orderBy("createdAt", "desc")
+          orderBy("createdAt", "desc"),
         );
 
         const snapshot = await getDocs(q);
@@ -259,7 +259,7 @@ const TeacherStudyMaterial = () => {
         toast.error(
           `Invalid file type: ${
             file.type || "Unknown"
-          }. Please upload PDF, Word, PowerPoint, Excel, text, image, or archive files.`
+          }. Please upload PDF, Word, PowerPoint, Excel, text, image, or archive files.`,
         );
         e.target.value = "";
         return;
@@ -318,7 +318,7 @@ const TeacherStudyMaterial = () => {
             const progress = (progressEvent.loaded / progressEvent.total) * 100;
             setUploadProgress(progress);
           },
-        }
+        },
       );
 
       if (response.data.success) {
@@ -352,7 +352,7 @@ const TeacherStudyMaterial = () => {
 
         const docRef = await addDoc(
           collection(firestore, "studyMaterials"),
-          materialData
+          materialData,
         );
 
         // Add to current materials list
@@ -399,13 +399,13 @@ const TeacherStudyMaterial = () => {
       if (cloudinaryPublicId) {
         await axios.delete(
           `${API_URL}/api/delete-material/${encodeURIComponent(
-            cloudinaryPublicId
+            cloudinaryPublicId,
           )}`,
           {
             headers: {
               Authorization: `Bearer ${idToken}`,
             },
-          }
+          },
         );
       }
 
@@ -419,7 +419,7 @@ const TeacherStudyMaterial = () => {
       console.error("Error deleting material:", error);
       toast.error(
         "Failed to delete material: " +
-          (error.response?.data?.message || error.message)
+          (error.response?.data?.message || error.message),
       );
     }
   };
@@ -467,7 +467,7 @@ const TeacherStudyMaterial = () => {
   }
 
   return (
-    <div className="container mx-auto p-4">
+    <div className="container mx-auto px-3 sm:px-4 py-4">
       <button
         onClick={() => navigate("/teacher-dashboard")}
         className="flex items-center mb-6 text-blue-600 hover:text-blue-800"
@@ -476,7 +476,9 @@ const TeacherStudyMaterial = () => {
         Back to Dashboard
       </button>
 
-      <h1 className="text-3xl font-bold mb-6">Manage Study Materials</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold mb-6">
+        Manage Study Materials
+      </h1>
 
       <div className="bg-blue-50 p-4 rounded-lg mb-8">
         <p className="text-lg">
@@ -484,7 +486,7 @@ const TeacherStudyMaterial = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-8">
         <div className="col-span-1">
           <label className="block mb-2 font-medium">Branch/Department:</label>
           <select
@@ -517,8 +519,10 @@ const TeacherStudyMaterial = () => {
       </div>
 
       {/* Upload form */}
-      <div className="bg-white p-6 rounded-lg shadow-md mb-8">
-        <h2 className="text-xl font-bold mb-4">Upload New Material</h2>
+      <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md mb-8">
+        <h2 className="text-lg sm:text-xl font-bold mb-4">
+          Upload New Material
+        </h2>
 
         <form onSubmit={handleUpload}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -658,7 +662,7 @@ const TeacherStudyMaterial = () => {
                       if (material.fileURL.includes("example.com")) {
                         e.preventDefault();
                         toast.info(
-                          "This is a mock file and cannot be downloaded"
+                          "This is a mock file and cannot be downloaded",
                         );
                       }
                     }}

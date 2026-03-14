@@ -9,7 +9,7 @@ import {
   onSnapshot,
 } from "firebase/firestore";
 import { useNavigate, Link } from "react-router-dom";
-import { FiSearch, FiLogOut, FiBook } from "react-icons/fi";
+import { FiSearch, FiLogOut, FiBook, FiMenu, FiX } from "react-icons/fi";
 import {
   FaChalkboardTeacher,
   FaBell,
@@ -29,6 +29,7 @@ export default function TeacherDashboard() {
   const navigate = useNavigate();
 
   const [isTeacherVerified, setIsTeacherVerified] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [courses, setCourses] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [timetableClasses, setTimetableClasses] = useState([]);
@@ -60,7 +61,7 @@ export default function TeacherDashboard() {
         const q = query(
           timetableRef,
           where("teacherId", "==", user.uid),
-          where("day", "==", currentDay)
+          where("day", "==", currentDay),
         );
 
         const snapshot = await getDocs(q);
@@ -171,7 +172,7 @@ export default function TeacherDashboard() {
     const result = await uploadStudentMarks(
       selectedCourse.id,
       assignmentId,
-      gradesData
+      gradesData,
     );
 
     if (result.success) {
@@ -190,7 +191,7 @@ export default function TeacherDashboard() {
     const result = await markAttendance(
       selectedCourse.id,
       date,
-      attendanceData
+      attendanceData,
     );
 
     if (result.success) {
@@ -217,8 +218,8 @@ export default function TeacherDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-tr from-[#e0eafc] via-[#cfdef3] to-[#dcdfe2] text-gray-800 flex">
-      <aside className="w-25 bg-gradient-to-b from-purple-600 via-blue-400 to-purple-600 text-white p-6 flex flex-col space-y-6 relative">
+    <div className="min-h-screen bg-gradient-to-tr from-[#e0eafc] via-[#cfdef3] to-[#dcdfe2] text-gray-800 flex flex-col lg:flex-row">
+      <aside className="hidden lg:flex lg:w-72 bg-gradient-to-b from-purple-600 via-blue-400 to-purple-600 text-white p-6 flex-col space-y-6 relative">
         <h2 className="text-2xl font-bold mb-4">Teacher Portal</h2>
         <nav className="space-y-4 mt-6">
           <SidebarItem
@@ -255,26 +256,97 @@ export default function TeacherDashboard() {
         </nav>
       </aside>
 
-      <main className="flex-1 p-6 space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Teacher Dashboard</h1>
-          <div className="flex items-center space-x-4">
+      <main className="flex-1 p-4 sm:p-6 space-y-6">
+        <div className="lg:hidden flex justify-between items-center bg-white/80 rounded-xl p-3 shadow-sm">
+          <h2 className="font-semibold text-purple-700">Teacher Portal</h2>
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="p-2 rounded-lg bg-purple-600 text-white"
+            aria-label="Toggle teacher sidebar"
+          >
+            {isSidebarOpen ? <FiX size={18} /> : <FiMenu size={18} />}
+          </button>
+        </div>
+
+        {isSidebarOpen && (
+          <div
+            className="lg:hidden fixed inset-0 z-40 bg-black/40"
+            onClick={() => setIsSidebarOpen(false)}
+          >
+            <aside
+              className="fixed left-0 top-0 w-72 max-w-[85vw] h-full bg-gradient-to-b from-purple-600 via-blue-400 to-purple-600 text-white p-5 space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="text-xl font-bold mb-2">Teacher Portal</h2>
+              <nav className="space-y-2">
+                <SidebarItem
+                  icon={<IoHome />}
+                  label="Dashboard"
+                  path="/teacher-dashboard"
+                  onClick={() => setIsSidebarOpen(false)}
+                />
+                <SidebarItem
+                  icon={<FaComments />}
+                  label="Student Chats"
+                  path="/chat"
+                  onClick={() => setIsSidebarOpen(false)}
+                />
+                <SidebarItem
+                  icon={<FaBook />}
+                  label="Courses"
+                  path="/teacher-courses"
+                  onClick={() => setIsSidebarOpen(false)}
+                />
+                <SidebarItem
+                  icon={<FiBook />}
+                  label="Study Materials"
+                  path="/teacher-studymaterial"
+                  onClick={() => setIsSidebarOpen(false)}
+                />
+                <SidebarItem
+                  icon={<FaChalkboardTeacher />}
+                  label="My Timetable"
+                  path="/teacher-timetable"
+                  onClick={() => setIsSidebarOpen(false)}
+                />
+                <SidebarItem
+                  icon={<FaCalendarCheck />}
+                  label="Exam Schedule"
+                  path="/exam-timetable"
+                  onClick={() => setIsSidebarOpen(false)}
+                />
+                <SidebarItem
+                  icon={<FiLogOut />}
+                  label="Logout"
+                  path="/login"
+                  onClick={() => setIsSidebarOpen(false)}
+                />
+              </nav>
+            </aside>
+          </div>
+        )}
+
+        <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
+          <h1 className="text-xl sm:text-2xl font-bold">Teacher Dashboard</h1>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 w-full lg:w-auto">
             <div className="relative">
               <input
                 type="text"
                 placeholder="Search here..."
-                className="px-4 py-2 border rounded-lg pl-10"
+                className="w-full sm:w-auto px-4 py-2 border rounded-lg pl-10"
               />
               <FiSearch className="absolute top-2.5 left-3 text-gray-400" />
             </div>
-            <div className="w-10 h-10 rounded-full bg-gray-300" />
-            {teacherName}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gray-300" />
+              <span className="text-sm sm:text-base">{teacherName}</span>
+            </div>
           </div>
         </div>
 
         <div className="flex flex-col lg:flex-row space-y-6 lg:space-y-0 lg:space-x-6">
           <div className="flex-1 bg-white p-6 rounded-xl shadow-lg order-2 lg:order-1">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-4">
               <h3 className="text-xl font-semibold text-purple-700">
                 Today's Classes - {getCurrentDay()}
               </h3>
@@ -291,7 +363,7 @@ export default function TeacherDashboard() {
                 {timetableClasses.map((classItem) => {
                   const currentTimeStr = new Date().toLocaleTimeString(
                     "en-US",
-                    { hour12: false, hour: "2-digit", minute: "2-digit" }
+                    { hour12: false, hour: "2-digit", minute: "2-digit" },
                   );
                   const isPast = currentTimeStr > classItem.endTime;
                   const isOngoing =
@@ -305,8 +377,8 @@ export default function TeacherDashboard() {
                         isPast
                           ? "bg-gray-50 border-gray-400 opacity-60"
                           : isOngoing
-                          ? "bg-green-50 border-green-500"
-                          : "bg-blue-50 border-blue-500"
+                            ? "bg-green-50 border-green-500"
+                            : "bg-blue-50 border-blue-500"
                       }`}
                     >
                       <div className="flex justify-between items-start">
@@ -386,11 +458,12 @@ export default function TeacherDashboard() {
   );
 }
 
-function SidebarItem({ icon, label, path }) {
+function SidebarItem({ icon, label, path, onClick }) {
   return (
     <Link
       to={path || "#"}
-      className="flex items-center space-x-3 hover:bg-white hover:text-green-600 px-4 py-2 rounded-lg transition"
+      onClick={onClick}
+      className="flex items-center space-x-3 hover:bg-white hover:text-green-600 px-3 py-2 rounded-lg transition"
     >
       <div className="text-lg">{icon}</div>
       <span className="text-sm font-medium">{label}</span>

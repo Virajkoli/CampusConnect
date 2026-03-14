@@ -168,19 +168,19 @@ const TeacherTimetable = () => {
         // Update existing class
         await updateDoc(
           doc(firestore, "timetable", editingClass.id),
-          classData
+          classData,
         );
         toast.success("Class updated successfully");
         setClasses(
           classes.map((c) =>
-            c.id === editingClass.id ? { id: c.id, ...classData } : c
-          )
+            c.id === editingClass.id ? { id: c.id, ...classData } : c,
+          ),
         );
       } else {
         // Add new class
         const docRef = await addDoc(
           collection(firestore, "timetable"),
-          classData
+          classData,
         );
         setClasses([...classes, { id: docRef.id, ...classData }]);
         toast.success("Class added successfully");
@@ -269,7 +269,7 @@ const TeacherTimetable = () => {
   }
 
   return (
-    <div className="container mx-auto p-4 max-w-7xl">
+    <div className="container mx-auto px-3 sm:px-4 py-4 max-w-7xl">
       <button
         onClick={() => navigate("/teacher-dashboard")}
         className="flex items-center mb-6 text-blue-600 hover:text-blue-800 transition-colors"
@@ -278,9 +278,9 @@ const TeacherTimetable = () => {
         Back to Dashboard
       </button>
 
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
         <div>
-          <h1 className="text-3xl font-bold">My Timetable</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">My Timetable</h1>
           <p className="text-gray-600 mt-1">
             Manage your class schedule - {teacherInfo?.department}
           </p>
@@ -300,7 +300,7 @@ const TeacherTimetable = () => {
       {/* Timetable Grid */}
       <div className="bg-white rounded-lg shadow-lg overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
+          <table className="w-full min-w-[820px] border-collapse">
             <thead>
               <tr className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
                 <th className="p-3 text-left font-semibold border border-blue-500">
@@ -330,7 +330,7 @@ const TeacherTimetable = () => {
                           <div
                             key={classItem.id}
                             className={`${getColorForSubject(
-                              classItem.subject
+                              classItem.subject,
                             )} p-2 rounded-lg mb-1 border-l-4 group relative`}
                           >
                             <div className="font-semibold text-sm">
@@ -383,7 +383,7 @@ const TeacherTimetable = () => {
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               <h2 className="text-2xl font-bold mb-4">
                 {editingClass ? "Edit Class" : "Add New Class"}
               </h2>
@@ -423,7 +423,7 @@ const TeacherTimetable = () => {
                   </select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1">
                       Start Time *
@@ -480,7 +480,7 @@ const TeacherTimetable = () => {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1">
                       Semester

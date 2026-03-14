@@ -99,7 +99,7 @@ function StudentDashboard() {
           // Fallback to query
           const q = query(
             collection(firestore, "users"),
-            where("uid", "==", user.uid)
+            where("uid", "==", user.uid),
           );
           const querySnapshot = await getDocs(q);
           if (!querySnapshot.empty) {
@@ -109,7 +109,7 @@ function StudentDashboard() {
 
         if (studentData) {
           setStudentName(
-            studentData.name || studentData.displayName || "Student"
+            studentData.name || studentData.displayName || "Student",
           );
           setDepartment(studentData.dept || "Not assigned");
           setYear(studentData.year || "");
@@ -121,7 +121,7 @@ function StudentDashboard() {
             fetchTimetable(
               studentData.dept,
               studentData.semester,
-              studentData.division || "A"
+              studentData.division || "A",
             );
           }
 
@@ -170,7 +170,7 @@ function StudentDashboard() {
         const q = query(
           timetableRef,
           where("dept", "==", dept),
-          where("semester", "==", sem)
+          where("semester", "==", sem),
         );
 
         const querySnapshot = await getDocs(q);
@@ -202,7 +202,7 @@ function StudentDashboard() {
 
         // Filter today's classes
         const todayClasses = allClasses.filter(
-          (cls) => cls.dayOfWeek === today
+          (cls) => cls.dayOfWeek === today,
         );
         setTodaysClasses(todayClasses);
       } catch (error) {
@@ -214,7 +214,7 @@ function StudentDashboard() {
     const fetchAnnouncements = () => {
       const q = query(
         collection(firestore, "announcements"),
-        where("active", "==", true)
+        where("active", "==", true),
       );
 
       const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -249,17 +249,17 @@ function StudentDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 pt-10 pb-10">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 pt-6 sm:pt-10 pb-8 sm:pb-10">
       {/* Top Banner for Announcements */}
       <AnnouncementsBanner />
 
       {/* Main Dashboard Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
         {/* Welcome Banner */}
-        <div className="bg-gradient-to-r from-indigo-500 to-blue-500 rounded-xl shadow-xl p-6 mb-8">
+        <div className="bg-gradient-to-r from-indigo-500 to-blue-500 rounded-xl shadow-xl p-4 sm:p-6 mb-8">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center text-white">
             <div>
-              <h1 className="text-3xl font-bold">
+              <h1 className="text-2xl sm:text-3xl font-bold break-words">
                 Welcome back, {studentName}!
               </h1>
               <p className="mt-2 text-blue-100">
@@ -293,7 +293,7 @@ function StudentDashboard() {
               className="bg-white rounded-xl shadow-md overflow-hidden"
             >
               <div className="p-6 bg-gradient-to-r from-purple-500 to-indigo-600 border-b">
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                   <div className="flex items-center space-x-3">
                     <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
                       <FiCalendar className="text-2xl text-white" />
@@ -307,7 +307,7 @@ function StudentDashboard() {
                   </div>
                   <Link
                     to="/student-timetable"
-                    className="text-sm text-white bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors"
+                    className="text-sm text-white bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors w-full sm:w-auto text-center"
                   >
                     View Full Timetable →
                   </Link>
@@ -390,7 +390,7 @@ function StudentDashboard() {
               className="bg-white rounded-xl shadow-md overflow-hidden"
             >
               <div className="p-6 bg-gradient-to-r from-blue-50 to-blue-100 border-b border-blue-200">
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                   <div className="flex items-center space-x-2">
                     <FiBook className="text-lg text-blue-600" />
                     <h2 className="text-xl font-semibold text-gray-800">
@@ -411,7 +411,7 @@ function StudentDashboard() {
                   {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map(
                     (day) => {
                       const dayClasses = timetable.filter(
-                        (cls) => cls.dayOfWeek === day
+                        (cls) => cls.dayOfWeek === day,
                       );
                       const isToday = day === today;
                       return (
@@ -463,7 +463,7 @@ function StudentDashboard() {
                           </div>
                         </div>
                       );
-                    }
+                    },
                   )}
                 </div>
               </div>
@@ -522,7 +522,7 @@ function StudentDashboard() {
               </div>
 
               <div className="p-4">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Link
                     to="/student-timetable"
                     className="bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 p-4 rounded-lg text-center transition-colors border border-purple-200"

@@ -41,7 +41,7 @@ const AdminProfile = ({ userData }) => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 py-8 sm:py-12 px-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -74,7 +74,7 @@ const AdminProfile = ({ userData }) => {
           </div>
 
           {/* Profile Info */}
-          <div className="px-8 pb-8 -mt-16 relative">
+          <div className="px-4 sm:px-8 pb-6 sm:pb-8 -mt-16 relative">
             <div className="flex flex-col md:flex-row items-center md:items-end gap-6">
               {/* Avatar with Ring */}
               <motion.div whileHover={{ scale: 1.05 }} className="relative">
@@ -207,7 +207,7 @@ const AdminProfile = ({ userData }) => {
           <h2 className="text-xl font-bold text-gray-800 mb-6">
             Platform Overview
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <motion.div
               whileHover={{ scale: 1.05, y: -5 }}
               className="p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl text-center"

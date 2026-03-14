@@ -12,27 +12,30 @@ export const useSocket = () => useContext(SocketContext);
 export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const [user] = useAuthState(auth);
-  const [connectionError, setConnectionError] = useState(null);  // Connect to the socket when the user is authenticated
+  const [connectionError, setConnectionError] = useState(null); // Connect to the socket when the user is authenticated
   useEffect(() => {
     let newSocket = null;
 
     // Only create socket if we have a user and we're not already connected
     if (user && !socket) {
       console.log("Attempting to connect socket for user:", user.displayName);
-      
+
       try {
         // Connect to the socket server with error handling
         // Using the correct server port that matches your backend
-        newSocket = io(import.meta.env.VITE_API_URL || "http://localhost:5000", {
-          query: {
-            userId: user.uid,
-            userName: user.displayName || "Anonymous",
+        newSocket = io(
+          import.meta.env.VITE_API_URL || "http://localhost:5000",
+          {
+            query: {
+              userId: user.uid,
+              userName: user.displayName || "Anonymous",
+            },
+            reconnectionAttempts: 3,
+            reconnectionDelay: 1000,
+            timeout: 10000,
+            autoConnect: false, // Don't auto connect to avoid connection errors
           },
-          reconnectionAttempts: 3,
-          reconnectionDelay: 1000,
-          timeout: 10000,
-          autoConnect: false, // Don't auto connect to avoid connection errors
-        });
+        );
 
         // Set up all event handlers before connecting
         newSocket.on("connect", () => {
@@ -44,7 +47,7 @@ export const SocketProvider = ({ children }) => {
         newSocket.on("connect_error", (err) => {
           console.error("Socket connection error:", err);
           setConnectionError("Chat server connection issue");
-          
+
           // Don't keep trying to reconnect - this prevents cascading errors
           newSocket.disconnect();
         });
@@ -53,7 +56,7 @@ export const SocketProvider = ({ children }) => {
         newSocket.on("disconnect", (reason) => {
           console.log("Socket disconnected:", reason);
         });
-        
+
         // Only after setting up all handlers, connect and store in state
         try {
           newSocket.connect();
@@ -71,7 +74,7 @@ export const SocketProvider = ({ children }) => {
     return () => {
       // Use the socket from closure and from state to ensure we clean up correctly
       const socketToCleanup = newSocket || socket;
-      
+
       if (socketToCleanup) {
         console.log("Cleaning up socket connection");
         try {
@@ -81,7 +84,7 @@ export const SocketProvider = ({ children }) => {
           socketToCleanup.off("disconnect");
           socketToCleanup.removeAllListeners();
           socketToCleanup.disconnect();
-          
+
           // Only clear the state if the socket being cleaned up is the current socket
           if (socketToCleanup === socket) {
             setSocket(null);

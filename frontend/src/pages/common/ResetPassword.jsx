@@ -25,10 +25,10 @@ export default function ResetPassword() {
   };
 
   return (
-    <div className="flex items-center justify-center h-screen bg-gray-100">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4 py-8">
       <form
         onSubmit={handleReset}
-        className="bg-white p-8 rounded-lg shadow-lg space-y-4 w-96"
+        className="bg-white p-6 sm:p-8 rounded-lg shadow-lg space-y-4 w-full max-w-md"
       >
         <button
           type="button"

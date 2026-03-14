@@ -37,7 +37,7 @@ function AttendanceTracker() {
   const [students, setStudents] = useState([]);
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split("T")[0]
+    new Date().toISOString().split("T")[0],
   );
   const [attendanceView, setAttendanceView] = useState("mark"); // 'mark', 'history', 'stats'
   const [attendanceFilter, setAttendanceFilter] = useState("all"); // 'all', 'present', 'absent'
@@ -54,7 +54,7 @@ function AttendanceTracker() {
         // Check if teacher
         const teacherQuery = query(
           collection(firestore, "teachers"),
-          where("uid", "==", user.uid)
+          where("uid", "==", user.uid),
         );
         const teacherSnapshot = await getDocs(teacherQuery);
         const isUserTeacher = !teacherSnapshot.empty;
@@ -63,7 +63,7 @@ function AttendanceTracker() {
         // Check if student
         const studentQuery = query(
           collection(firestore, "students"),
-          where("uid", "==", user.uid)
+          where("uid", "==", user.uid),
         );
         const studentSnapshot = await getDocs(studentQuery);
         const isUserStudent = !studentSnapshot.empty;
@@ -73,7 +73,7 @@ function AttendanceTracker() {
         if (isUserTeacher) {
           const teacherCoursesQuery = query(
             collection(firestore, "courses"),
-            where("teacherId", "==", user.uid)
+            where("teacherId", "==", user.uid),
           );
           const coursesSnapshot = await getDocs(teacherCoursesQuery);
           const coursesList = coursesSnapshot.docs.map((doc) => ({
@@ -93,7 +93,7 @@ function AttendanceTracker() {
             const coursesPromises = studentData.enrolledCourses.map(
               async (courseId) => {
                 const courseDoc = await getDoc(
-                  doc(firestore, "courses", courseId)
+                  doc(firestore, "courses", courseId),
                 );
                 if (courseDoc.exists()) {
                   return {
@@ -102,11 +102,11 @@ function AttendanceTracker() {
                   };
                 }
                 return null;
-              }
+              },
             );
 
             const coursesList = (await Promise.all(coursesPromises)).filter(
-              Boolean
+              Boolean,
             );
             setCourses(coursesList);
 
@@ -148,18 +148,18 @@ function AttendanceTracker() {
         // Fetch students enrolled in this course
         const enrollmentsQuery = query(
           collection(firestore, "enrollments"),
-          where("courseId", "==", selectedCourse)
+          where("courseId", "==", selectedCourse),
         );
         const enrollmentsSnapshot = await getDocs(enrollmentsQuery);
         const enrollments = enrollmentsSnapshot.docs.map((doc) => doc.data());
 
         // Get student details for each enrollment
         const studentIds = enrollments.map(
-          (enrollment) => enrollment.studentId
+          (enrollment) => enrollment.studentId,
         );
         const studentsQuery = query(
           collection(firestore, "students"),
-          where("uid", "in", studentIds)
+          where("uid", "in", studentIds),
         );
         const studentsSnapshot = await getDocs(studentsQuery);
         const studentsList = studentsSnapshot.docs.map((doc) => ({
@@ -195,7 +195,7 @@ function AttendanceTracker() {
       setLoading(true);
       const attendanceQuery = query(
         collection(firestore, "attendance"),
-        where("courseId", "==", courseId)
+        where("courseId", "==", courseId),
       );
       const attendanceSnapshot = await getDocs(attendanceQuery);
 
@@ -210,7 +210,7 @@ function AttendanceTracker() {
 
       attendanceSessions.forEach((session) => {
         const record = session.attendanceData.find(
-          (record) => record.studentId === studentId
+          (record) => record.studentId === studentId,
         );
 
         if (record) {
@@ -224,7 +224,7 @@ function AttendanceTracker() {
 
       // Sort by date (newest first)
       studentAttendanceRecords.sort(
-        (a, b) => new Date(b.date) - new Date(a.date)
+        (a, b) => new Date(b.date) - new Date(a.date),
       );
 
       setStudentAttendance(studentAttendanceRecords);
@@ -244,7 +244,7 @@ function AttendanceTracker() {
       const attendanceQuery = query(
         collection(firestore, "attendance"),
         where("courseId", "==", selectedCourse),
-        where("date", "==", selectedDate)
+        where("date", "==", selectedDate),
       );
 
       const attendanceSnapshot = await getDocs(attendanceQuery);
@@ -278,7 +278,7 @@ function AttendanceTracker() {
           return { ...record, present: !record.present };
         }
         return record;
-      })
+      }),
     );
   };
 
@@ -294,7 +294,7 @@ function AttendanceTracker() {
       const attendanceQuery = query(
         collection(firestore, "attendance"),
         where("courseId", "==", selectedCourse),
-        where("date", "==", selectedDate)
+        where("date", "==", selectedDate),
       );
 
       const attendanceSnapshot = await getDocs(attendanceQuery);
@@ -333,7 +333,7 @@ function AttendanceTracker() {
       setLoading(true);
       const attendanceQuery = query(
         collection(firestore, "attendance"),
-        where("courseId", "==", selectedCourse)
+        where("courseId", "==", selectedCourse),
       );
 
       const attendanceSnapshot = await getDocs(attendanceQuery);
@@ -399,7 +399,7 @@ function AttendanceTracker() {
 
     // Convert to array and sort by name
     return Object.values(studentStats).sort((a, b) =>
-      a.studentName.localeCompare(b.studentName)
+      a.studentName.localeCompare(b.studentName),
     );
   };
 
@@ -444,7 +444,7 @@ function AttendanceTracker() {
         dates.forEach((date) => {
           const session = attendanceHistory.find((s) => s.date === date);
           const record = session?.attendanceData.find(
-            (r) => r.studentId === studentStat.studentId
+            (r) => r.studentId === studentStat.studentId,
           );
           csvContent += `,${record?.present ? "Present" : "Absent"}`;
         });
@@ -492,7 +492,7 @@ function AttendanceTracker() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 pt-10 pb-10">
       <button
         onClick={() => navigate("/student-dashboard")}
-        className="flex items-center ml-8 my-4 text-red-600 hover:text-green-800 transition-colors"
+        className="flex items-center mx-4 sm:mx-8 my-4 text-red-600 hover:text-green-800 transition-colors"
       >
         <FiArrowLeft className="mr-2" />
         Go Back
@@ -608,7 +608,7 @@ function AttendanceTracker() {
                                   studentName:
                                     student.name || student.displayName,
                                   present: false,
-                                })
+                                }),
                               );
                               setAttendanceRecords(initialAttendance);
                             }}
@@ -647,7 +647,7 @@ function AttendanceTracker() {
                             <tbody className="bg-white divide-y divide-gray-200">
                               {students.map((student) => {
                                 const attendanceRecord = attendanceRecords.find(
-                                  (record) => record.studentId === student.uid
+                                  (record) => record.studentId === student.uid,
                                 ) || { present: false };
 
                                 return (
@@ -831,10 +831,10 @@ function AttendanceTracker() {
                             {(() => {
                               const totalClasses = studentAttendance.length;
                               const presentCount = studentAttendance.filter(
-                                (a) => a.present
+                                (a) => a.present,
                               ).length;
                               const percentage = Math.round(
-                                (presentCount / totalClasses) * 100
+                                (presentCount / totalClasses) * 100,
                               );
 
                               return (
@@ -853,8 +853,8 @@ function AttendanceTracker() {
                                         percentage >= 75
                                           ? "bg-green-600"
                                           : percentage >= 60
-                                          ? "bg-yellow-400"
-                                          : "bg-red-600"
+                                            ? "bg-yellow-400"
+                                            : "bg-red-600"
                                       }`}
                                       style={{ width: `${percentage}%` }}
                                     ></div>
@@ -886,14 +886,14 @@ function AttendanceTracker() {
                                     </div>
                                     <div
                                       className={`text-xl font-bold ${getAttendanceClass(
-                                        percentage
+                                        percentage,
                                       )}`}
                                     >
                                       {percentage >= 75
                                         ? "Good"
                                         : percentage >= 60
-                                        ? "Adequate"
-                                        : "Low - Attendance Warning"}
+                                          ? "Adequate"
+                                          : "Low - Attendance Warning"}
                                     </div>
                                   </div>
                                 </>

@@ -29,7 +29,7 @@ const Announcements = () => {
     const q = query(
       collection(firestore, "announcements"),
       where("active", "==", true),
-      orderBy("createdAt", "desc")
+      orderBy("createdAt", "desc"),
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -88,15 +88,15 @@ const Announcements = () => {
     <div className="min-h-screen bg-gray-50">
       <button
         onClick={() => navigate("/student-dashboard")}
-        className="flex items-center mt-8 ml-8 text-red-600 hover:text-green-800 transition-colors"
+        className="flex items-center mt-4 sm:mt-8 mx-4 sm:mx-8 text-red-600 hover:text-green-800 transition-colors"
       >
         <FiArrowLeft className="mr-2" />
         Go Back
       </button>
       <AnnouncementsBanner />
 
-      <div className="container m-8">
-        <div className="flex justify-between items-center mb-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-800 mb-1">
               Announcements
@@ -109,7 +109,7 @@ const Announcements = () => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setShowModal(true)}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg flex items-center"
+            className="w-full sm:w-auto px-4 py-2 bg-indigo-600 text-white rounded-lg flex items-center justify-center"
           >
             <FiBell className="mr-2" /> View All Notifications
           </motion.button>
@@ -140,7 +140,7 @@ const Announcements = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
                 className={`p-5 rounded-xl shadow-sm border ${getTypeBg(
-                  announcement.type
+                  announcement.type,
                 )} ${
                   !announcement.isRead
                     ? "ring-2 ring-offset-2 ring-indigo-300"

@@ -259,7 +259,7 @@ const TeacherManagement = () => {
       (teacher) =>
         teacher.name?.toLowerCase()?.includes(search.toLowerCase()) ||
         teacher.employeeId?.includes(search) ||
-        teacher.email?.toLowerCase()?.includes(search.toLowerCase())
+        teacher.email?.toLowerCase()?.includes(search.toLowerCase()),
     );
     setFilteredTeachers(filtered);
   }, [search, teachers]);
@@ -309,7 +309,7 @@ const TeacherManagement = () => {
     }
 
     const yearExists = formData.assignedCourses.some(
-      (course) => course.year === currentYear
+      (course) => course.year === currentYear,
     );
 
     let updatedCourses;
@@ -345,7 +345,7 @@ const TeacherManagement = () => {
 
   const handleRemoveYear = (yearToRemove) => {
     const updatedCourses = formData.assignedCourses.filter(
-      (course) => course.year !== yearToRemove
+      (course) => course.year !== yearToRemove,
     );
 
     setFormData({
@@ -387,7 +387,7 @@ const TeacherManagement = () => {
         formData.assignedCourses.length === 0
       ) {
         throw new Error(
-          "Please fill all required fields and assign at least one course with subjects."
+          "Please fill all required fields and assign at least one course with subjects.",
         );
       }
 
@@ -413,7 +413,7 @@ const TeacherManagement = () => {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(formData),
-          }
+          },
         );
 
         const data = await response.json();
@@ -464,24 +464,24 @@ const TeacherManagement = () => {
 
   const teachersByDept = departments.reduce((acc, dept) => {
     acc[dept] = filteredTeachers.filter(
-      (t) => (t.dept || "").trim().toLowerCase() === dept.trim().toLowerCase()
+      (t) => (t.dept || "").trim().toLowerCase() === dept.trim().toLowerCase(),
     );
     return acc;
   }, {});
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-white to-blue-100 p-8 text-gray-800">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-white to-blue-100 px-4 sm:px-6 lg:px-8 py-6 sm:py-8 text-gray-800">
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <button
             onClick={() => navigate("/admin-dashboard")}
-            className="mt-20 flex items-center text-red-600 hover:text-green-900 transition-colors text-lg"
+            className="mt-4 sm:mt-8 flex items-center text-red-600 hover:text-green-900 transition-colors text-base sm:text-lg"
           >
             <FiArrowLeft className=" mr-2 text-xl" /> Go Back
           </button>
         </div>
 
-        <h1 className="text-3xl font-bold text-indigo-600">
+        <h1 className="text-2xl sm:text-3xl font-bold text-indigo-600">
           Teacher Management Panel
         </h1>
 
@@ -496,8 +496,8 @@ const TeacherManagement = () => {
           </div>
         )}
 
-        <div className="flex justify-between items-center mb-4">
-          <div className="flex items-center space-x-3 w-full">
+        <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3 mb-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full">
             <input
               type="text"
               placeholder="🔍 Search teacher by name, email or ID"
@@ -510,7 +510,10 @@ const TeacherManagement = () => {
               Refresh
             </Button>
           </div>
-          <Button onClick={() => setShowForm(!showForm)} className="ml-4">
+          <Button
+            onClick={() => setShowForm(!showForm)}
+            className="w-full sm:w-auto lg:ml-4"
+          >
             {showForm ? "Close Form" : "Add Teacher"}
           </Button>
         </div>
@@ -656,8 +659,8 @@ const TeacherManagement = () => {
                 {isLoading
                   ? "Saving..."
                   : isEditing
-                  ? "Update Teacher"
-                  : "Add Teacher"}
+                    ? "Update Teacher"
+                    : "Add Teacher"}
               </Button>
             </div>
           </motion.div>
@@ -686,7 +689,7 @@ const TeacherManagement = () => {
                 </p>
               ) : (
                 <div className="overflow-x-auto rounded-lg border border-gray-100">
-                  <table className="min-w-full text-sm divide-y divide-gray-100">
+                  <table className="min-w-[640px] w-full text-sm divide-y divide-gray-100">
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="p-2 text-left font-semibold text-gray-600">

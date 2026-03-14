@@ -242,7 +242,7 @@ const ExamTimetable = () => {
       return new Date(
         parseInt(isoMatch[1]),
         parseInt(isoMatch[2]) - 1,
-        parseInt(isoMatch[3])
+        parseInt(isoMatch[3]),
       );
     }
 
@@ -260,13 +260,13 @@ const ExamTimetable = () => {
 
   const goToPrevMonth = () => {
     setCurrentDate(
-      new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
+      new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1),
     );
   };
 
   const goToNextMonth = () => {
     setCurrentDate(
-      new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1)
+      new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1),
     );
   };
 
@@ -485,92 +485,96 @@ const ExamTimetable = () => {
                   </button>
                 </div>
 
-                {/* Week Days Header */}
-                <div className="grid grid-cols-7 bg-gray-50 border-b border-gray-200">
-                  {weekDays.map((day) => (
-                    <div
-                      key={day}
-                      className="p-3 text-center text-sm font-semibold text-gray-600"
-                    >
-                      {day}
+                <div className="overflow-x-auto">
+                  <div className="min-w-[760px]">
+                    {/* Week Days Header */}
+                    <div className="grid grid-cols-7 bg-gray-50 border-b border-gray-200">
+                      {weekDays.map((day) => (
+                        <div
+                          key={day}
+                          className="p-3 text-center text-sm font-semibold text-gray-600"
+                        >
+                          {day}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
 
-                {/* Calendar Grid */}
-                <div className="grid grid-cols-7">
-                  {days.map((dayInfo, index) => {
-                    const dayExams = getExamsForDate(dayInfo.date);
-                    const hasExams = dayExams.length > 0;
-                    const today = isToday(dayInfo.date);
-                    const past = isPastDate(dayInfo.date);
+                    {/* Calendar Grid */}
+                    <div className="grid grid-cols-7">
+                      {days.map((dayInfo, index) => {
+                        const dayExams = getExamsForDate(dayInfo.date);
+                        const hasExams = dayExams.length > 0;
+                        const today = isToday(dayInfo.date);
+                        const past = isPastDate(dayInfo.date);
 
-                    return (
-                      <div
-                        key={index}
-                        className={`min-h-[100px] border-b border-r border-gray-100 p-2 relative ${
-                          !dayInfo.day
-                            ? "bg-gray-50"
-                            : hasExams
-                            ? "bg-white hover:bg-blue-50/50 cursor-pointer"
-                            : "bg-white"
-                        } ${past ? "opacity-50" : ""} transition-colors`}
-                        onMouseEnter={() =>
-                          hasExams &&
-                          setHoveredExam({
-                            date: dayInfo.date,
-                            exams: dayExams,
-                          })
-                        }
-                        onMouseLeave={() => setHoveredExam(null)}
-                        onClick={() => {
-                          if (hasExams) {
-                            setClickedExam(
-                              clickedExam?.date?.getTime() ===
-                                dayInfo.date?.getTime()
-                                ? null
-                                : { date: dayInfo.date, exams: dayExams }
-                            );
-                          }
-                        }}
-                      >
-                        {dayInfo.day && (
-                          <>
-                            <div
-                              className={`w-8 h-8 flex items-center justify-center rounded-full text-sm font-medium ${
-                                today
-                                  ? "bg-blue-500 text-white"
-                                  : hasExams
-                                  ? "text-gray-800 font-bold"
-                                  : "text-gray-500"
-                              }`}
-                            >
-                              {dayInfo.day}
-                            </div>
+                        return (
+                          <div
+                            key={index}
+                            className={`min-h-[100px] border-b border-r border-gray-100 p-2 relative ${
+                              !dayInfo.day
+                                ? "bg-gray-50"
+                                : hasExams
+                                  ? "bg-white hover:bg-blue-50/50 cursor-pointer"
+                                  : "bg-white"
+                            } ${past ? "opacity-50" : ""} transition-colors`}
+                            onMouseEnter={() =>
+                              hasExams &&
+                              setHoveredExam({
+                                date: dayInfo.date,
+                                exams: dayExams,
+                              })
+                            }
+                            onMouseLeave={() => setHoveredExam(null)}
+                            onClick={() => {
+                              if (hasExams) {
+                                setClickedExam(
+                                  clickedExam?.date?.getTime() ===
+                                    dayInfo.date?.getTime()
+                                    ? null
+                                    : { date: dayInfo.date, exams: dayExams },
+                                );
+                              }
+                            }}
+                          >
+                            {dayInfo.day && (
+                              <>
+                                <div
+                                  className={`w-8 h-8 flex items-center justify-center rounded-full text-sm font-medium ${
+                                    today
+                                      ? "bg-blue-500 text-white"
+                                      : hasExams
+                                        ? "text-gray-800 font-bold"
+                                        : "text-gray-500"
+                                  }`}
+                                >
+                                  {dayInfo.day}
+                                </div>
 
-                            {hasExams && (
-                              <div className="mt-1 space-y-1">
-                                {dayExams.slice(0, 2).map((exam, i) => (
-                                  <div
-                                    key={i}
-                                    className="bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs px-2 py-1 rounded truncate cursor-pointer hover:shadow-md transition-shadow"
-                                    title={`${exam.courseCode} - ${exam.courseName}`}
-                                  >
-                                    {exam.courseCode}
-                                  </div>
-                                ))}
-                                {dayExams.length > 2 && (
-                                  <div className="text-xs text-gray-500 font-medium">
-                                    +{dayExams.length - 2} more
+                                {hasExams && (
+                                  <div className="mt-1 space-y-1">
+                                    {dayExams.slice(0, 2).map((exam, i) => (
+                                      <div
+                                        key={i}
+                                        className="bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs px-2 py-1 rounded truncate cursor-pointer hover:shadow-md transition-shadow"
+                                        title={`${exam.courseCode} - ${exam.courseName}`}
+                                      >
+                                        {exam.courseCode}
+                                      </div>
+                                    ))}
+                                    {dayExams.length > 2 && (
+                                      <div className="text-xs text-gray-500 font-medium">
+                                        +{dayExams.length - 2} more
+                                      </div>
+                                    )}
                                   </div>
                                 )}
-                              </div>
+                              </>
                             )}
-                          </>
-                        )}
-                      </div>
-                    );
-                  })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Legend */}
@@ -628,7 +632,7 @@ const ExamTimetable = () => {
                             month: "long",
                             day: "numeric",
                             year: "numeric",
-                          }
+                          },
                         )}
                       </p>
                       <p className="text-white/80 text-sm mt-1">
@@ -787,7 +791,7 @@ const ExamTimetable = () => {
                           ))}
                         </div>
                       </motion.div>
-                    )
+                    ),
                   )
                 )}
               </motion.div>

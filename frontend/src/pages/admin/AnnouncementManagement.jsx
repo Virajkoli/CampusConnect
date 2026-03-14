@@ -191,7 +191,7 @@ export default function AnnouncementManagement() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+    <div className="min-h-screen bg-gray-50 px-3 sm:px-4 md:px-6 py-4 md:py-6">
       {/* Header */}
       <div>
         <div>
@@ -204,7 +204,7 @@ export default function AnnouncementManagement() {
           </button>
         </div>
 
-        <h1 className="text-3xl font-bold text-gray-800 mb-2 flex items-center">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2 flex items-center">
           <FiBell className="mr-3 text-indigo-600" />
           Announcement Management
         </h1>
@@ -234,7 +234,7 @@ export default function AnnouncementManagement() {
       )}
 
       {/* Control Panel */}
-      <div className="bg-white rounded-xl shadow-md p-6 mb-6">
+      <div className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
           <motion.button
             whileHover={{ scale: 1.02 }}

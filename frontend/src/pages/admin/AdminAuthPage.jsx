@@ -57,8 +57,8 @@ export default function AdminAuthPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-sm bg-white rounded-xl shadow-lg p-8 border border-gray-100">
+    <div className="min-h-screen px-4 py-8 flex items-center justify-center bg-gray-50">
+      <div className="w-full max-w-sm bg-white rounded-xl shadow-lg p-6 sm:p-8 border border-gray-100">
         <h2 className="text-2xl font-bold text-center text-gray-800 mb-6 tracking-tight">
           Admin Login
         </h2>

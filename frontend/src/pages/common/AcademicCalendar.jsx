@@ -218,7 +218,7 @@ function AcademicCalendar() {
       if (user) {
         const adminQuery = query(
           collection(firestore, "admins"),
-          where("uid", "==", user.uid)
+          where("uid", "==", user.uid),
         );
         const adminSnapshot = await getDocs(adminQuery);
         setIsAdmin(!adminSnapshot.empty);
@@ -234,7 +234,7 @@ function AcademicCalendar() {
       try {
         const eventsQuery = query(
           collection(firestore, "academicCalendar"),
-          orderBy("startDate")
+          orderBy("startDate"),
         );
         const snapshot = await getDocs(eventsQuery);
 
@@ -244,7 +244,7 @@ function AcademicCalendar() {
             defaultAcademicCalendarData.map((item, index) => ({
               ...item,
               id: `default-${index}`,
-            }))
+            })),
           );
         } else {
           const events = snapshot.docs.map((doc) => ({
@@ -260,7 +260,7 @@ function AcademicCalendar() {
           defaultAcademicCalendarData.map((item, index) => ({
             ...item,
             id: `default-${index}`,
-          }))
+          })),
         );
       } finally {
         setLoading(false);
@@ -278,7 +278,7 @@ function AcademicCalendar() {
         if (!editingEvent.id.startsWith("default-")) {
           await updateDoc(
             doc(firestore, "academicCalendar", editingEvent.id),
-            formData
+            formData,
           );
         } else {
           // Convert default to real document
@@ -294,7 +294,7 @@ function AcademicCalendar() {
       // Refresh events
       const eventsQuery = query(
         collection(firestore, "academicCalendar"),
-        orderBy("startDate")
+        orderBy("startDate"),
       );
       const snapshot = await getDocs(eventsQuery);
       const events = snapshot.docs.map((doc) => ({
@@ -307,7 +307,7 @@ function AcademicCalendar() {
           : defaultAcademicCalendarData.map((item, index) => ({
               ...item,
               id: `default-${index}`,
-            }))
+            })),
       );
 
       resetForm();
@@ -423,7 +423,7 @@ function AcademicCalendar() {
       {/* Back Button */}
       <button
         onClick={() => navigate("/calendars")}
-        className="flex items-center ml-8 my-4 text-indigo-600 hover:text-indigo-800 transition-colors"
+        className="flex items-center mx-4 sm:mx-8 my-4 text-indigo-600 hover:text-indigo-800 transition-colors"
       >
         <FiArrowLeft className="mr-2" />
         Back to Calendars

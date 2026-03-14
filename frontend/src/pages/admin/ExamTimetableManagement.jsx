@@ -81,7 +81,8 @@ const ExamTimetableManagement = () => {
           ...doc.data(),
         }))
         .filter(
-          (exam) => exam.year === selectedYear && exam.branch === selectedBranch
+          (exam) =>
+            exam.year === selectedYear && exam.branch === selectedBranch,
         );
 
       setExistingExams(exams);
@@ -395,7 +396,7 @@ const ExamTimetableManagement = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 py-6 sm:py-8 px-3 sm:px-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <motion.div
@@ -403,13 +404,13 @@ const ExamTimetableManagement = () => {
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          <div className="bg-white rounded-3xl shadow-xl p-8">
-            <div className="flex items-center gap-4">
+          <div className="bg-white rounded-3xl shadow-xl p-4 sm:p-8">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
               <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center">
                 <FiCalendar className="w-8 h-8 text-white" />
               </div>
               <div>
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                <h1 className="text-2xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                   Exam Timetable Management
                 </h1>
                 <p className="text-gray-600 mt-1">
@@ -431,8 +432,8 @@ const ExamTimetableManagement = () => {
                 message.type === "success"
                   ? "bg-green-50 text-green-700 border border-green-200"
                   : message.type === "error"
-                  ? "bg-red-50 text-red-700 border border-red-200"
-                  : "bg-yellow-50 text-yellow-700 border border-yellow-200"
+                    ? "bg-red-50 text-red-700 border border-red-200"
+                    : "bg-yellow-50 text-yellow-700 border border-yellow-200"
               }`}
             >
               {message.type === "success" ? <FiCheck /> : <FiAlertCircle />}
@@ -486,7 +487,7 @@ const ExamTimetableManagement = () => {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6 bg-white p-2 rounded-xl shadow-lg w-fit">
+        <div className="flex gap-2 mb-6 bg-white p-2 rounded-xl shadow-lg w-full sm:w-fit overflow-x-auto">
           {[
             { id: "upload", label: "OCR Upload", icon: FiUpload },
             { id: "manual", label: "Manual Entry", icon: FiEdit2 },
@@ -645,7 +646,7 @@ const ExamTimetableManagement = () => {
                             updateParsedExam(
                               index,
                               "courseCode",
-                              e.target.value
+                              e.target.value,
                             )
                           }
                           placeholder="Course Code"
@@ -658,7 +659,7 @@ const ExamTimetableManagement = () => {
                             updateParsedExam(
                               index,
                               "courseName",
-                              e.target.value
+                              e.target.value,
                             )
                           }
                           placeholder="Course Name"

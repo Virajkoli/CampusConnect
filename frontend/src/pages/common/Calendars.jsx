@@ -19,7 +19,7 @@ function Calendars() {
         // Check admin
         const adminQuery = query(
           collection(firestore, "admins"),
-          where("uid", "==", user.uid)
+          where("uid", "==", user.uid),
         );
         const adminSnapshot = await getDocs(adminQuery);
         setIsAdmin(!adminSnapshot.empty);
@@ -27,7 +27,7 @@ function Calendars() {
         // Check teacher
         const teacherQuery = query(
           collection(firestore, "teachers"),
-          where("uid", "==", user.uid)
+          where("uid", "==", user.uid),
         );
         const teacherSnapshot = await getDocs(teacherQuery);
         setIsTeacher(!teacherSnapshot.empty);
@@ -71,7 +71,7 @@ function Calendars() {
       {/* Back Button */}
       <button
         onClick={() => navigate(-1)}
-        className="flex items-center ml-8 my-4 text-indigo-600 hover:text-indigo-800 transition-colors"
+        className="flex items-center mx-4 sm:mx-8 my-4 text-indigo-600 hover:text-indigo-800 transition-colors"
       >
         <FiArrowLeft className="mr-2" />
         Go Back

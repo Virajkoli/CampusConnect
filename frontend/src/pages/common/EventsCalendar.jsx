@@ -66,7 +66,7 @@ function EventsCalendar() {
         // Check if user is admin
         const adminQuery = query(
           collection(firestore, "admins"),
-          where("uid", "==", user.uid)
+          where("uid", "==", user.uid),
         );
         const adminSnapshot = await getDocs(adminQuery);
         setIsAdmin(!adminSnapshot.empty);
@@ -74,7 +74,7 @@ function EventsCalendar() {
         // Check if user is teacher
         const teacherQuery = query(
           collection(firestore, "teachers"),
-          where("uid", "==", user.uid)
+          where("uid", "==", user.uid),
         );
         const teacherSnapshot = await getDocs(teacherQuery);
         setIsTeacher(!teacherSnapshot.empty);
@@ -91,7 +91,7 @@ function EventsCalendar() {
       try {
         const eventsQuery = query(
           collection(firestore, "events"),
-          orderBy("startDate")
+          orderBy("startDate"),
         );
         const eventsSnapshot = await getDocs(eventsQuery);
         const eventsList = eventsSnapshot.docs.map((doc) => ({
@@ -141,7 +141,7 @@ function EventsCalendar() {
       // Refresh events list
       const eventsQuery = query(
         collection(firestore, "events"),
-        orderBy("startDate")
+        orderBy("startDate"),
       );
       const eventsSnapshot = await getDocs(eventsQuery);
       const eventsList = eventsSnapshot.docs.map((doc) => ({
@@ -244,7 +244,7 @@ function EventsCalendar() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 pt-10 pb-10">
       <button
         onClick={() => navigate("/calendars")}
-        className="flex items-center ml-8 my-4 text-indigo-600 hover:text-indigo-800 transition-colors"
+        className="flex items-center mx-4 sm:mx-8 my-4 text-indigo-600 hover:text-indigo-800 transition-colors"
       >
         <FiArrowLeft className="mr-2" />
         Back to Calendars
@@ -496,7 +496,7 @@ function EventsCalendar() {
                   {events
                     .filter((event) => new Date(event.startDate) >= new Date())
                     .sort(
-                      (a, b) => new Date(a.startDate) - new Date(b.startDate)
+                      (a, b) => new Date(a.startDate) - new Date(b.startDate),
                     )
                     .slice(0, 5)
                     .map((event) => (
@@ -508,10 +508,10 @@ function EventsCalendar() {
                             event.category === "academic"
                               ? "#3b82f6"
                               : event.category === "exam"
-                              ? "#ef4444"
-                              : event.category === "holiday"
-                              ? "#10b981"
-                              : "#8b5cf6",
+                                ? "#ef4444"
+                                : event.category === "holiday"
+                                  ? "#10b981"
+                                  : "#8b5cf6",
                         }}
                       >
                         <div className="flex justify-between">
@@ -520,12 +520,12 @@ function EventsCalendar() {
                           </h3>
                           <span
                             className={`text-xs px-2 py-1 rounded-full border ${getCategoryBgClass(
-                              event.category
+                              event.category,
                             )}`}
                           >
                             {
                               categories.find(
-                                (cat) => cat.id === event.category
+                                (cat) => cat.id === event.category,
                               )?.name
                             }
                           </span>
@@ -536,7 +536,7 @@ function EventsCalendar() {
                             {new Date(event.startDate).toLocaleDateString()}
                             {event.startDate !== event.endDate &&
                               ` - ${new Date(
-                                event.endDate
+                                event.endDate,
                               ).toLocaleDateString()}`}
                           </span>
                         </div>
@@ -631,7 +631,7 @@ function EventsCalendar() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {events
                       .sort(
-                        (a, b) => new Date(a.startDate) - new Date(b.startDate)
+                        (a, b) => new Date(a.startDate) - new Date(b.startDate),
                       )
                       .map((event) => (
                         <tr key={event.id} className="hover:bg-gray-50">
@@ -669,12 +669,12 @@ function EventsCalendar() {
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span
                               className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getCategoryBgClass(
-                                event.category
+                                event.category,
                               )}`}
                             >
                               {
                                 categories.find(
-                                  (cat) => cat.id === event.category
+                                  (cat) => cat.id === event.category,
                                 )?.name
                               }
                             </span>

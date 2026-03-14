@@ -22,7 +22,7 @@ const TeacherProfile = ({ userData }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 py-8 sm:py-12 px-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -50,7 +50,7 @@ const TeacherProfile = ({ userData }) => {
           </div>
 
           {/* Profile Info */}
-          <div className="px-8 pb-8 -mt-16 relative">
+          <div className="px-4 sm:px-8 pb-6 sm:pb-8 -mt-16 relative">
             <div className="flex flex-col md:flex-row items-center md:items-end gap-6">
               {/* Avatar with Ring */}
               <motion.div whileHover={{ scale: 1.05 }} className="relative">
@@ -87,12 +87,12 @@ const TeacherProfile = ({ userData }) => {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-3">
+              <div className="flex w-full md:w-auto gap-3">
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => navigate("/edit-profile")}
-                  className="px-6 py-3 bg-gradient-to-r from-green-500 to-blue-600 text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+                  className="w-full md:w-auto px-6 py-3 bg-gradient-to-r from-green-500 to-blue-600 text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
                 >
                   <FiEdit className="w-4 h-4" />
                   Edit Profile

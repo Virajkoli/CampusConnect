@@ -23,7 +23,7 @@ export default function TeacherAuthPage() {
       const userCredential = await signInWithEmailAndPassword(
         auth,
         email,
-        password
+        password,
       );
       const user = userCredential.user;
 
@@ -54,7 +54,7 @@ export default function TeacherAuthPage() {
       const userCredential = await createTeacherAccount(
         email,
         password,
-        "Teacher Name"
+        "Teacher Name",
       );
       const user = userCredential.user;
 
@@ -67,7 +67,7 @@ export default function TeacherAuthPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ uid: user.uid }),
-        }
+        },
       );
 
       const result = await response.json();
@@ -91,13 +91,13 @@ export default function TeacherAuthPage() {
       initial={{ opacity: 0, y: 40 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6 }}
-      className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-500 to-blue-400"
+      className="min-h-screen px-4 py-8 flex items-center justify-center bg-gradient-to-br from-green-500 to-blue-400"
     >
       <motion.div
         initial={{ scale: 0.95 }}
         animate={{ scale: 1 }}
         transition={{ duration: 0.5 }}
-        className="w-full max-w-md bg-white/30 backdrop-blur-xl rounded-3xl shadow-2xl p-8"
+        className="w-full max-w-md bg-white/30 backdrop-blur-xl rounded-3xl shadow-2xl p-6 sm:p-8"
       >
         <motion.h2
           initial={{ opacity: 0, y: -10 }}

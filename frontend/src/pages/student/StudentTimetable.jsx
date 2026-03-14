@@ -131,19 +131,19 @@ const StudentTimetable = () => {
 
     if (filterDepartment) {
       filtered = filtered.filter(
-        (c) => !c.department || c.department === filterDepartment
+        (c) => !c.department || c.department === filterDepartment,
       );
     }
 
     if (filterSemester) {
       filtered = filtered.filter(
-        (c) => !c.semester || c.semester === filterSemester
+        (c) => !c.semester || c.semester === filterSemester,
       );
     }
 
     if (filterDivision) {
       filtered = filtered.filter(
-        (c) => !c.division || c.division === filterDivision
+        (c) => !c.division || c.division === filterDivision,
       );
     }
 
@@ -183,7 +183,7 @@ const StudentTimetable = () => {
   }
 
   return (
-    <div className="container mx-auto p-4 max-w-7xl">
+    <div className="container mx-auto px-3 sm:px-4 py-4 max-w-7xl">
       <button
         onClick={() => navigate("/student-dashboard")}
         className="flex items-center mb-6 text-blue-600 hover:text-blue-800 transition-colors"
@@ -193,7 +193,7 @@ const StudentTimetable = () => {
       </button>
 
       <div className="mb-6">
-        <h1 className="text-3xl font-bold">Class Timetable</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold">Class Timetable</h1>
         <p className="text-gray-600 mt-1">
           {studentInfo?.department && `${studentInfo.department} - `}
           View your class schedule for the week
@@ -246,7 +246,7 @@ const StudentTimetable = () => {
       {/* Timetable Grid */}
       <div className="bg-white rounded-lg shadow-lg overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
+          <table className="w-full min-w-[820px] border-collapse">
             <thead>
               <tr className="bg-gradient-to-r from-green-600 to-green-700 text-white">
                 <th className="p-3 text-left font-semibold border border-green-500">
@@ -276,7 +276,7 @@ const StudentTimetable = () => {
                           <div
                             key={classItem.id}
                             className={`${getColorForSubject(
-                              classItem.subject
+                              classItem.subject,
                             )} p-2 rounded-lg mb-1 border-l-4`}
                           >
                             <div className="font-semibold text-sm">
