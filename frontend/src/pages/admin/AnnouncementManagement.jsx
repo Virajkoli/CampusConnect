@@ -96,7 +96,7 @@ export default function AnnouncementManagement() {
     // Subscribe to real-time updates from Firestore
     const q = query(
       collection(firestore, "announcements"),
-      orderBy("createdAt", "desc")
+      orderBy("createdAt", "desc"),
     );
 
     const unsubscribe = onSnapshot(
@@ -113,7 +113,7 @@ export default function AnnouncementManagement() {
         console.error("Error fetching announcements:", err);
         setError("Failed to load announcements");
         setLoading(false);
-      }
+      },
     );
 
     // Cleanup subscription on unmount
@@ -199,7 +199,8 @@ export default function AnnouncementManagement() {
             onClick={() => navigate("/admin-dashboard")}
             className="mb-4 flex items-center text-red-900 hover:text-green-900 transition-colors"
           >
-            <FiArrowLeft className="mr-2" />Go Back
+            <FiArrowLeft className="mr-2" />
+            Go Back
           </button>
         </div>
 
@@ -385,7 +386,7 @@ export default function AnnouncementManagement() {
                       <div className="flex items-center mb-2">
                         <span
                           className={`inline-flex text-xs font-medium px-2.5 py-0.5 rounded-full mr-2 ${getTypeColor(
-                            announcement.type
+                            announcement.type,
                           )}`}
                         >
                           {announcement.type?.charAt(0).toUpperCase() +
@@ -429,7 +430,7 @@ export default function AnnouncementManagement() {
                         onClick={() =>
                           toggleAnnouncementStatus(
                             announcement.id,
-                            announcement.active
+                            announcement.active,
                           )
                         }
                         className={`p-2 rounded-md ${
