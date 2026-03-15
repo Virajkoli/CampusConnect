@@ -1,13 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { firestore, auth } from "../../firebase";
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  onSnapshot,
-} from "firebase/firestore";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
 import {
   FiBell,
   FiCalendar,
@@ -29,15 +23,20 @@ const Announcements = () => {
     const q = query(
       collection(firestore, "announcements"),
       where("active", "==", true),
-      orderBy("createdAt", "desc"),
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const announcementsList = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        isRead: doc.data().readBy?.includes(auth.currentUser?.uid) || false,
-      }));
+      const announcementsList = snapshot.docs
+        .map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+          isRead: doc.data().readBy?.includes(auth.currentUser?.uid) || false,
+        }))
+        .sort((a, b) => {
+          const timeA = a.createdAt?.toMillis?.() || 0;
+          const timeB = b.createdAt?.toMillis?.() || 0;
+          return timeB - timeA;
+        });
       setAnnouncements(announcementsList);
       setLoading(false);
     });

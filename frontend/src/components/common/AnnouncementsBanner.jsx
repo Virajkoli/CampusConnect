@@ -4,8 +4,6 @@ import {
   collection,
   query,
   where,
-  orderBy,
-  limit,
   onSnapshot,
   doc,
   updateDoc,
@@ -38,15 +36,20 @@ const AnnouncementsBanner = () => {
     const q = query(
       collection(firestore, "announcements"),
       where("active", "==", true),
-      orderBy("createdAt", "desc"),
-      limit(10) // Limit to last 10 announcements
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const announcementsList = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      const announcementsList = snapshot.docs
+        .map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }))
+        .sort((a, b) => {
+          const timeA = a.createdAt?.toMillis?.() || 0;
+          const timeB = b.createdAt?.toMillis?.() || 0;
+          return timeB - timeA;
+        })
+        .slice(0, 10);
       setAnnouncements(announcementsList);
       setLoading(false);
 
@@ -136,7 +139,7 @@ const AnnouncementsBanner = () => {
         animate={{ y: 0 }}
         exit={{ y: -100 }}
         className={`fixed top-0 left-0 right-0 z-50 mx-auto max-w-5xl shadow-lg border ${getTypeBg(
-          currentAnnouncement.type
+          currentAnnouncement.type,
         )} rounded-b-lg`}
         style={{ maxWidth: expanded ? "42rem" : "36rem" }}
         id="announcement-banner"

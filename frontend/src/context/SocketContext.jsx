@@ -3,6 +3,12 @@ import { io } from "socket.io-client";
 import { auth } from "../firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
 
+const SOCKET_SERVER_URL = String(
+  import.meta.env.VITE_API_URL || "http://localhost:5000",
+)
+  .trim()
+  .replace(/\/+$/, "");
+
 // Create a context for the socket
 const SocketContext = createContext();
 
@@ -23,19 +29,16 @@ export const SocketProvider = ({ children }) => {
       try {
         // Connect to the socket server with error handling
         // Using the correct server port that matches your backend
-        newSocket = io(
-          import.meta.env.VITE_API_URL || "http://localhost:5000",
-          {
-            query: {
-              userId: user.uid,
-              userName: user.displayName || "Anonymous",
-            },
-            reconnectionAttempts: 3,
-            reconnectionDelay: 1000,
-            timeout: 10000,
-            autoConnect: false, // Don't auto connect to avoid connection errors
+        newSocket = io(SOCKET_SERVER_URL, {
+          query: {
+            userId: user.uid,
+            userName: user.displayName || "Anonymous",
           },
-        );
+          reconnectionAttempts: 3,
+          reconnectionDelay: 1000,
+          timeout: 10000,
+          autoConnect: false, // Don't auto connect to avoid connection errors
+        });
 
         // Set up all event handlers before connecting
         newSocket.on("connect", () => {

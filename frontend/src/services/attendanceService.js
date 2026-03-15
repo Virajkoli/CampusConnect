@@ -1,6 +1,13 @@
 import { auth } from "../firebase";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const normalizeBaseUrl = (value = "") =>
+  String(value || "")
+    .trim()
+    .replace(/\/+$/, "");
+
+const API_BASE = normalizeBaseUrl(
+  import.meta.env.VITE_API_URL || "http://localhost:5000",
+);
 
 const authHeaders = async () => {
   const user = auth.currentUser;
@@ -16,9 +23,20 @@ const authHeaders = async () => {
 };
 
 const parseResponse = async (response) => {
-  const data = await response.json();
+  const rawText = await response.text();
+  let data = null;
+
+  try {
+    data = rawText ? JSON.parse(rawText) : {};
+  } catch {
+    data = { message: rawText || "Request failed." };
+  }
+
   if (!response.ok) {
-    throw new Error(data.message || "Request failed.");
+    throw new Error(
+      data.message ||
+        `Request failed with status ${response.status}${response.statusText ? ` (${response.statusText})` : ""}.`,
+    );
   }
   return data;
 };
