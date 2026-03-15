@@ -1,13 +1,6 @@
-import React, { useEffect, useState } from "react";
-import {
-  collection,
-  getDocs,
-  doc,
-  deleteDoc,
-  updateDoc,
-  getDoc,
-} from "firebase/firestore";
-import { motion, AnimatePresence } from "framer-motion";
+import React, { useEffect, useMemo, useState } from "react";
+import { collection, getDocs, doc, deleteDoc } from "firebase/firestore";
+import { motion } from "framer-motion";
 import Button from "../../components/common/Button";
 import { firestore } from "../../firebase";
 import { FiRefreshCw, FiArrowLeft } from "react-icons/fi";
@@ -15,9 +8,13 @@ import { useNavigate } from "react-router-dom";
 import {
   BRANCHES as departments,
   YEARS as years,
-  DEFAULT_SUBJECT_SETS as subjectsList,
-  getSubjectsForBranchYear,
 } from "../../utils/branchYearSubjects";
+
+const JOB_PROFILES = [
+  "Permanent Faculty",
+  "Adjunct Faculty",
+  "Visiting Faculty",
+];
 
 const TeacherManagement = () => {
   const [teachers, setTeachers] = useState([]);
@@ -26,15 +23,17 @@ const TeacherManagement = () => {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
+    mobile: "",
     employeeId: "",
-    dept: "",
-    assignedCourses: [],
-    year: null,
-    subjects: [],
+    jobProfile: "",
+    department: "",
+    assignments: [],
   });
-  const [selectedYears, setSelectedYears] = useState([]);
+  const [currentBranch, setCurrentBranch] = useState("");
   const [currentYear, setCurrentYear] = useState("");
   const [currentSubjects, setCurrentSubjects] = useState([]);
+  const [availableSubjects, setAvailableSubjects] = useState([]);
+  const [loadingSubjects, setLoadingSubjects] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editId, setEditId] = useState(null);
   const [showForm, setShowForm] = useState(false);
@@ -71,6 +70,7 @@ const TeacherManagement = () => {
       (teacher) =>
         teacher.name?.toLowerCase()?.includes(search.toLowerCase()) ||
         teacher.employeeId?.includes(search) ||
+        teacher.mobile?.includes(search) ||
         teacher.email?.toLowerCase()?.includes(search.toLowerCase()),
     );
     setFilteredTeachers(filtered);
@@ -81,91 +81,134 @@ const TeacherManagement = () => {
     return re.test(email);
   };
 
+  const validateMobile = (mobile) => {
+    const digits = String(mobile || "").replace(/\D/g, "");
+    return digits.length === 10;
+  };
+
+  const normalizeLegacyAssignments = (teacher) => {
+    if (Array.isArray(teacher.assignments) && teacher.assignments.length > 0) {
+      return teacher.assignments;
+    }
+
+    if (
+      Array.isArray(teacher.assignedCourses) &&
+      teacher.assignedCourses.length > 0
+    ) {
+      const branch = teacher.department || teacher.dept || "";
+      return teacher.assignedCourses
+        .map((course) => ({
+          branch,
+          year: course.year,
+          subjects: Array.isArray(course.subjects) ? course.subjects : [],
+        }))
+        .filter(
+          (assignment) =>
+            assignment.branch &&
+            assignment.year &&
+            assignment.subjects.length > 0,
+        );
+    }
+
+    return [];
+  };
+
   const handleEdit = async (teacher) => {
     setFormData({
       name: teacher.name || "",
       email: teacher.email || "",
+      mobile: teacher.mobile || teacher.phone || "",
       employeeId: teacher.employeeId || "",
-      dept: teacher.dept || "",
-      assignedCourses: teacher.assignedCourses || [],
+      jobProfile: teacher.jobProfile || "",
+      department: teacher.department || teacher.dept || "",
+      assignments: normalizeLegacyAssignments(teacher),
     });
-
-    const years = teacher.assignedCourses
-      ? teacher.assignedCourses.map((course) => course.year)
-      : [];
-
-    setSelectedYears(years);
+    setCurrentBranch("");
+    setCurrentYear("");
+    setCurrentSubjects([]);
+    setAvailableSubjects([]);
     setIsEditing(true);
     setEditId(teacher.id);
     setShowForm(true);
     setError("");
-
-    const teacherDocRef = doc(firestore, "teachers", teacher.id);
-    const docSnap = await getDoc(teacherDocRef);
-    if (!docSnap.exists()) {
-      setError("Teacher not found in database. Please refresh the page.");
-      setIsEditing(false);
-      setShowForm(false);
-    }
   };
 
-  const handleYearChange = (e) => {
-    setCurrentYear(e.target.value);
-    setCurrentSubjects([]);
-  };
-
-  const handleAddYearSubjects = () => {
-    if (!currentYear || currentSubjects.length === 0) {
-      setError("Please select a year and at least one subject");
+  const loadAvailableSubjects = async (branch, year) => {
+    if (!branch || !year) {
+      setAvailableSubjects([]);
       return;
     }
 
-    const yearExists = formData.assignedCourses.some(
-      (course) => course.year === currentYear,
+    setLoadingSubjects(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/subjects?department=${encodeURIComponent(branch)}&year=${encodeURIComponent(year)}`,
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to load subjects.");
+      }
+      setAvailableSubjects(Array.isArray(data.subjects) ? data.subjects : []);
+    } catch (error) {
+      setAvailableSubjects([]);
+      setError(error.message);
+    } finally {
+      setLoadingSubjects(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAvailableSubjects(currentBranch, currentYear);
+  }, [currentBranch, currentYear]);
+
+  const handleAddYearSubjects = () => {
+    if (!currentBranch || !currentYear || currentSubjects.length === 0) {
+      setError("Please select branch, year and at least one subject.");
+      return;
+    }
+
+    const existingIndex = formData.assignments.findIndex(
+      (assignment) =>
+        assignment.branch === currentBranch && assignment.year === currentYear,
     );
 
-    let updatedCourses;
-    if (yearExists) {
-      updatedCourses = formData.assignedCourses.map((course) => {
-        if (course.year === currentYear) {
-          return {
-            ...course,
-            subjects: [...new Set([...course.subjects, ...currentSubjects])],
-          };
-        }
-        return course;
-      });
+    let updatedAssignments = [...formData.assignments];
+    if (existingIndex >= 0) {
+      const mergedSubjects = [
+        ...new Set([
+          ...updatedAssignments[existingIndex].subjects,
+          ...currentSubjects,
+        ]),
+      ];
+      updatedAssignments[existingIndex] = {
+        ...updatedAssignments[existingIndex],
+        subjects: mergedSubjects,
+      };
     } else {
-      updatedCourses = [
-        ...formData.assignedCourses,
-        { year: currentYear, subjects: currentSubjects },
+      updatedAssignments = [
+        ...updatedAssignments,
+        {
+          branch: currentBranch,
+          year: currentYear,
+          subjects: currentSubjects,
+        },
       ];
     }
 
-    setFormData({
-      ...formData,
-      assignedCourses: updatedCourses,
-    });
+    setFormData({ ...formData, assignments: updatedAssignments });
 
-    if (!selectedYears.includes(currentYear)) {
-      setSelectedYears([...selectedYears, currentYear]);
-    }
-
+    setCurrentBranch("");
     setCurrentYear("");
     setCurrentSubjects([]);
+    setAvailableSubjects([]);
+    setError("");
   };
 
-  const handleRemoveYear = (yearToRemove) => {
-    const updatedCourses = formData.assignedCourses.filter(
-      (course) => course.year !== yearToRemove,
+  const handleRemoveAssignment = (indexToRemove) => {
+    const updatedAssignments = formData.assignments.filter(
+      (_, index) => index !== indexToRemove,
     );
-
-    setFormData({
-      ...formData,
-      assignedCourses: updatedCourses,
-    });
-
-    setSelectedYears(selectedYears.filter((year) => year !== yearToRemove));
+    setFormData({ ...formData, assignments: updatedAssignments });
   };
 
   const handleSubjectChange = (subject, isChecked) => {
@@ -174,13 +217,6 @@ const TeacherManagement = () => {
     } else {
       setCurrentSubjects(currentSubjects.filter((s) => s !== subject));
     }
-  };
-
-  const getAvailableSubjects = () => {
-    if (formData.dept && currentYear) {
-      return getSubjectsForBranchYear(subjectsList, formData.dept, currentYear);
-    }
-    return [];
   };
 
   const handleSubmit = async () => {
@@ -192,30 +228,49 @@ const TeacherManagement = () => {
         throw new Error("Invalid email address.");
       }
 
+      if (!validateMobile(formData.mobile)) {
+        throw new Error("Mobile number must contain exactly 10 digits.");
+      }
+
       if (
         !formData.name ||
-        !formData.employeeId ||
-        !formData.dept ||
-        formData.assignedCourses.length === 0
+        !formData.jobProfile ||
+        !formData.department ||
+        formData.assignments.length === 0
       ) {
         throw new Error(
-          "Please fill all required fields and assign at least one course with subjects.",
+          "Please fill all required fields and assign at least one branch-year with subjects.",
         );
       }
 
       if (isEditing && editId) {
-        const docRef = doc(firestore, "teachers", editId);
-        const docSnap = await getDoc(docRef);
-        if (!docSnap.exists()) {
-          throw new Error("Teacher not found in database.");
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/teachers/${editId}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              fullName: formData.name,
+              email: formData.email,
+              mobile: formData.mobile,
+              jobProfile: formData.jobProfile,
+              department: formData.department,
+              assignments: formData.assignments,
+            }),
+          },
+        );
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to update teacher.");
         }
 
-        await updateDoc(docRef, {
-          ...formData,
-          updatedAt: new Date().toISOString(),
-        });
-
-        setSuccess("Teacher updated successfully!");
+        setSuccess(
+          `Teacher updated successfully${data?.teacher?.teacherId ? ` (ID: ${data.teacher.teacherId})` : ""}!`,
+        );
+        setFormData((prev) => ({
+          ...prev,
+          employeeId: data?.teacher?.teacherId || prev.employeeId,
+        }));
       } else {
         const response = await fetch(
           `${
@@ -224,7 +279,14 @@ const TeacherManagement = () => {
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(formData),
+            body: JSON.stringify({
+              fullName: formData.name,
+              email: formData.email,
+              mobile: formData.mobile,
+              jobProfile: formData.jobProfile,
+              department: formData.department,
+              assignments: formData.assignments,
+            }),
           },
         );
 
@@ -233,19 +295,24 @@ const TeacherManagement = () => {
           throw new Error(data.message || "Failed to create teacher.");
         }
 
-        setSuccess("Teacher created successfully!");
+        setSuccess(
+          `Teacher created successfully${data?.teacher?.teacherId ? ` (ID: ${data.teacher.teacherId})` : ""}${data?.credentials?.loginId ? ` | Login ID: ${data.credentials.loginId}` : ""}${data?.credentials?.password ? ` | Password: ${data.credentials.password}` : ""}`,
+        );
       }
 
       setFormData({
         name: "",
         email: "",
+        mobile: "",
         employeeId: "",
-        dept: "",
-        assignedCourses: [],
+        jobProfile: "",
+        department: "",
+        assignments: [],
       });
-      setSelectedYears([]);
+      setCurrentBranch("");
       setCurrentYear("");
       setCurrentSubjects([]);
+      setAvailableSubjects([]);
       setEditId(null);
       setIsEditing(false);
       setShowForm(false);
@@ -274,12 +341,19 @@ const TeacherManagement = () => {
 
   const navigate = useNavigate();
 
-  const teachersByDept = departments.reduce((acc, dept) => {
-    acc[dept] = filteredTeachers.filter(
-      (t) => (t.dept || "").trim().toLowerCase() === dept.trim().toLowerCase(),
-    );
-    return acc;
-  }, {});
+  const sortedTeachers = useMemo(() => {
+    return [...filteredTeachers].sort((a, b) => {
+      const deptA = String(a.department || a.dept || "").toLowerCase();
+      const deptB = String(b.department || b.dept || "").toLowerCase();
+      if (deptA !== deptB) {
+        return deptA.localeCompare(deptB);
+      }
+
+      const nameA = String(a.name || "").toLowerCase();
+      const nameB = String(b.name || "").toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+  }, [filteredTeachers]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-white to-blue-100 px-4 sm:px-6 lg:px-8 py-6 sm:py-8 text-gray-800">
@@ -358,17 +432,34 @@ const TeacherManagement = () => {
               />
               <input
                 type="text"
-                placeholder="Employee ID"
-                value={formData.employeeId}
+                placeholder="Mobile Number"
+                value={formData.mobile}
                 onChange={(e) =>
-                  setFormData({ ...formData, employeeId: e.target.value })
+                  setFormData({
+                    ...formData,
+                    mobile: e.target.value.replace(/[^\d]/g, "").slice(0, 10),
+                  })
                 }
                 className="border px-3 py-2 rounded w-full"
               />
               <select
-                value={formData.dept}
+                value={formData.jobProfile}
                 onChange={(e) =>
-                  setFormData({ ...formData, dept: e.target.value })
+                  setFormData({ ...formData, jobProfile: e.target.value })
+                }
+                className="border px-3 py-2 rounded w-full"
+              >
+                <option value="">Select Job Profile</option>
+                {JOB_PROFILES.map((jobProfile) => (
+                  <option key={jobProfile} value={jobProfile}>
+                    {jobProfile}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={formData.department}
+                onChange={(e) =>
+                  setFormData({ ...formData, department: e.target.value })
                 }
                 className="border px-3 py-2 rounded w-full"
               >
@@ -379,16 +470,44 @@ const TeacherManagement = () => {
                   </option>
                 ))}
               </select>
+              <input
+                type="text"
+                placeholder="Teacher ID (Auto Generated)"
+                value={formData.employeeId || "Auto-generated after save"}
+                readOnly
+                className="border px-3 py-2 rounded w-full bg-gray-100 text-gray-600"
+              />
             </div>
 
-            {formData.dept && (
+            {formData.department && (
               <div className="border-t pt-4 mb-6">
-                <h3 className="text-lg font-semibold mb-3">Assign Courses</h3>
+                <h3 className="text-lg font-semibold mb-3">
+                  Assign Teaching Load
+                </h3>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                  <select
+                    value={currentBranch}
+                    onChange={(e) => {
+                      setCurrentBranch(e.target.value);
+                      setCurrentSubjects([]);
+                    }}
+                    className="border px-3 py-2 rounded w-full"
+                  >
+                    <option value="">Select Branch</option>
+                    {departments.map((branch) => (
+                      <option key={branch} value={branch}>
+                        {branch}
+                      </option>
+                    ))}
+                  </select>
+
                   <select
                     value={currentYear}
-                    onChange={handleYearChange}
+                    onChange={(e) => {
+                      setCurrentYear(e.target.value);
+                      setCurrentSubjects([]);
+                    }}
                     className="border px-3 py-2 rounded w-full"
                   >
                     <option value="">Select Year</option>
@@ -402,51 +521,68 @@ const TeacherManagement = () => {
                   <Button
                     variant="outline"
                     onClick={handleAddYearSubjects}
-                    disabled={!currentYear || currentSubjects.length === 0}
+                    disabled={
+                      !currentBranch ||
+                      !currentYear ||
+                      currentSubjects.length === 0
+                    }
                   >
-                    Add Selected Subjects
+                    Add Assignment
                   </Button>
                 </div>
 
-                {currentYear && (
+                {currentBranch && currentYear && (
                   <div className="mb-4 border p-4 rounded bg-gray-50">
                     <h4 className="font-medium mb-2">
-                      Select Subjects for {currentYear} Year:
+                      Select Subjects for {currentBranch} - {currentYear} Year:
                     </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {getAvailableSubjects().map((subject) => (
-                        <label
-                          key={subject}
-                          className="flex items-center space-x-2"
-                        >
-                          <input
-                            type="checkbox"
-                            value={subject}
-                            checked={currentSubjects.includes(subject)}
-                            onChange={(e) =>
-                              handleSubjectChange(subject, e.target.checked)
-                            }
-                            className="form-checkbox h-5 w-5 text-indigo-600"
-                          />
-                          <span>{subject}</span>
-                        </label>
-                      ))}
-                    </div>
+                    {loadingSubjects ? (
+                      <p className="text-sm text-gray-500">
+                        Loading subjects...
+                      </p>
+                    ) : availableSubjects.length === 0 ? (
+                      <p className="text-sm text-red-500">
+                        No subjects found for the selected branch and year.
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {availableSubjects.map((subject) => (
+                          <label
+                            key={subject}
+                            className="flex items-center space-x-2"
+                          >
+                            <input
+                              type="checkbox"
+                              value={subject}
+                              checked={currentSubjects.includes(subject)}
+                              onChange={(e) =>
+                                handleSubjectChange(subject, e.target.checked)
+                              }
+                              className="form-checkbox h-5 w-5 text-indigo-600"
+                            />
+                            <span>{subject}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {formData.assignedCourses.length > 0 && (
+                {formData.assignments.length > 0 && (
                   <div className="mb-4 border p-4 rounded bg-blue-50">
-                    <h4 className="font-medium mb-2">Assigned Courses:</h4>
+                    <h4 className="font-medium mb-2">Current Assignments:</h4>
                     <div className="space-y-4">
-                      {formData.assignedCourses.map((course, idx) => (
-                        <div key={idx} className="border-b pb-2">
+                      {formData.assignments.map((assignment, idx) => (
+                        <label
+                          key={`${assignment.branch}-${assignment.year}-${idx}`}
+                          className="block border-b pb-2"
+                        >
                           <div className="flex justify-between items-center mb-2">
                             <span className="font-semibold">
-                              {course.year} Year
+                              {assignment.branch} - {assignment.year} Year
                             </span>
                             <button
-                              onClick={() => handleRemoveYear(course.year)}
+                              onClick={() => handleRemoveAssignment(idx)}
                               className="text-red-500 hover:text-red-700 text-sm"
                             >
                               Remove
@@ -455,10 +591,10 @@ const TeacherManagement = () => {
                           <div className="pl-4">
                             <span className="text-sm">Subjects: </span>
                             <span className="text-sm font-medium">
-                              {course.subjects.join(", ")}
+                              {assignment.subjects.join(", ")}
                             </span>
                           </div>
-                        </div>
+                        </label>
                       ))}
                     </div>
                   </div>
@@ -478,86 +614,90 @@ const TeacherManagement = () => {
           </motion.div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-          {departments.map((dept) => (
-            <motion.div
-              key={dept}
-              className="bg-white rounded-xl shadow-md p-6 border border-indigo-100 flex flex-col"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-              transition={{ duration: 0.4, type: "spring", stiffness: 120 }}
-            >
-              <div className="flex items-center mb-4">
-                <span className="inline-block w-3 h-3 rounded-full bg-indigo-400 mr-2"></span>
-                <h2 className="text-lg font-bold text-indigo-700">{dept}</h2>
-                <span className="ml-auto text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full">
-                  {teachersByDept[dept].length} teachers
-                </span>
-              </div>
-              {teachersByDept[dept].length === 0 ? (
-                <p className="text-gray-400 text-sm text-center py-6">
-                  No teachers in this department.
-                </p>
-              ) : (
-                <div className="overflow-x-auto rounded-lg border border-gray-100">
-                  <table className="min-w-[640px] w-full text-sm divide-y divide-gray-100">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="p-2 text-left font-semibold text-gray-600">
-                          Name
-                        </th>
-                        <th className="p-2 text-left font-semibold text-gray-600">
-                          Email
-                        </th>
-                        <th className="p-2 text-left font-semibold text-gray-600">
-                          Employee ID
-                        </th>
-                        <th className="p-2 text-center font-semibold text-gray-600">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {teachersByDept[dept].map((teacher) => (
-                        <tr
-                          key={teacher.id}
-                          className="border-b hover:bg-gray-50 transition"
-                        >
-                          <td className="p-2 whitespace-nowrap">
-                            {teacher.name}
-                          </td>
-                          <td className="p-2 whitespace-nowrap">
-                            {teacher.email}
-                          </td>
-                          <td className="p-2 whitespace-nowrap">
-                            {teacher.employeeId}
-                          </td>
-                          <td className="p-2">
-                            <div className="flex justify-center items-center gap-2">
-                              <Button
-                                variant="outline"
-                                onClick={() => handleEdit(teacher)}
-                              >
-                                Edit
-                              </Button>
-                              <Button
-                                variant="destructive"
-                                onClick={() => handleDelete(teacher.id)}
-                              >
-                                Delete
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </motion.div>
-          ))}
-        </div>
+        <motion.div
+          className="bg-white rounded-xl shadow-md p-6 border border-indigo-100 mt-8"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 20 }}
+          transition={{ duration: 0.4, type: "spring", stiffness: 120 }}
+        >
+          <div className="overflow-x-auto rounded-lg border border-gray-100">
+            <table className="w-full text-sm divide-y divide-gray-100">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="p-2 text-left font-semibold text-gray-600">
+                    Name
+                  </th>
+                  <th className="p-2 text-left font-semibold text-gray-600">
+                    Mobile
+                  </th>
+                  <th className="p-2 text-left font-semibold text-gray-600">
+                    Email
+                  </th>
+                  <th className="p-2 text-left font-semibold text-gray-600">
+                    Department
+                  </th>
+                  <th className="p-2 text-left font-semibold text-gray-600">
+                    Teacher ID
+                  </th>
+                  <th className="p-2 text-left font-semibold text-gray-600">
+                    Job Profile
+                  </th>
+                  <th className="p-2 text-center font-semibold text-gray-600">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedTeachers.length > 0 ? (
+                  sortedTeachers.map((teacher) => (
+                    <tr
+                      key={teacher.id}
+                      className="border-b hover:bg-gray-50 transition"
+                    >
+                      <td className="p-2 whitespace-nowrap">{teacher.name}</td>
+                      <td className="p-2 whitespace-nowrap">
+                        {teacher.mobile || teacher.phone || "-"}
+                      </td>
+                      <td className="p-2 whitespace-nowrap">{teacher.email}</td>
+                      <td className="p-2 whitespace-nowrap">
+                        {teacher.department || teacher.dept || "-"}
+                      </td>
+                      <td className="p-2 whitespace-nowrap">
+                        {teacher.teacherId || teacher.employeeId || "-"}
+                      </td>
+                      <td className="p-2 whitespace-nowrap">
+                        {teacher.jobProfile || "-"}
+                      </td>
+                      <td className="p-2">
+                        <div className="flex justify-center items-center gap-2">
+                          <Button
+                            variant="outline"
+                            onClick={() => handleEdit(teacher)}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            onClick={() => handleDelete(teacher.id)}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={7} className="text-center p-6 text-gray-500">
+                      No teachers found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </motion.div>
       </div>
     </div>
   );

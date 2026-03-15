@@ -34,6 +34,7 @@ function StudentDashboard() {
   const [semester, setSemester] = useState("");
   const [division, setDivision] = useState("");
   const [courses, setCourses] = useState([]);
+  const [subjectTeachersMap, setSubjectTeachersMap] = useState({});
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [timetable, setTimetable] = useState([]);
@@ -134,6 +135,20 @@ function StudentDashboard() {
               name: subject,
             })),
           );
+
+          if (
+            assignedSubjects.length > 0 &&
+            studentData.dept &&
+            studentData.year
+          ) {
+            await fetchTeachersForSubjects(
+              studentData.dept,
+              studentData.year,
+              assignedSubjects,
+            );
+          } else {
+            setSubjectTeachersMap({});
+          }
         }
 
         setLoading(false);
@@ -187,6 +202,87 @@ function StudentDashboard() {
         setTodaysClasses(todayClasses);
       } catch (error) {
         console.error("Error fetching timetable:", error);
+      }
+    };
+
+    const fetchTeachersForSubjects = async (
+      studentDept,
+      studentYear,
+      assignedSubjects,
+    ) => {
+      try {
+        const teacherSnapshot = await getDocs(
+          collection(firestore, "teachers"),
+        );
+        const nextMap = {};
+
+        assignedSubjects.forEach((subject) => {
+          nextMap[subject] = [];
+        });
+
+        teacherSnapshot.docs.forEach((teacherDoc) => {
+          const teacherData = teacherDoc.data() || {};
+          const teacherName =
+            teacherData.name ||
+            teacherData.fullName ||
+            teacherData.displayName ||
+            "Teacher";
+          const teacherId =
+            teacherData.teacherId || teacherData.employeeId || "";
+          const teacherLabel = teacherId
+            ? `${teacherName} (${teacherId})`
+            : teacherName;
+
+          const assignments =
+            Array.isArray(teacherData.assignments) &&
+            teacherData.assignments.length > 0
+              ? teacherData.assignments
+              : Array.isArray(teacherData.assignedCourses)
+                ? teacherData.assignedCourses.map((course) => ({
+                    branch: teacherData.department || teacherData.dept || "",
+                    year: course.year,
+                    subjects: Array.isArray(course.subjects)
+                      ? course.subjects
+                      : [],
+                  }))
+                : [];
+
+          assignments.forEach((assignment) => {
+            const sameBranch =
+              String(assignment.branch || "")
+                .trim()
+                .toLowerCase() ===
+              String(studentDept || "")
+                .trim()
+                .toLowerCase();
+            const sameYear =
+              String(assignment.year || "")
+                .trim()
+                .toLowerCase() ===
+              String(studentYear || "")
+                .trim()
+                .toLowerCase();
+
+            if (!sameBranch || !sameYear) {
+              return;
+            }
+
+            assignedSubjects.forEach((subject) => {
+              if ((assignment.subjects || []).includes(subject)) {
+                nextMap[subject].push(teacherLabel);
+              }
+            });
+          });
+        });
+
+        Object.keys(nextMap).forEach((subject) => {
+          nextMap[subject] = [...new Set(nextMap[subject])];
+        });
+
+        setSubjectTeachersMap(nextMap);
+      } catch (error) {
+        console.error("Error fetching teacher-subject associations:", error);
+        setSubjectTeachersMap({});
       }
     };
 
@@ -509,7 +605,14 @@ function StudentDashboard() {
                           key={course.id}
                           className={`px-3 py-2 rounded-lg border ${colors.border} ${colors.bg} ${colors.text}`}
                         >
-                          {course.name}
+                          <div className="font-medium">{course.name}</div>
+                          <div className="mt-1 text-xs text-gray-700">
+                            Teacher(s):{" "}
+                            {subjectTeachersMap[course.name] &&
+                            subjectTeachersMap[course.name].length > 0
+                              ? subjectTeachersMap[course.name].join(", ")
+                              : "Not assigned yet"}
+                          </div>
                         </div>
                       );
                     })}

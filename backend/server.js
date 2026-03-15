@@ -88,6 +88,11 @@ const BRANCHES = [
 
 const YEAR_KEYS = ["1st", "2nd", "3rd", "4th"];
 const SEMESTER_KEYS = ["1", "2"];
+const JOB_PROFILE_CONFIG = {
+  "Permanent Faculty": "PM",
+  "Adjunct Faculty": "AD",
+  "Visiting Faculty": "VT",
+};
 
 const LEGACY_DEFAULT_SUBJECT_SETS = {
   "Computer Engineering": {
@@ -345,6 +350,15 @@ const SEMESTER_ALIASES = {
   second: "2",
 };
 
+const JOB_PROFILE_ALIASES = {
+  permanent: "Permanent Faculty",
+  "permanent faculty": "Permanent Faculty",
+  adjunct: "Adjunct Faculty",
+  "adjunct faculty": "Adjunct Faculty",
+  visiting: "Visiting Faculty",
+  "visiting faculty": "Visiting Faculty",
+};
+
 const createMailTransporter = () => {
   return nodemailer.createTransport({
     service: "Gmail",
@@ -371,6 +385,12 @@ const normalizeSemester = (value = "") => {
   const key = String(value).trim().toLowerCase().replace(/\s+/g, "");
   if (!key) return "";
   return SEMESTER_ALIASES[key] || "";
+};
+
+const normalizeJobProfile = (value = "") => {
+  const key = String(value).trim().toLowerCase();
+  if (!key) return "";
+  return JOB_PROFILE_ALIASES[key] || "";
 };
 
 const normalizePhone = (value = "") => {
@@ -463,6 +483,317 @@ const getSubjectSetsMap = async () => {
   });
 
   return subjectSetsMap;
+};
+
+const getAllowedSubjectsForBranchYear = (subjectSetsMap, branch, year) => {
+  const semesterWiseSubjects = subjectSetsMap?.[branch]?.[year] || {};
+  const sem1 = Array.isArray(semesterWiseSubjects["1"])
+    ? semesterWiseSubjects["1"]
+    : [];
+  const sem2 = Array.isArray(semesterWiseSubjects["2"])
+    ? semesterWiseSubjects["2"]
+    : [];
+  return [...new Set([...sem1, ...sem2].map((s) => String(s).trim()))].filter(
+    Boolean,
+  );
+};
+
+const buildAssignmentsFromLegacyCourses = (
+  department,
+  assignedCourses = [],
+) => {
+  const normalizedBranch = normalizeBranch(department || "");
+  if (!normalizedBranch || !Array.isArray(assignedCourses)) {
+    return [];
+  }
+
+  return assignedCourses
+    .map((course) => {
+      const normalizedYear = normalizeYear(course?.year || "");
+      const subjects = Array.isArray(course?.subjects)
+        ? [...new Set(course.subjects.map((s) => String(s).trim()))].filter(
+            Boolean,
+          )
+        : [];
+
+      if (!normalizedYear || subjects.length === 0) {
+        return null;
+      }
+
+      return {
+        branch: normalizedBranch,
+        year: normalizedYear,
+        subjects,
+      };
+    })
+    .filter(Boolean);
+};
+
+const normalizeTeacherAssignments = ({
+  assignments,
+  subjectSetsMap,
+  fallbackBranch,
+  legacyAssignedCourses,
+}) => {
+  const rawAssignments = Array.isArray(assignments)
+    ? assignments
+    : buildAssignmentsFromLegacyCourses(fallbackBranch, legacyAssignedCourses);
+
+  if (!Array.isArray(rawAssignments) || rawAssignments.length === 0) {
+    throw new Error("At least one branch/year/subject assignment is required.");
+  }
+
+  const seenBranchYear = new Set();
+  const normalizedAssignments = rawAssignments.map((item) => {
+    const branch = normalizeBranch(
+      item?.branch || item?.dept || fallbackBranch,
+    );
+    const year = normalizeYear(item?.year || "");
+    const subjects = Array.isArray(item?.subjects)
+      ? [...new Set(item.subjects.map((s) => String(s).trim()))].filter(Boolean)
+      : [];
+
+    if (!branch || !year || subjects.length === 0) {
+      throw new Error(
+        "Each assignment must include a valid branch, year and at least one subject.",
+      );
+    }
+
+    const branchYearKey = `${branch}__${year}`;
+    if (seenBranchYear.has(branchYearKey)) {
+      throw new Error(`Duplicate assignment found for ${branch} ${year} year.`);
+    }
+    seenBranchYear.add(branchYearKey);
+
+    const allowedSubjects = getAllowedSubjectsForBranchYear(
+      subjectSetsMap,
+      branch,
+      year,
+    );
+    if (allowedSubjects.length === 0) {
+      throw new Error(
+        `No subject set configured for ${branch} ${year} year. Please configure it first.`,
+      );
+    }
+
+    const invalidSubjects = subjects.filter(
+      (subject) => !allowedSubjects.includes(subject),
+    );
+    if (invalidSubjects.length > 0) {
+      throw new Error(
+        `Invalid subjects for ${branch} ${year} year: ${invalidSubjects.join(", ")}`,
+      );
+    }
+
+    return {
+      branch,
+      year,
+      subjects,
+    };
+  });
+
+  return normalizedAssignments;
+};
+
+const buildLegacyAssignedCourses = (assignments = []) => {
+  const byYear = {};
+
+  assignments.forEach((assignment) => {
+    if (!byYear[assignment.year]) {
+      byYear[assignment.year] = new Set();
+    }
+
+    assignment.subjects.forEach((subject) => {
+      byYear[assignment.year].add(subject);
+    });
+  });
+
+  return Object.entries(byYear).map(([year, subjectsSet]) => ({
+    year,
+    subjects: Array.from(subjectsSet),
+  }));
+};
+
+const getAssignmentSummaryFields = (assignments = []) => {
+  const assignedBranches = [
+    ...new Set(assignments.map((assignment) => assignment.branch)),
+  ];
+  const assignedYears = [
+    ...new Set(assignments.map((assignment) => assignment.year)),
+  ];
+  const assignedSubjects = [
+    ...new Set(assignments.flatMap((assignment) => assignment.subjects || [])),
+  ];
+
+  return {
+    assignedBranches,
+    assignedYears,
+    assignedSubjects,
+  };
+};
+
+const generateTeacherId = async (firestore, jobProfile) => {
+  const normalizedProfile = normalizeJobProfile(jobProfile);
+  const prefix = JOB_PROFILE_CONFIG[normalizedProfile];
+
+  if (!prefix) {
+    throw new Error("Invalid job profile for teacher ID generation.");
+  }
+
+  const snapshot = await firestore.collection("teachers").get();
+  let maxSequence = 0;
+
+  snapshot.docs.forEach((docSnap) => {
+    const teacherData = docSnap.data();
+    const candidateId = String(
+      teacherData.teacherId || teacherData.employeeId || "",
+    ).trim();
+
+    if (!candidateId.startsWith(prefix)) {
+      return;
+    }
+
+    const sequencePart = candidateId.slice(prefix.length);
+    const parsedSequence = Number.parseInt(sequencePart, 10);
+    if (!Number.isNaN(parsedSequence)) {
+      maxSequence = Math.max(maxSequence, parsedSequence);
+    }
+  });
+
+  const nextSequence = String(maxSequence + 1).padStart(2, "0");
+  return `${prefix}${nextSequence}`;
+};
+
+const syncTeacherStudentMappings = async ({
+  firestore,
+  teacherUid,
+  teacherId,
+  teacherName,
+  assignments,
+}) => {
+  const existingMappingsSnapshot = await firestore
+    .collection("teacherStudentMappings")
+    .where("teacherUid", "==", teacherUid)
+    .get();
+
+  const deleteOps = [];
+  existingMappingsSnapshot.docs.forEach((docSnap) => {
+    deleteOps.push({ type: "delete", ref: docSnap.ref });
+  });
+
+  const [studentsSnapshot, usersSnapshot] = await Promise.all([
+    firestore.collection("students").get(),
+    firestore.collection("users").where("role", "==", "Student").get(),
+  ]);
+  const studentRecords = new Map();
+
+  const absorbStudentRecord = (docSnap) => {
+    const data = docSnap.data() || {};
+    const uid = data.uid || docSnap.id;
+    if (!uid) return;
+
+    const current = studentRecords.get(uid) || {};
+    studentRecords.set(uid, {
+      ...current,
+      ...data,
+      uid,
+    });
+  };
+
+  studentsSnapshot.docs.forEach(absorbStudentRecord);
+  usersSnapshot.docs.forEach(absorbStudentRecord);
+  const createOps = [];
+
+  Array.from(studentRecords.values()).forEach((studentData) => {
+    const studentBranch = normalizeBranch(
+      studentData.dept || studentData.department || "",
+    );
+    const studentYear = normalizeYear(studentData.year || "");
+    const studentSubjects = Array.isArray(studentData.subjects)
+      ? studentData.subjects
+          .map((subject) => String(subject).trim())
+          .filter(Boolean)
+      : [];
+
+    if (!studentBranch || !studentYear || studentSubjects.length === 0) {
+      return;
+    }
+
+    assignments.forEach((assignment) => {
+      if (
+        assignment.branch !== studentBranch ||
+        assignment.year !== studentYear
+      ) {
+        return;
+      }
+
+      const matchedSubjects = assignment.subjects.filter((subject) =>
+        studentSubjects.includes(subject),
+      );
+
+      if (matchedSubjects.length === 0) {
+        return;
+      }
+
+      const mappingDocId =
+        `${teacherUid}_${studentData.uid}_${assignment.branch}_${assignment.year}`
+          .replace(/[^a-zA-Z0-9_]/g, "_")
+          .toLowerCase();
+
+      createOps.push({
+        type: "set",
+        ref: firestore.collection("teacherStudentMappings").doc(mappingDocId),
+        payload: {
+          teacherUid,
+          teacherId,
+          teacherName,
+          studentUid: studentData.uid,
+          studentName: studentData.name || "",
+          studentPrn:
+            studentData.prn ||
+            studentData.rollNo ||
+            studentData.rollNumber ||
+            "",
+          branch: assignment.branch,
+          year: assignment.year,
+          subjects: matchedSubjects,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+      });
+    });
+  });
+
+  const allOps = [...deleteOps, ...createOps];
+  if (allOps.length === 0) {
+    return;
+  }
+
+  let batch = firestore.batch();
+  let opCount = 0;
+
+  const commitBatch = async () => {
+    if (opCount === 0) return;
+    await batch.commit();
+    batch = firestore.batch();
+    opCount = 0;
+  };
+
+  for (const operation of allOps) {
+    if (operation.type === "delete") {
+      batch.delete(operation.ref);
+    }
+    if (operation.type === "set") {
+      batch.set(operation.ref, operation.payload);
+    }
+
+    opCount += 1;
+    if (opCount >= 400) {
+      await commitBatch();
+    }
+  }
+
+  await commitBatch();
 };
 
 const isCsvFile = (file) => {
@@ -726,6 +1057,22 @@ const makeStudentAuthEmail = (prn) => {
   return `${String(prn).toLowerCase()}@campusconnect.student`;
 };
 
+const normalizeTeacherLoginId = (value = "") => {
+  const raw = String(value || "")
+    .trim()
+    .toLowerCase();
+
+  if (!raw) {
+    return "";
+  }
+
+  if (raw.includes("@")) {
+    return raw;
+  }
+
+  return `${raw}@campusconnect.teacher`;
+};
+
 const getPrnFromRecord = (data = {}) => {
   return (data.rollNo || data.rollNumber || data.prn || "")
     .toString()
@@ -970,76 +1317,149 @@ app.post("/api/createUser", async (req, res) => {
 });
 
 app.post("/api/createTeacher", async (req, res) => {
-  const { name, email, employeeId, dept, assignedCourses } = req.body;
-
-  if (!name || !email || !employeeId || !dept) {
-    return res.status(400).json({ message: "All fields are required." });
-  }
-
   try {
+    const firestore = admin.firestore();
+    const fullName = String(req.body.fullName || req.body.name || "").trim();
+    const contactEmail = String(req.body.email || "")
+      .trim()
+      .toLowerCase();
+    const jobProfile = normalizeJobProfile(req.body.jobProfile || "");
+    const department = normalizeBranch(
+      req.body.department || req.body.dept || "",
+    );
+    const mobile = normalizePhone(req.body.mobile || req.body.phone || "");
+
+    if (!fullName || !contactEmail || !jobProfile || !department || !mobile) {
+      return res.status(400).json({
+        message:
+          "Full Name, Email, Mobile, Job Profile and Department are required fields.",
+      });
+    }
+
+    const subjectSetsMap = await getSubjectSetsMap();
+    const assignments = normalizeTeacherAssignments({
+      assignments: req.body.assignments,
+      subjectSetsMap,
+      fallbackBranch: department,
+      legacyAssignedCourses: req.body.assignedCourses,
+    });
+    const assignmentSummary = getAssignmentSummaryFields(assignments);
+
     let user;
-    let generatedPassword = Math.random().toString(36).slice(-8); // random password
     let isNewUser = false;
+    const generatedPassword = Math.random().toString(36).slice(-8);
+
+    let existingTeacherDoc = null;
+    const byContactEmailSnapshot = await firestore
+      .collection("teachers")
+      .where("contactEmail", "==", contactEmail)
+      .limit(1)
+      .get();
+
+    if (!byContactEmailSnapshot.empty) {
+      existingTeacherDoc = byContactEmailSnapshot.docs[0];
+    } else {
+      const byLegacyEmailSnapshot = await firestore
+        .collection("teachers")
+        .where("email", "==", contactEmail)
+        .limit(1)
+        .get();
+      if (!byLegacyEmailSnapshot.empty) {
+        existingTeacherDoc = byLegacyEmailSnapshot.docs[0];
+      }
+    }
+
+    const existingTeacherData = existingTeacherDoc
+      ? existingTeacherDoc.data()
+      : {};
+    const existingTeacherUid = existingTeacherDoc ? existingTeacherDoc.id : "";
+
+    const previousProfile = normalizeJobProfile(
+      existingTeacherData.jobProfile || "",
+    );
+    const shouldRegenerateId =
+      !existingTeacherData.employeeId ||
+      (previousProfile && previousProfile !== jobProfile);
+    const employeeId = shouldRegenerateId
+      ? await generateTeacherId(firestore, jobProfile)
+      : existingTeacherData.employeeId;
+    const loginId = normalizeTeacherLoginId(employeeId);
+    const authEmail = loginId;
 
     try {
-      // check if teacher already exists
-      user = await admin.auth().getUserByEmail(email);
+      if (existingTeacherUid) {
+        user = await admin.auth().getUser(existingTeacherUid);
+      } else {
+        user = await admin.auth().getUserByEmail(authEmail);
+      }
 
-      // User exists - update their password so admin knows the new password
       await admin.auth().updateUser(user.uid, {
+        email: authEmail,
         password: generatedPassword,
-        displayName: name,
+        displayName: fullName,
       });
-      console.log(`Updated existing user ${email} with new password`);
     } catch (err) {
       if (err.code === "auth/user-not-found") {
-        // ✅ create new teacher with random password
         user = await admin.auth().createUser({
-          email,
-          displayName: name,
+          email: authEmail,
+          displayName: fullName,
           password: generatedPassword,
         });
         isNewUser = true;
-        console.log(`Created new user ${email}`);
       } else {
         throw err;
       }
     }
 
-    // ✅ set teacher role
     await admin.auth().setCustomUserClaims(user.uid, { teacher: true });
-    console.log(`Set teacher claim for ${email}`);
 
-    // ✅ save to Firestore
-    const firestore = admin.firestore();
-    await firestore.collection("teachers").doc(user.uid).set({
-      name,
-      email,
-      employeeId,
-      dept,
-      assignedCourses,
+    const teacherPayload = {
       uid: user.uid,
-      createdAt: new Date().toISOString(),
+      name: fullName,
+      fullName,
+      displayName: fullName,
+      email: contactEmail,
+      jobProfile,
+      employeeId,
+      teacherId: employeeId,
+      loginId,
+      authEmail,
+      contactEmail,
+      mobile,
+      phone: mobile,
+      dept: department,
+      department,
+      assignments,
+      ...assignmentSummary,
+      assignedCourses: buildLegacyAssignedCourses(assignments),
+      updatedAt: new Date().toISOString(),
+      createdAt: existingTeacherData.createdAt || new Date().toISOString(),
+    };
+
+    await firestore.collection("teachers").doc(user.uid).set(teacherPayload, {
+      merge: true,
     });
 
-    // ✅ email with credentials
-    const transporter = nodemailer.createTransport({
-      service: "Gmail",
-      auth: {
-        user: process.env.EMAIL_USERNAME,
-        pass: process.env.EMAIL_PASSWORD,
-      },
+    await syncTeacherStudentMappings({
+      firestore,
+      teacherUid: user.uid,
+      teacherId: employeeId,
+      teacherName: fullName,
+      assignments,
     });
 
+    const transporter = createMailTransporter();
     await transporter.verify();
 
-    const mailText = `Hi ${name},
+    const mailText = `Hi ${fullName},
 
 You have been ${isNewUser ? "added as a teacher" : "updated"} in CampusConnect.
 
-Here are your login credentials:
-📧 Email: ${email}
-🔐 Password: ${generatedPassword}
+Teacher ID: ${employeeId}
+  Login ID: ${loginId}
+Job Profile: ${jobProfile}
+  Login Email: ${authEmail}
+Password: ${generatedPassword}
 
 Please log in and change your password after first login.
 
@@ -1047,7 +1467,7 @@ Please log in and change your password after first login.
 
     await transporter.sendMail({
       from: `"Campus Connect" <${process.env.EMAIL_USERNAME}>`,
-      to: email,
+      to: contactEmail,
       subject: "Your CampusConnect Teacher Login",
       text: mailText,
     });
@@ -1056,9 +1476,152 @@ Please log in and change your password after first login.
       message: isNewUser
         ? "Teacher added and login email sent successfully."
         : "Teacher updated and new credentials sent successfully.",
+      teacher: {
+        uid: user.uid,
+        employeeId,
+        teacherId: employeeId,
+        loginId,
+        jobProfile,
+      },
+      credentials: {
+        loginId,
+        authEmail,
+        password: generatedPassword,
+      },
     });
   } catch (error) {
     console.error("Error creating teacher:", error);
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.put("/api/teachers/:uid", async (req, res) => {
+  try {
+    const { uid } = req.params;
+    if (!uid) {
+      return res.status(400).json({ message: "Teacher UID is required." });
+    }
+
+    const firestore = admin.firestore();
+    const teacherDocRef = firestore.collection("teachers").doc(uid);
+    const teacherDoc = await teacherDocRef.get();
+
+    if (!teacherDoc.exists) {
+      return res.status(404).json({ message: "Teacher not found." });
+    }
+
+    const existingTeacherData = teacherDoc.data();
+    const fullName = String(
+      req.body.fullName || req.body.name || existingTeacherData.name || "",
+    ).trim();
+    const contactEmail = String(
+      req.body.email ||
+        existingTeacherData.contactEmail ||
+        existingTeacherData.email ||
+        "",
+    )
+      .trim()
+      .toLowerCase();
+    const jobProfile = normalizeJobProfile(
+      req.body.jobProfile || existingTeacherData.jobProfile || "",
+    );
+    const department = normalizeBranch(
+      req.body.department ||
+        req.body.dept ||
+        existingTeacherData.department ||
+        existingTeacherData.dept ||
+        "",
+    );
+    const mobile = normalizePhone(
+      req.body.mobile ||
+        req.body.phone ||
+        existingTeacherData.mobile ||
+        existingTeacherData.phone ||
+        "",
+    );
+
+    if (!fullName || !contactEmail || !jobProfile || !department || !mobile) {
+      return res.status(400).json({
+        message:
+          "Full Name, Email, Mobile, Job Profile and Department are required fields.",
+      });
+    }
+
+    const subjectSetsMap = await getSubjectSetsMap();
+    const assignments = normalizeTeacherAssignments({
+      assignments: req.body.assignments,
+      subjectSetsMap,
+      fallbackBranch: department,
+      legacyAssignedCourses:
+        req.body.assignedCourses || existingTeacherData.assignedCourses,
+    });
+    const assignmentSummary = getAssignmentSummaryFields(assignments);
+
+    const previousProfile = normalizeJobProfile(
+      existingTeacherData.jobProfile || "",
+    );
+    const shouldRegenerateId =
+      !existingTeacherData.employeeId || previousProfile !== jobProfile;
+    const employeeId = shouldRegenerateId
+      ? await generateTeacherId(firestore, jobProfile)
+      : existingTeacherData.employeeId;
+    const loginId = normalizeTeacherLoginId(employeeId);
+    const authEmail = loginId;
+
+    const updatePayload = {
+      uid,
+      name: fullName,
+      fullName,
+      displayName: fullName,
+      email: contactEmail,
+      jobProfile,
+      employeeId,
+      teacherId: employeeId,
+      loginId,
+      authEmail,
+      contactEmail,
+      mobile,
+      phone: mobile,
+      dept: department,
+      department,
+      assignments,
+      ...assignmentSummary,
+      assignedCourses: buildLegacyAssignedCourses(assignments),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await teacherDocRef.set(updatePayload, { merge: true });
+
+    await syncTeacherStudentMappings({
+      firestore,
+      teacherUid: uid,
+      teacherId: employeeId,
+      teacherName: fullName,
+      assignments,
+    });
+
+    try {
+      await admin.auth().updateUser(uid, {
+        displayName: fullName,
+        email: authEmail,
+      });
+      await admin.auth().setCustomUserClaims(uid, { teacher: true });
+    } catch (authError) {
+      console.error("Teacher auth update warning:", authError.message);
+    }
+
+    return res.status(200).json({
+      message: "Teacher updated successfully.",
+      teacher: {
+        uid,
+        employeeId,
+        teacherId: employeeId,
+        loginId,
+        jobProfile,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating teacher:", error);
     return res.status(500).json({ message: error.message });
   }
 });
@@ -1078,6 +1641,55 @@ app.post("/api/setTeacherRole", async (req, res) => {
     res
       .status(500)
       .json({ message: "Failed to set teacher role", error: error.message });
+  }
+});
+
+app.get("/api/resolve-teacher-login/:loginId", async (req, res) => {
+  try {
+    const normalizedLoginId = normalizeTeacherLoginId(req.params.loginId || "");
+    if (!normalizedLoginId) {
+      return res.status(400).json({ message: "Login ID is required." });
+    }
+
+    const firestore = admin.firestore();
+    let teacherSnapshot = await firestore
+      .collection("teachers")
+      .where("loginId", "==", normalizedLoginId)
+      .limit(1)
+      .get();
+
+    if (teacherSnapshot.empty) {
+      const localTeacherId = normalizedLoginId.split("@")[0].toUpperCase();
+      teacherSnapshot = await firestore
+        .collection("teachers")
+        .where("teacherId", "==", localTeacherId)
+        .limit(1)
+        .get();
+    }
+
+    if (teacherSnapshot.empty) {
+      return res.status(404).json({ message: "Teacher login ID not found." });
+    }
+
+    const teacherData = teacherSnapshot.docs[0].data() || {};
+    const resolvedEmail =
+      teacherData.authEmail ||
+      teacherData.email ||
+      teacherData.contactEmail ||
+      "";
+
+    if (!resolvedEmail) {
+      return res.status(404).json({ message: "Teacher auth email not found." });
+    }
+
+    return res.status(200).json({
+      success: true,
+      loginId: normalizedLoginId,
+      email: resolvedEmail,
+    });
+  } catch (error) {
+    console.error("Error resolving teacher login:", error);
+    return res.status(500).json({ message: error.message });
   }
 });
 

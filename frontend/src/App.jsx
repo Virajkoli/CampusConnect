@@ -32,6 +32,7 @@ import StudentAuthPage from "./pages/student/StudentAuthPage";
 import UserManagement from "./pages/admin/UserManagement";
 import TeacherAuthPage from "./pages/teacher/TeacherAuthPage";
 import TeacherDashboard from "./pages/teacher/TeacherDashboard";
+import TeacherStudents from "./pages/teacher/TeacherStudents";
 import TeacherManagement from "./pages/admin/TeacherManagement";
 import SubjectSetManagement from "./pages/admin/SubjectSetManagement";
 import BulkStudentOnboarding from "./pages/admin/BulkStudentOnboarding";
@@ -289,6 +290,14 @@ function AppContent() {
           element={
             <TeacherRoute>
               <TeacherCourses />
+            </TeacherRoute>
+          }
+        />
+        <Route
+          path="/teacher-students"
+          element={
+            <TeacherRoute>
+              <TeacherStudents />
             </TeacherRoute>
           }
         />

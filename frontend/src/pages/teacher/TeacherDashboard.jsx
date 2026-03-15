@@ -9,7 +9,14 @@ import {
   onSnapshot,
 } from "firebase/firestore";
 import { useNavigate, Link } from "react-router-dom";
-import { FiSearch, FiLogOut, FiBook, FiMenu, FiX } from "react-icons/fi";
+import {
+  FiSearch,
+  FiLogOut,
+  FiBook,
+  FiMenu,
+  FiX,
+  FiUsers,
+} from "react-icons/fi";
 import {
   FaChalkboardTeacher,
   FaBell,
@@ -238,6 +245,11 @@ export default function TeacherDashboard() {
             path="/teacher-courses"
           />
           <SidebarItem
+            icon={<FiUsers />}
+            label="Students"
+            path="/teacher-students"
+          />
+          <SidebarItem
             icon={<FiBook />}
             label="Study Materials"
             path="/teacher-studymaterial"
@@ -295,6 +307,12 @@ export default function TeacherDashboard() {
                   icon={<FaBook />}
                   label="Courses"
                   path="/teacher-courses"
+                  onClick={() => setIsSidebarOpen(false)}
+                />
+                <SidebarItem
+                  icon={<FiUsers />}
+                  label="Students"
+                  path="/teacher-students"
                   onClick={() => setIsSidebarOpen(false)}
                 />
                 <SidebarItem

@@ -8,7 +8,7 @@ import { FiArrowLeft } from "react-icons/fi";
 
 export default function TeacherCourses() {
   const [dept, setDept] = useState("");
-  const [assignedCourses, setAssignedCourses] = useState([]);
+  const [assignments, setAssignments] = useState([]);
   const [error, setError] = useState("");
   const navigate = useNavigate();
   useEffect(() => {
@@ -24,13 +24,22 @@ export default function TeacherCourses() {
 
         if (docSnap.exists()) {
           const data = docSnap.data();
-          setDept(data.dept || "");
+          setDept(data.department || data.dept || "");
 
-          // Check if assignedCourses exists and is properly formatted
-          if (data.assignedCourses && Array.isArray(data.assignedCourses)) {
-            setAssignedCourses(data.assignedCourses);
+          if (Array.isArray(data.assignments) && data.assignments.length > 0) {
+            setAssignments(data.assignments);
+          } else if (
+            data.assignedCourses &&
+            Array.isArray(data.assignedCourses)
+          ) {
+            setAssignments(
+              data.assignedCourses.map((course) => ({
+                branch: data.department || data.dept || "",
+                year: course.year,
+                subjects: Array.isArray(course.subjects) ? course.subjects : [],
+              })),
+            );
           } else if (data.subjects) {
-            // For backward compatibility with the old format
             const year = data.year || "";
             const subjects = Array.isArray(data.subjects)
               ? data.subjects
@@ -39,10 +48,16 @@ export default function TeacherCourses() {
                 : [];
 
             if (year && subjects.length > 0) {
-              setAssignedCourses([{ year, subjects }]);
+              setAssignments([
+                {
+                  branch: data.department || data.dept || "",
+                  year,
+                  subjects,
+                },
+              ]);
             }
           } else {
-            setAssignedCourses([]);
+            setAssignments([]);
           }
         } else {
           setError("Teacher data not found");
@@ -88,36 +103,36 @@ export default function TeacherCourses() {
             </div>
           )}
 
-          {assignedCourses.length === 0 ? (
+          {assignments.length === 0 ? (
             <div className="text-center p-10 bg-gray-50 rounded-lg">
-              <p className="text-xl text-gray-500">No courses assigned yet.</p>
+              <p className="text-xl text-gray-500">No assignments found yet.</p>
             </div>
           ) : (
             <div>
               <h2 className="text-xl font-semibold text-gray-700 mb-4">
-                Your Assigned Courses
+                Your Assigned Teaching Loads
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {assignedCourses.map((course, index) => (
+                {assignments.map((assignment, index) => (
                   <motion.div
                     key={index}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.1 }}
                     className={`rounded-lg shadow-md overflow-hidden bg-gradient-to-r ${getYearColor(
-                      course.year,
+                      assignment.year,
                     )}`}
                   >
                     <div className="p-6">
                       <h3 className="text-xl font-bold text-white mb-3">
-                        {course.year} Year
+                        {assignment.branch || "Branch"} - {assignment.year} Year
                       </h3>
                       <div className="bg-white bg-opacity-90 rounded-lg p-4">
                         <h4 className="font-medium text-gray-800 mb-2">
                           Subjects:
                         </h4>
                         <ul className="space-y-1">
-                          {course.subjects.map((subject, subIndex) => (
+                          {assignment.subjects.map((subject, subIndex) => (
                             <li
                               key={subIndex}
                               className="flex items-center text-gray-700"
@@ -143,11 +158,12 @@ export default function TeacherCourses() {
           </h3>
           <p className="text-gray-700 mb-4">
             You have{" "}
-            {assignedCourses.reduce(
-              (total, course) => total + course.subjects.length,
+            {assignments.reduce(
+              (total, assignment) => total + assignment.subjects.length,
               0,
             )}{" "}
-            subject(s) across {assignedCourses.length} year(s).
+            subject assignment(s) across {assignments.length} branch-year
+            block(s).
           </p>
           <div className="bg-white rounded-lg p-4">
             <ul className="space-y-2 text-gray-700">
