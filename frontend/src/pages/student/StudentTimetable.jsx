@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiArrowLeft, FiFilter } from "react-icons/fi";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+  doc,
+  getDoc,
+} from "firebase/firestore";
 import { firestore, auth } from "../../firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { toast } from "react-toastify";
@@ -12,19 +19,11 @@ const StudentTimetable = () => {
   const [loading, setLoading] = useState(true);
   const [studentInfo, setStudentInfo] = useState(null);
   const [classes, setClasses] = useState([]);
-  const [allClasses, setAllClasses] = useState([]);
-  const [filterDepartment, setFilterDepartment] = useState("");
+  const [filterBranch, setFilterBranch] = useState("");
+  const [filterYear, setFilterYear] = useState("");
   const [filterSemester, setFilterSemester] = useState("");
-  const [filterDivision, setFilterDivision] = useState("");
 
-  const days = [
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-  ];
+  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
   const timeSlots = [
     "09:00",
     "10:00",
@@ -38,117 +37,84 @@ const StudentTimetable = () => {
   ];
 
   useEffect(() => {
-    fetchStudentInfo();
-  }, [user]);
-
-  useEffect(() => {
-    if (studentInfo) {
-      fetchClasses();
-    }
-  }, [studentInfo]);
-
-  useEffect(() => {
-    applyFilters();
-  }, [filterDepartment, filterSemester, filterDivision, allClasses]);
-
-  const fetchStudentInfo = async () => {
-    if (!user) {
-      navigate("/student-auth");
-      return;
-    }
-
-    try {
-      const studentsRef = collection(firestore, "students");
-      const q = query(studentsRef, where("uid", "==", user.uid));
-      const snapshot = await getDocs(q);
-
-      if (!snapshot.empty) {
-        const data = snapshot.docs[0].data();
-        setStudentInfo({
-          id: snapshot.docs[0].id,
-          ...data,
-        });
-        // Auto-set filters based on student info
-        setFilterDepartment(data.department || "");
-        setFilterSemester(data.semester || "");
-        setFilterDivision(data.division || "");
-      } else {
-        // Fallback: check users collection
-        const usersRef = collection(firestore, "users");
-        const userQuery = query(usersRef, where("uid", "==", user.uid));
-        const userSnapshot = await getDocs(userQuery);
-
-        if (!userSnapshot.empty) {
-          const userData = userSnapshot.docs[0].data();
-          setStudentInfo({
-            id: userSnapshot.docs[0].id,
-            ...userData,
-          });
-          setFilterDepartment(userData.dept || "");
-        } else {
-          // Use default info
-          setStudentInfo({
-            id: user.uid,
-            name: user.displayName || "Student",
-            email: user.email,
-            uid: user.uid,
-          });
-        }
+    const fetchStudentInfo = async () => {
+      if (!user) {
+        navigate("/login");
+        return;
       }
-    } catch (error) {
-      console.error("Error fetching student info:", error);
-      // Use default info on error
-      setStudentInfo({
-        id: user.uid,
-        name: user.displayName || "Student",
-        email: user.email,
-        uid: user.uid,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const fetchClasses = async () => {
-    try {
-      const classesRef = collection(firestore, "timetable");
-      const snapshot = await getDocs(classesRef);
+      try {
+        const userDoc = await getDoc(doc(firestore, "users", user.uid));
+        let data = null;
 
-      const classList = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+        if (userDoc.exists()) {
+          data = userDoc.data();
+        } else {
+          const studentDoc = await getDoc(doc(firestore, "students", user.uid));
+          if (studentDoc.exists()) {
+            data = studentDoc.data();
+          }
+        }
 
-      setAllClasses(classList);
-    } catch (error) {
-      console.error("Error fetching classes:", error);
-      toast.error("Failed to load timetable");
-    }
-  };
+        if (!data) {
+          toast.error("Student profile not found.");
+          setLoading(false);
+          return;
+        }
 
-  const applyFilters = () => {
-    let filtered = [...allClasses];
+        const branch = data.dept || data.department || "";
+        const year = data.year || "";
+        const semester = data.semester || "";
 
-    if (filterDepartment) {
-      filtered = filtered.filter(
-        (c) => !c.department || c.department === filterDepartment,
-      );
-    }
+        setStudentInfo({ uid: user.uid, ...data });
+        setFilterBranch(branch);
+        setFilterYear(year);
+        setFilterSemester(semester);
+      } catch (error) {
+        console.error("Error fetching student info:", error);
+        toast.error("Failed to load student profile.");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    if (filterSemester) {
-      filtered = filtered.filter(
-        (c) => !c.semester || c.semester === filterSemester,
-      );
-    }
+    fetchStudentInfo();
+  }, [user, navigate]);
 
-    if (filterDivision) {
-      filtered = filtered.filter(
-        (c) => !c.division || c.division === filterDivision,
-      );
-    }
+  useEffect(() => {
+    const fetchTimetable = async () => {
+      if (!filterBranch || !filterYear || !filterSemester) {
+        setClasses([]);
+        return;
+      }
 
-    setClasses(filtered);
-  };
+      try {
+        const q = query(
+          collection(firestore, "timetables"),
+          where("branch", "==", filterBranch),
+          where("year", "==", filterYear),
+          where("semester", "==", filterSemester),
+        );
+
+        const snapshot = await getDocs(q);
+        const classList = snapshot.docs
+          .map((docSnap) => ({
+            id: docSnap.id,
+            ...docSnap.data(),
+          }))
+          .sort((a, b) =>
+            String(a.startTime || "").localeCompare(String(b.startTime || "")),
+          );
+
+        setClasses(classList);
+      } catch (error) {
+        console.error("Error fetching classes:", error);
+        toast.error("Failed to load timetable");
+      }
+    };
+
+    fetchTimetable();
+  }, [filterBranch, filterYear, filterSemester]);
 
   const getClassesForSlot = (day, timeSlot) => {
     return classes.filter((c) => {
@@ -158,7 +124,7 @@ const StudentTimetable = () => {
     });
   };
 
-  const getColorForSubject = (subject) => {
+  const getColorForSubject = (subject = "") => {
     const colors = [
       "bg-blue-100 border-blue-500 text-blue-800",
       "bg-green-100 border-green-500 text-green-800",
@@ -168,7 +134,7 @@ const StudentTimetable = () => {
       "bg-indigo-100 border-indigo-500 text-indigo-800",
       "bg-teal-100 border-teal-500 text-teal-800",
     ];
-    const index = subject.charCodeAt(0) % colors.length;
+    const index = subject.length % colors.length;
     return colors[index];
   };
 
@@ -195,55 +161,54 @@ const StudentTimetable = () => {
       <div className="mb-6">
         <h1 className="text-2xl sm:text-3xl font-bold">Class Timetable</h1>
         <p className="text-gray-600 mt-1">
-          {studentInfo?.department && `${studentInfo.department} - `}
           View your class schedule for the week
         </p>
       </div>
 
-      {/* Filters */}
       <div className="bg-white rounded-lg shadow-md p-4 mb-6">
         <div className="flex items-center gap-2 mb-3">
           <FiFilter className="text-gray-600" />
-          <h3 className="font-semibold">Filter Classes</h3>
+          <h3 className="font-semibold">Applied Filters</h3>
         </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Department</label>
+            <label className="block text-sm font-medium mb-1">Branch</label>
             <input
               type="text"
-              value={filterDepartment}
-              onChange={(e) => setFilterDepartment(e.target.value)}
-              className="w-full p-2 border rounded-lg"
-              placeholder="e.g., Computer Engineering"
+              value={filterBranch}
+              readOnly
+              className="w-full p-2 border rounded-lg bg-gray-100"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Year</label>
+            <input
+              type="text"
+              value={filterYear}
+              readOnly
+              className="w-full p-2 border rounded-lg bg-gray-100"
             />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Semester</label>
-            <input
-              type="text"
+            <select
               value={filterSemester}
               onChange={(e) => setFilterSemester(e.target.value)}
               className="w-full p-2 border rounded-lg"
-              placeholder="e.g., 3"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Division</label>
-            <input
-              type="text"
-              value={filterDivision}
-              onChange={(e) => setFilterDivision(e.target.value)}
-              className="w-full p-2 border rounded-lg"
-              placeholder="e.g., A"
-            />
+            >
+              <option value="">Select semester</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+            </select>
           </div>
         </div>
+
         <div className="mt-3 text-sm text-gray-600">
-          Showing {classes.length} classe(s)
+          Showing {classes.length} class(es)
         </div>
       </div>
 
-      {/* Timetable Grid */}
       <div className="bg-white rounded-lg shadow-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[820px] border-collapse">
@@ -275,29 +240,17 @@ const StudentTimetable = () => {
                         {slotClasses.map((classItem) => (
                           <div
                             key={classItem.id}
-                            className={`${getColorForSubject(
-                              classItem.subject,
-                            )} p-2 rounded-lg mb-1 border-l-4`}
+                            className={`${getColorForSubject(classItem.subjectName || classItem.subject)} p-2 rounded-lg mb-1 border-l-4`}
                           >
                             <div className="font-semibold text-sm">
-                              {classItem.subject}
+                              {classItem.subjectName || classItem.subject}
                             </div>
                             <div className="text-xs mt-1">
                               {classItem.startTime} - {classItem.endTime}
                             </div>
-                            {classItem.room && (
-                              <div className="text-xs">
-                                📍 Room: {classItem.room}
-                              </div>
-                            )}
                             {classItem.teacherName && (
                               <div className="text-xs">
                                 👨‍🏫 {classItem.teacherName}
-                              </div>
-                            )}
-                            {classItem.division && (
-                              <div className="text-xs">
-                                Div: {classItem.division}
                               </div>
                             )}
                           </div>
@@ -315,10 +268,10 @@ const StudentTimetable = () => {
       {classes.length === 0 && (
         <div className="text-center py-12 bg-gray-50 rounded-lg mt-6">
           <p className="text-gray-600 text-lg">
-            No classes found for the selected filters.
+            No classes found for your current profile.
           </p>
           <p className="text-gray-500 text-sm mt-2">
-            Try adjusting your filter criteria.
+            Contact your teachers if timetable slots are not published yet.
           </p>
         </div>
       )}

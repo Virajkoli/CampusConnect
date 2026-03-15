@@ -6,7 +6,7 @@ import { createTeacherAccount } from "../../firebase";
 
 export default function TeacherAuthPage() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -20,9 +20,26 @@ export default function TeacherAuthPage() {
     setError("");
 
     try {
+      const normalizedIdentifier = identifier.trim();
+      if (!normalizedIdentifier) {
+        throw new Error("Please enter Login ID or Email.");
+      }
+
+      let loginEmail = normalizedIdentifier;
+      if (!normalizedIdentifier.includes("@")) {
+        const resolveResponse = await fetch(
+          `${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/resolve-teacher-login/${encodeURIComponent(normalizedIdentifier)}`,
+        );
+        const resolveData = await resolveResponse.json();
+        if (!resolveResponse.ok) {
+          throw new Error(resolveData.message || "Invalid teacher login ID.");
+        }
+        loginEmail = resolveData.email;
+      }
+
       const userCredential = await signInWithEmailAndPassword(
         auth,
-        email,
+        loginEmail,
         password,
       );
       const user = userCredential.user;
@@ -51,8 +68,12 @@ export default function TeacherAuthPage() {
     setError("");
 
     try {
+      if (!identifier.includes("@")) {
+        throw new Error("Please enter a valid email to self-register.");
+      }
+
       const userCredential = await createTeacherAccount(
-        email,
+        identifier,
         password,
         "Teacher Name",
       );
@@ -121,10 +142,10 @@ export default function TeacherAuthPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <motion.input
             whileFocus={{ scale: 1.02 }}
-            type="email"
-            placeholder="Teacher Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            type="text"
+            placeholder="Teacher Login ID (e.g. pm01@campusconnect.teacher)"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
             className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none"
             required
           />

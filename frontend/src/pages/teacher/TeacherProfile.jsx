@@ -4,7 +4,6 @@ import {
   FiArrowLeft,
   FiMail,
   FiBook,
-  FiUsers,
   FiUser,
   FiLogOut,
   FiEdit,
@@ -15,6 +14,16 @@ import { motion } from "framer-motion";
 
 const TeacherProfile = ({ userData }) => {
   const navigate = useNavigate();
+  const assignments =
+    Array.isArray(userData?.assignments) && userData.assignments.length > 0
+      ? userData.assignments
+      : Array.isArray(userData?.assignedCourses)
+        ? userData.assignedCourses.map((course) => ({
+            branch: userData?.department || userData?.dept || "",
+            year: course.year,
+            subjects: Array.isArray(course.subjects) ? course.subjects : [],
+          }))
+        : [];
 
   const handleLogout = async () => {
     await auth.signOut();
@@ -122,23 +131,32 @@ const TeacherProfile = ({ userData }) => {
 
             <div className="space-y-4">
               <div className="flex justify-between items-center p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl">
-                <span className="text-gray-600 font-medium">Employee ID</span>
+                <span className="text-gray-600 font-medium">Teacher ID</span>
                 <span className="text-gray-800 font-semibold">
-                  {userData?.employeeId || "Not assigned"}
+                  {userData?.teacherId ||
+                    userData?.employeeId ||
+                    "Not assigned"}
                 </span>
               </div>
 
               <div className="flex justify-between items-center p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl">
                 <span className="text-gray-600 font-medium">Department</span>
                 <span className="text-gray-800 font-semibold">
-                  {userData?.dept || "Not assigned"}
+                  {userData?.department || userData?.dept || "Not assigned"}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center p-4 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl">
+                <span className="text-gray-600 font-medium">Job Profile</span>
+                <span className="text-gray-800 font-semibold">
+                  {userData?.jobProfile || "Not assigned"}
                 </span>
               </div>
 
               <div className="p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-xl">
                 <div className="text-gray-600 text-sm mb-2">Total Courses</div>
                 <div className="text-3xl font-bold text-green-600">
-                  {userData?.assignedCourses?.length || 0}
+                  {assignments.length}
                 </div>
               </div>
             </div>
@@ -160,10 +178,9 @@ const TeacherProfile = ({ userData }) => {
               </h2>
             </div>
 
-            {userData?.assignedCourses &&
-            userData.assignedCourses.length > 0 ? (
+            {assignments.length > 0 ? (
               <div className="space-y-4 max-h-80 overflow-y-auto custom-scrollbar">
-                {userData.assignedCourses.map((course, idx) => (
+                {assignments.map((course, idx) => (
                   <motion.div
                     key={idx}
                     initial={{ opacity: 0, y: 10 }}
@@ -176,7 +193,7 @@ const TeacherProfile = ({ userData }) => {
                         {course.year}
                       </div>
                       <h3 className="font-bold text-gray-800">
-                        Year {course.year}
+                        {course.branch || "Branch"} - Year {course.year}
                       </h3>
                     </div>
                     <div className="space-y-2 pl-13">

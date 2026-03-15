@@ -24,6 +24,13 @@ import {
 } from "react-icons/fi";
 import { Link, useNavigate } from "react-router-dom";
 import AnnouncementsBanner from "../../components/common/AnnouncementsBanner";
+import { getStudentAttendance } from "../../services/attendanceService";
+
+const makeSubjectId = (subjectName = "") =>
+  String(subjectName || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
 
 function StudentDashboard() {
   const navigate = useNavigate();
@@ -34,10 +41,12 @@ function StudentDashboard() {
   const [semester, setSemester] = useState("");
   const [division, setDivision] = useState("");
   const [courses, setCourses] = useState([]);
+  const [subjectTeachersMap, setSubjectTeachersMap] = useState({});
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [timetable, setTimetable] = useState([]);
   const [todaysClasses, setTodaysClasses] = useState([]);
+  const [attendanceStatsBySubject, setAttendanceStatsBySubject] = useState({});
 
   // Days of week for timetable
   const daysOfWeek = [
@@ -111,17 +120,23 @@ function StudentDashboard() {
           setStudentName(
             studentData.name || studentData.displayName || "Student",
           );
-          setDepartment(studentData.dept || "Not assigned");
+          setDepartment(
+            studentData.dept || studentData.department || "Not assigned",
+          );
           setYear(studentData.year || "");
           setSemester(studentData.semester || "");
           setDivision(studentData.division || "A");
 
-          // Fetch timetable based on student's department, semester and division
-          if (studentData.dept && studentData.semester) {
+          // Fetch timetable based on student's branch, year and semester
+          if (
+            (studentData.dept || studentData.department) &&
+            studentData.year &&
+            studentData.semester
+          ) {
             fetchTimetable(
-              studentData.dept,
+              studentData.dept || studentData.department,
+              studentData.year,
               studentData.semester,
-              studentData.division || "A",
             );
           }
 
@@ -134,6 +149,37 @@ function StudentDashboard() {
               name: subject,
             })),
           );
+
+          if (
+            assignedSubjects.length > 0 &&
+            studentData.dept &&
+            studentData.year
+          ) {
+            await fetchTeachersForSubjects(
+              studentData.dept,
+              studentData.year,
+              assignedSubjects,
+            );
+          } else {
+            setSubjectTeachersMap({});
+          }
+
+          const attendanceResult = await getStudentAttendance(user.uid);
+          const stats = Array.isArray(attendanceResult.attendance)
+            ? attendanceResult.attendance
+            : [];
+          const statsMap = {};
+          stats.forEach((entry) => {
+            const byId = String(entry.subjectId || "");
+            const byName = makeSubjectId(entry.subjectName || "");
+            if (byId) {
+              statsMap[byId] = entry;
+            }
+            if (byName) {
+              statsMap[byName] = entry;
+            }
+          });
+          setAttendanceStatsBySubject(statsMap);
         }
 
         setLoading(false);
@@ -144,32 +190,21 @@ function StudentDashboard() {
     };
 
     // Fetch timetable from Firestore
-    const fetchTimetable = async (dept, sem, div) => {
+    const fetchTimetable = async (branch, academicYear, sem) => {
       try {
-        const timetableRef = collection(firestore, "timetable");
+        const timetableRef = collection(firestore, "timetables");
         const q = query(
           timetableRef,
-          where("dept", "==", dept),
+          where("branch", "==", branch),
+          where("year", "==", academicYear),
           where("semester", "==", sem),
         );
 
         const querySnapshot = await getDocs(q);
-        const allClasses = [];
-
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          // Filter by division if specified
-          if (
-            !data.division ||
-            data.division === div ||
-            data.division === "All"
-          ) {
-            allClasses.push({
-              id: doc.id,
-              ...data,
-            });
-          }
-        });
+        const allClasses = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
 
         // Sort by start time
         allClasses.sort((a, b) => {
@@ -181,12 +216,91 @@ function StudentDashboard() {
         setTimetable(allClasses);
 
         // Filter today's classes
-        const todayClasses = allClasses.filter(
-          (cls) => cls.dayOfWeek === today,
-        );
+        const todayClasses = allClasses.filter((cls) => cls.day === today);
         setTodaysClasses(todayClasses);
       } catch (error) {
         console.error("Error fetching timetable:", error);
+      }
+    };
+
+    const fetchTeachersForSubjects = async (
+      studentDept,
+      studentYear,
+      assignedSubjects,
+    ) => {
+      try {
+        const teacherSnapshot = await getDocs(
+          collection(firestore, "teachers"),
+        );
+        const nextMap = {};
+
+        assignedSubjects.forEach((subject) => {
+          nextMap[subject] = [];
+        });
+
+        teacherSnapshot.docs.forEach((teacherDoc) => {
+          const teacherData = teacherDoc.data() || {};
+          const teacherName =
+            teacherData.name ||
+            teacherData.fullName ||
+            teacherData.displayName ||
+            "Teacher";
+          const teacherId =
+            teacherData.teacherId || teacherData.employeeId || "";
+          const teacherLabel = teacherId
+            ? `${teacherName} (${teacherId})`
+            : teacherName;
+
+          const assignments =
+            Array.isArray(teacherData.assignments) &&
+            teacherData.assignments.length > 0
+              ? teacherData.assignments
+              : Array.isArray(teacherData.assignedCourses)
+                ? teacherData.assignedCourses.map((course) => ({
+                    branch: teacherData.department || teacherData.dept || "",
+                    year: course.year,
+                    subjects: Array.isArray(course.subjects)
+                      ? course.subjects
+                      : [],
+                  }))
+                : [];
+
+          assignments.forEach((assignment) => {
+            const sameBranch =
+              String(assignment.branch || "")
+                .trim()
+                .toLowerCase() ===
+              String(studentDept || "")
+                .trim()
+                .toLowerCase();
+            const sameYear =
+              String(assignment.year || "")
+                .trim()
+                .toLowerCase() ===
+              String(studentYear || "")
+                .trim()
+                .toLowerCase();
+
+            if (!sameBranch || !sameYear) {
+              return;
+            }
+
+            assignedSubjects.forEach((subject) => {
+              if ((assignment.subjects || []).includes(subject)) {
+                nextMap[subject].push(teacherLabel);
+              }
+            });
+          });
+        });
+
+        Object.keys(nextMap).forEach((subject) => {
+          nextMap[subject] = [...new Set(nextMap[subject])];
+        });
+
+        setSubjectTeachersMap(nextMap);
+      } catch (error) {
+        console.error("Error fetching teacher-subject associations:", error);
+        setSubjectTeachersMap({});
       }
     };
 
@@ -312,7 +426,7 @@ function StudentDashboard() {
                               <h3
                                 className={`font-semibold text-lg ${colors.text}`}
                               >
-                                {classItem.subject}
+                                {classItem.subjectName || classItem.subject}
                               </h3>
                               <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-600">
                                 <span className="flex items-center gap-1">
@@ -391,7 +505,7 @@ function StudentDashboard() {
                   {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map(
                     (day) => {
                       const dayClasses = timetable.filter(
-                        (cls) => cls.dayOfWeek === day,
+                        (cls) => cls.day === day,
                       );
                       const isToday = day === today;
                       return (
@@ -423,7 +537,7 @@ function StudentDashboard() {
                                   } ${getSubjectColor(idx).text}`}
                                 >
                                   <div className="font-medium truncate">
-                                    {cls.subject}
+                                    {cls.subjectName || cls.subject}
                                   </div>
                                   <div className="opacity-75">
                                     {formatTime(cls.startTime)}
@@ -509,7 +623,36 @@ function StudentDashboard() {
                           key={course.id}
                           className={`px-3 py-2 rounded-lg border ${colors.border} ${colors.bg} ${colors.text}`}
                         >
-                          {course.name}
+                          <div className="font-medium">{course.name}</div>
+                          <div className="mt-1 text-xs text-gray-700">
+                            Teacher(s):{" "}
+                            {subjectTeachersMap[course.name] &&
+                            subjectTeachersMap[course.name].length > 0
+                              ? subjectTeachersMap[course.name].join(", ")
+                              : "Not assigned yet"}
+                          </div>
+                          {(() => {
+                            const stats =
+                              attendanceStatsBySubject[
+                                makeSubjectId(course.name)
+                              ] || null;
+                            return (
+                              <div className="mt-2 text-xs text-gray-700 grid grid-cols-1 gap-1">
+                                <span>
+                                  Total lectures conducted:{" "}
+                                  {stats?.totalClasses || 0}
+                                </span>
+                                <span>
+                                  Lectures attended:{" "}
+                                  {stats?.attendedClasses || 0}
+                                </span>
+                                <span>
+                                  Attendance percentage:{" "}
+                                  {Number(stats?.percentage || 0).toFixed(1)}%
+                                </span>
+                              </div>
+                            );
+                          })()}
                         </div>
                       );
                     })}
@@ -556,6 +699,15 @@ function StudentDashboard() {
                     <FiBook className="w-6 h-6 mx-auto mb-2 text-indigo-600" />
                     <h3 className="font-medium text-indigo-700">
                       Study Materials
+                    </h3>
+                  </Link>
+                  <Link
+                    to="/student-attendance"
+                    className="bg-gradient-to-r from-emerald-50 to-cyan-50 hover:from-emerald-100 hover:to-cyan-100 p-4 rounded-lg text-center transition-colors border border-emerald-200"
+                  >
+                    <FiCheck className="w-6 h-6 mx-auto mb-2 text-emerald-600" />
+                    <h3 className="font-medium text-emerald-700">
+                      Mark Attendance
                     </h3>
                   </Link>
                   <Link

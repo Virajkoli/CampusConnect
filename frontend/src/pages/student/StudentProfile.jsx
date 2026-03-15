@@ -12,6 +12,7 @@ import {
   FiLock,
 } from "react-icons/fi";
 import { motion } from "framer-motion";
+import StudentQRDisplay from "../../components/student/StudentQRDisplay";
 
 const StudentProfile = ({ userData }) => {
   const navigate = useNavigate();
@@ -195,6 +196,29 @@ const StudentProfile = ({ userData }) => {
               </div>
             )}
           </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.25 }}
+            className="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition-shadow"
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-cyan-600 rounded-xl flex items-center justify-center">
+                <FiCalendar className="w-6 h-6 text-white" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-800">
+                Attendance Backup QR
+              </h2>
+            </div>
+
+            <StudentQRDisplay
+              studentInfo={{
+                ...userData,
+                uid: userData?.uid || auth.currentUser?.uid || "",
+              }}
+            />
+          </motion.div>
         </div>
 
         {/* Quick Actions */}
@@ -207,7 +231,7 @@ const StudentProfile = ({ userData }) => {
           <h2 className="text-xl font-bold text-gray-800 mb-6">
             Quick Actions
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <motion.button
               whileHover={{ scale: 1.02, y: -2 }}
               whileTap={{ scale: 0.98 }}
@@ -235,6 +259,21 @@ const StudentProfile = ({ userData }) => {
               <div className="text-gray-800 font-semibold">Change Password</div>
               <div className="text-gray-500 text-sm mt-1">
                 Secure your account
+              </div>
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate("/student-attendance")}
+              className="p-6 bg-gradient-to-br from-emerald-50 to-cyan-100 rounded-xl hover:shadow-lg transition-all group"
+            >
+              <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-cyan-600 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                <FiCalendar className="w-6 h-6 text-white" />
+              </div>
+              <div className="text-gray-800 font-semibold">Attendance</div>
+              <div className="text-gray-500 text-sm mt-1">
+                Mark and view attendance
               </div>
             </motion.button>
 

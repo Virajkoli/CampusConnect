@@ -32,6 +32,7 @@ import StudentAuthPage from "./pages/student/StudentAuthPage";
 import UserManagement from "./pages/admin/UserManagement";
 import TeacherAuthPage from "./pages/teacher/TeacherAuthPage";
 import TeacherDashboard from "./pages/teacher/TeacherDashboard";
+import TeacherStudents from "./pages/teacher/TeacherStudents";
 import TeacherManagement from "./pages/admin/TeacherManagement";
 import SubjectSetManagement from "./pages/admin/SubjectSetManagement";
 import BulkStudentOnboarding from "./pages/admin/BulkStudentOnboarding";
@@ -44,7 +45,9 @@ import AttendanceTracker from "./pages/common/AttendanceTracker";
 import AdminSettings from "./pages/admin/AdminSettings";
 import TeacherStudyMaterial from "./pages/teacher/TeacherStudyMaterial";
 import TeacherTimetable from "./pages/teacher/TeacherTimetable";
+import AttendancePage from "./pages/teacher/AttendancePage";
 import StudentTimetable from "./pages/student/StudentTimetable";
+import StudentAttendancePage from "./pages/student/StudentAttendancePage";
 import ExamTimetable from "./pages/common/ExamTimetable";
 import ExamTimetableManagement from "./pages/admin/ExamTimetableManagement";
 import Calendars from "./pages/common/Calendars";
@@ -293,6 +296,14 @@ function AppContent() {
           }
         />
         <Route
+          path="/teacher-students"
+          element={
+            <TeacherRoute>
+              <TeacherStudents />
+            </TeacherRoute>
+          }
+        />
+        <Route
           path="/teacher-studymaterial"
           element={
             <TeacherRoute>
@@ -317,10 +328,26 @@ function AppContent() {
           }
         />
         <Route
+          path="/teacher-attendance"
+          element={
+            <TeacherRoute>
+              <AttendancePage />
+            </TeacherRoute>
+          }
+        />
+        <Route
           path="/student-timetable"
           element={
             <ProtectedRoute>
               <StudentTimetable />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/student-attendance"
+          element={
+            <ProtectedRoute>
+              <StudentAttendancePage />
             </ProtectedRoute>
           }
         />
