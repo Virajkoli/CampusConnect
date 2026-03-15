@@ -16,20 +16,32 @@ const server = http.createServer(app);
 
 // Get frontend URL from environment or use localhost as fallback
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+const DEPLOYED_FRONTEND_URL = "https://campus-connect-ten-theta.vercel.app";
+
+const normalizeOrigin = (value = "") => {
+  return String(value || "")
+    .trim()
+    .replace(/\/+$/, "");
+};
 
 const ALLOWED_ORIGINS = Array.from(
-  new Set([
-    FRONTEND_URL,
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://10.231.120.217",
-    "http://10.231.120.217:5173",
-  ]),
+  new Set(
+    [
+      normalizeOrigin(FRONTEND_URL),
+      DEPLOYED_FRONTEND_URL,
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      "http://10.231.120.217",
+      "http://10.231.120.217:5173",
+    ]
+      .map(normalizeOrigin)
+      .filter(Boolean),
+  ),
 );
 
 const isAllowedOrigin = (origin) => {
   if (!origin) return true;
-  return ALLOWED_ORIGINS.includes(origin);
+  return ALLOWED_ORIGINS.includes(normalizeOrigin(origin));
 };
 
 const io = socketIO(server, {
