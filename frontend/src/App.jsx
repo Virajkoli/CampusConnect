@@ -45,7 +45,9 @@ import AttendanceTracker from "./pages/common/AttendanceTracker";
 import AdminSettings from "./pages/admin/AdminSettings";
 import TeacherStudyMaterial from "./pages/teacher/TeacherStudyMaterial";
 import TeacherTimetable from "./pages/teacher/TeacherTimetable";
+import AttendancePage from "./pages/teacher/AttendancePage";
 import StudentTimetable from "./pages/student/StudentTimetable";
+import StudentAttendancePage from "./pages/student/StudentAttendancePage";
 import ExamTimetable from "./pages/common/ExamTimetable";
 import ExamTimetableManagement from "./pages/admin/ExamTimetableManagement";
 import Calendars from "./pages/common/Calendars";
@@ -326,10 +328,26 @@ function AppContent() {
           }
         />
         <Route
+          path="/teacher-attendance"
+          element={
+            <TeacherRoute>
+              <AttendancePage />
+            </TeacherRoute>
+          }
+        />
+        <Route
           path="/student-timetable"
           element={
             <ProtectedRoute>
               <StudentTimetable />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/student-attendance"
+          element={
+            <ProtectedRoute>
+              <StudentAttendancePage />
             </ProtectedRoute>
           }
         />

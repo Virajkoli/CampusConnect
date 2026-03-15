@@ -255,6 +255,11 @@ export default function TeacherDashboard() {
             path="/teacher-studymaterial"
           />
           <SidebarItem
+            icon={<FaClipboardList />}
+            label="Attendance"
+            path="/teacher-attendance"
+          />
+          <SidebarItem
             icon={<FaChalkboardTeacher />}
             label="My Timetable"
             path="/teacher-timetable"
@@ -319,6 +324,12 @@ export default function TeacherDashboard() {
                   icon={<FiBook />}
                   label="Study Materials"
                   path="/teacher-studymaterial"
+                  onClick={() => setIsSidebarOpen(false)}
+                />
+                <SidebarItem
+                  icon={<FaClipboardList />}
+                  label="Attendance"
+                  path="/teacher-attendance"
                   onClick={() => setIsSidebarOpen(false)}
                 />
                 <SidebarItem

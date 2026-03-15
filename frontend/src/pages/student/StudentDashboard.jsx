@@ -24,6 +24,13 @@ import {
 } from "react-icons/fi";
 import { Link, useNavigate } from "react-router-dom";
 import AnnouncementsBanner from "../../components/common/AnnouncementsBanner";
+import { getStudentAttendance } from "../../services/attendanceService";
+
+const makeSubjectId = (subjectName = "") =>
+  String(subjectName || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
 
 function StudentDashboard() {
   const navigate = useNavigate();
@@ -39,6 +46,7 @@ function StudentDashboard() {
   const [loading, setLoading] = useState(true);
   const [timetable, setTimetable] = useState([]);
   const [todaysClasses, setTodaysClasses] = useState([]);
+  const [attendanceStatsBySubject, setAttendanceStatsBySubject] = useState({});
 
   // Days of week for timetable
   const daysOfWeek = [
@@ -155,6 +163,23 @@ function StudentDashboard() {
           } else {
             setSubjectTeachersMap({});
           }
+
+          const attendanceResult = await getStudentAttendance(user.uid);
+          const stats = Array.isArray(attendanceResult.attendance)
+            ? attendanceResult.attendance
+            : [];
+          const statsMap = {};
+          stats.forEach((entry) => {
+            const byId = String(entry.subjectId || "");
+            const byName = makeSubjectId(entry.subjectName || "");
+            if (byId) {
+              statsMap[byId] = entry;
+            }
+            if (byName) {
+              statsMap[byName] = entry;
+            }
+          });
+          setAttendanceStatsBySubject(statsMap);
         }
 
         setLoading(false);
@@ -606,6 +631,28 @@ function StudentDashboard() {
                               ? subjectTeachersMap[course.name].join(", ")
                               : "Not assigned yet"}
                           </div>
+                          {(() => {
+                            const stats =
+                              attendanceStatsBySubject[
+                                makeSubjectId(course.name)
+                              ] || null;
+                            return (
+                              <div className="mt-2 text-xs text-gray-700 grid grid-cols-1 gap-1">
+                                <span>
+                                  Total lectures conducted:{" "}
+                                  {stats?.totalClasses || 0}
+                                </span>
+                                <span>
+                                  Lectures attended:{" "}
+                                  {stats?.attendedClasses || 0}
+                                </span>
+                                <span>
+                                  Attendance percentage:{" "}
+                                  {Number(stats?.percentage || 0).toFixed(1)}%
+                                </span>
+                              </div>
+                            );
+                          })()}
                         </div>
                       );
                     })}
@@ -652,6 +699,15 @@ function StudentDashboard() {
                     <FiBook className="w-6 h-6 mx-auto mb-2 text-indigo-600" />
                     <h3 className="font-medium text-indigo-700">
                       Study Materials
+                    </h3>
+                  </Link>
+                  <Link
+                    to="/student-attendance"
+                    className="bg-gradient-to-r from-emerald-50 to-cyan-50 hover:from-emerald-100 hover:to-cyan-100 p-4 rounded-lg text-center transition-colors border border-emerald-200"
+                  >
+                    <FiCheck className="w-6 h-6 mx-auto mb-2 text-emerald-600" />
+                    <h3 className="font-medium text-emerald-700">
+                      Mark Attendance
                     </h3>
                   </Link>
                   <Link

@@ -1,0 +1,163 @@
+import { auth } from "../firebase";
+
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+const authHeaders = async () => {
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error("You must be logged in.");
+  }
+
+  const token = await user.getIdToken();
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+};
+
+const parseResponse = async (response) => {
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.message || "Request failed.");
+  }
+  return data;
+};
+
+export const registerStudentDevice = async (deviceId) => {
+  const response = await fetch(`${API_BASE}/attendance/register-device`, {
+    method: "POST",
+    headers: await authHeaders(),
+    body: JSON.stringify({ deviceId }),
+  });
+
+  return parseResponse(response);
+};
+
+export const startAttendanceSession = async (payload) => {
+  const response = await fetch(`${API_BASE}/attendance/start`, {
+    method: "POST",
+    headers: await authHeaders(),
+    body: JSON.stringify(payload),
+  });
+
+  return parseResponse(response);
+};
+
+export const getTeacherAttendanceLectures = async () => {
+  const response = await fetch(`${API_BASE}/attendance/teacher/lectures`, {
+    method: "GET",
+    headers: await authHeaders(),
+  });
+
+  return parseResponse(response);
+};
+
+export const getActiveAttendanceSessions = async () => {
+  const response = await fetch(`${API_BASE}/attendance/sessions/active`, {
+    method: "GET",
+    headers: await authHeaders(),
+  });
+
+  return parseResponse(response);
+};
+
+export const getActiveSessionBySubject = async (subjectId) => {
+  const response = await fetch(
+    `${API_BASE}/attendance/session/${encodeURIComponent(subjectId)}`,
+    {
+      method: "GET",
+      headers: await authHeaders(),
+    },
+  );
+
+  return parseResponse(response);
+};
+
+export const markAttendance = async (payload) => {
+  const response = await fetch(`${API_BASE}/attendance/mark`, {
+    method: "POST",
+    headers: await authHeaders(),
+    body: JSON.stringify(payload),
+  });
+
+  return parseResponse(response);
+};
+
+export const markAttendanceByTeacher = async (payload) => {
+  const response = await fetch(`${API_BASE}/attendance/mark-by-teacher`, {
+    method: "POST",
+    headers: await authHeaders(),
+    body: JSON.stringify(payload),
+  });
+
+  return parseResponse(response);
+};
+
+export const endAttendanceSession = async (sessionId) => {
+  const response = await fetch(`${API_BASE}/attendance/end`, {
+    method: "POST",
+    headers: await authHeaders(),
+    body: JSON.stringify({ sessionId }),
+  });
+
+  return parseResponse(response);
+};
+
+export const getStudentAttendance = async (studentId) => {
+  const response = await fetch(
+    `${API_BASE}/attendance/student/${encodeURIComponent(studentId)}`,
+    {
+      method: "GET",
+      headers: await authHeaders(),
+    },
+  );
+
+  return parseResponse(response);
+};
+
+export const getAttendanceAnalytics = async (subjectId) => {
+  const response = await fetch(
+    `${API_BASE}/attendance/analytics/${encodeURIComponent(subjectId)}`,
+    {
+      method: "GET",
+      headers: await authHeaders(),
+    },
+  );
+
+  return parseResponse(response);
+};
+
+export const getAttendanceSessionRecords = async (sessionId) => {
+  const response = await fetch(
+    `${API_BASE}/attendance/session/${encodeURIComponent(sessionId)}/records`,
+    {
+      method: "GET",
+      headers: await authHeaders(),
+    },
+  );
+
+  return parseResponse(response);
+};
+
+export const getTeacherAttendanceSessionHistory = async (limit = 30) => {
+  const response = await fetch(
+    `${API_BASE}/attendance/teacher/sessions/history?limit=${encodeURIComponent(String(limit))}`,
+    {
+      method: "GET",
+      headers: await authHeaders(),
+    },
+  );
+
+  return parseResponse(response);
+};
+
+export const ensureTrustedDevice = async () => {
+  const key = "campusconnect_device_id";
+  let deviceId = localStorage.getItem(key);
+  if (!deviceId) {
+    deviceId = `device_${Math.random().toString(36).slice(2, 12)}_${Date.now()}`;
+    localStorage.setItem(key, deviceId);
+  }
+
+  return deviceId;
+};

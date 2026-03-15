@@ -17,9 +17,29 @@ const server = http.createServer(app);
 // Get frontend URL from environment or use localhost as fallback
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 
+const ALLOWED_ORIGINS = Array.from(
+  new Set([
+    FRONTEND_URL,
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://10.231.120.217",
+    "http://10.231.120.217:5173",
+  ]),
+);
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+  return ALLOWED_ORIGINS.includes(origin);
+};
+
 const io = socketIO(server, {
   cors: {
-    origin: FRONTEND_URL,
+    origin: (origin, callback) => {
+      if (isAllowedOrigin(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error("Not allowed by CORS"));
+    },
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -27,7 +47,13 @@ const io = socketIO(server, {
 
 app.use(
   cors({
-    origin: FRONTEND_URL,
+    origin: (origin, callback) => {
+      if (isAllowedOrigin(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
   }),
 );
 app.use(express.json());
@@ -359,6 +385,10 @@ const JOB_PROFILE_ALIASES = {
   "visiting faculty": "Visiting Faculty",
 };
 
+const ATTENDANCE_ALLOWED_DISTANCE_METERS = 30;
+const ATTENDANCE_WINDOW_SECONDS = 60;
+const ATTENDANCE_WINDOW_SLOT_SECONDS = [60, 120, 180, 240, 300, 600];
+
 const createMailTransporter = () => {
   return nodemailer.createTransport({
     service: "Gmail",
@@ -453,6 +483,44 @@ const verifyTeacherFromRequest = async (req) => {
   return {
     decodedToken,
     teacherDoc,
+  };
+};
+
+const verifyStudentFromRequest = async (req) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    throw new Error("No authorization token provided");
+  }
+
+  const token = authHeader.split("Bearer ")[1];
+  if (!token) {
+    throw new Error("No authorization token provided");
+  }
+
+  const decodedToken = await admin.auth().verifyIdToken(token);
+  const firestore = admin.firestore();
+  const [userDoc, studentDoc] = await Promise.all([
+    firestore.collection("users").doc(decodedToken.uid).get(),
+    firestore.collection("students").doc(decodedToken.uid).get(),
+  ]);
+
+  const userData = userDoc.exists ? userDoc.data() || {} : {};
+  const studentData = studentDoc.exists ? studentDoc.data() || {} : {};
+  const role = String(userData.role || "").toLowerCase();
+
+  if (!decodedToken.student && role !== "student" && !studentDoc.exists) {
+    throw new Error("Only students are authorized");
+  }
+
+  return {
+    decodedToken,
+    userDoc,
+    studentDoc,
+    studentData: {
+      ...studentData,
+      ...userData,
+      uid: decodedToken.uid,
+    },
   };
 };
 
@@ -715,6 +783,271 @@ const makeSubjectId = (subjectName = "") => {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");
+};
+
+const normalizeDeviceId = (deviceId = "") => {
+  return String(deviceId || "")
+    .trim()
+    .toLowerCase();
+};
+
+const toMillis = (value) => {
+  if (!value) return 0;
+  if (typeof value.toMillis === "function") {
+    return value.toMillis();
+  }
+  const parsed = new Date(value).getTime();
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
+
+const haversineDistanceMeters = (pointA, pointB) => {
+  const lat1 = Number(pointA?.lat);
+  const lon1 = Number(pointA?.lng);
+  const lat2 = Number(pointB?.lat);
+  const lon2 = Number(pointB?.lng);
+
+  if ([lat1, lon1, lat2, lon2].some((value) => Number.isNaN(value))) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const R = 6371000;
+  const toRad = (degrees) => (degrees * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
+const normalizeSubjectValues = (subjects = []) => {
+  return (Array.isArray(subjects) ? subjects : [])
+    .map((item) => String(item || "").trim())
+    .filter(Boolean);
+};
+
+const subjectMatches = (subjectName, subjectId, candidate) => {
+  const normalizedCandidate = String(candidate || "").trim();
+  if (!normalizedCandidate) return false;
+
+  return (
+    normalizedCandidate.toLowerCase() ===
+      String(subjectName || "").toLowerCase() ||
+    makeSubjectId(normalizedCandidate) === String(subjectId || "")
+  );
+};
+
+const studentBelongsToSession = (studentData, sessionData) => {
+  const studentBranch = normalizeBranch(
+    studentData?.dept || studentData?.department || "",
+  );
+  const studentYear = normalizeYear(studentData?.year || "");
+  const studentSemester = normalizeSemester(studentData?.semester || "");
+  const studentSubjects = normalizeSubjectValues(studentData?.subjects);
+
+  if (!studentBranch || !studentYear) {
+    return false;
+  }
+
+  const branchOk = studentBranch === normalizeBranch(sessionData?.branch || "");
+  const yearOk = studentYear === normalizeYear(sessionData?.year || "");
+  const semesterValue = normalizeSemester(sessionData?.semester || "");
+  const semesterOk =
+    !semesterValue || !studentSemester || studentSemester === semesterValue;
+
+  if (!branchOk || !yearOk || !semesterOk) {
+    return false;
+  }
+
+  return studentSubjects.some((subject) =>
+    subjectMatches(
+      sessionData?.subjectName || "",
+      sessionData?.subjectId || "",
+      subject,
+    ),
+  );
+};
+
+const getStudentProfileByUid = async (firestore, uid) => {
+  const [userDoc, studentDoc] = await Promise.all([
+    firestore.collection("users").doc(uid).get(),
+    firestore.collection("students").doc(uid).get(),
+  ]);
+
+  if (!userDoc.exists && !studentDoc.exists) {
+    return null;
+  }
+
+  return {
+    uid,
+    ...(studentDoc.exists ? studentDoc.data() || {} : {}),
+    ...(userDoc.exists ? userDoc.data() || {} : {}),
+  };
+};
+
+const findStudentByStudentIdOrPrn = async (firestore, { studentId, prn }) => {
+  const normalizedStudentId = String(studentId || "").trim();
+  const normalizedPrnInput = normalizePrn(prn || "");
+
+  if (normalizedStudentId) {
+    const byId = await getStudentProfileByUid(firestore, normalizedStudentId);
+    if (byId) {
+      return byId;
+    }
+  }
+
+  const prnCandidates = [];
+  if (normalizedPrnInput) {
+    prnCandidates.push(normalizedPrnInput);
+  }
+
+  if (normalizedStudentId) {
+    const maybePrn = normalizePrn(normalizedStudentId);
+    if (maybePrn && !prnCandidates.includes(maybePrn)) {
+      prnCandidates.push(maybePrn);
+    }
+  }
+
+  if (prnCandidates.length === 0) {
+    return null;
+  }
+
+  for (const prnCandidate of prnCandidates) {
+    const lookups = await Promise.all([
+      firestore
+        .collection("users")
+        .where("rollNo", "==", prnCandidate)
+        .limit(1)
+        .get(),
+      firestore
+        .collection("users")
+        .where("rollNumber", "==", prnCandidate)
+        .limit(1)
+        .get(),
+      firestore
+        .collection("users")
+        .where("prn", "==", prnCandidate)
+        .limit(1)
+        .get(),
+      firestore
+        .collection("students")
+        .where("rollNo", "==", prnCandidate)
+        .limit(1)
+        .get(),
+      firestore
+        .collection("students")
+        .where("rollNumber", "==", prnCandidate)
+        .limit(1)
+        .get(),
+      firestore
+        .collection("students")
+        .where("prn", "==", prnCandidate)
+        .limit(1)
+        .get(),
+    ]);
+
+    for (const snapshot of lookups) {
+      if (snapshot.empty) continue;
+
+      const docSnap = snapshot.docs[0];
+      const data = docSnap.data() || {};
+      const resolvedUid = String(data.uid || docSnap.id || "").trim();
+      if (!resolvedUid) continue;
+
+      const studentProfile = await getStudentProfileByUid(
+        firestore,
+        resolvedUid,
+      );
+      if (studentProfile) {
+        return studentProfile;
+      }
+    }
+  }
+
+  return null;
+};
+
+const getSessionEnrolledStudents = async (firestore, sessionData) => {
+  const branch = normalizeBranch(sessionData?.branch || "");
+  const year = normalizeYear(sessionData?.year || "");
+  const semester = normalizeSemester(sessionData?.semester || "");
+  const merged = new Map();
+
+  const absorbDoc = (docSnap) => {
+    const data = docSnap.data() || {};
+    const uid = data.uid || docSnap.id;
+    if (!uid) return;
+
+    const existing = merged.get(uid) || { uid };
+    merged.set(uid, {
+      ...existing,
+      ...data,
+      uid,
+    });
+  };
+
+  const fetchClassScopedCandidates = async () => {
+    if (!branch || !year) {
+      return [];
+    }
+
+    const queryConfig = [
+      { collection: "students", branchField: "dept" },
+      { collection: "students", branchField: "department" },
+      { collection: "users", branchField: "dept", role: "Student" },
+      { collection: "users", branchField: "department", role: "Student" },
+    ];
+
+    const tasks = queryConfig.map(async ({ collection, branchField, role }) => {
+      try {
+        let queryRef = firestore
+          .collection(collection)
+          .where(branchField, "==", branch)
+          .where("year", "==", year);
+
+        if (role) {
+          queryRef = queryRef.where("role", "==", role);
+        }
+
+        if (semester) {
+          queryRef = queryRef.where("semester", "==", semester);
+        }
+
+        return await queryRef.get();
+      } catch {
+        return null;
+      }
+    });
+
+    const snapshots = await Promise.all(tasks);
+    return snapshots.filter(Boolean);
+  };
+
+  const classScopedSnapshots = await fetchClassScopedCandidates();
+  if (classScopedSnapshots.length > 0) {
+    classScopedSnapshots.forEach((snapshot) => {
+      snapshot.docs.forEach(absorbDoc);
+    });
+  }
+
+  if (merged.size === 0) {
+    const [usersSnapshot, studentsSnapshot] = await Promise.all([
+      firestore.collection("users").where("role", "==", "Student").get(),
+      firestore.collection("students").get(),
+    ]);
+
+    usersSnapshot.docs.forEach(absorbDoc);
+    studentsSnapshot.docs.forEach(absorbDoc);
+  }
+
+  return Array.from(merged.values()).filter((student) =>
+    studentBelongsToSession(student, sessionData),
+  );
 };
 
 const syncTeacherStudentMappings = async ({
@@ -1133,6 +1466,12 @@ const getPrnFromRecord = (data = {}) => {
     .toUpperCase();
 };
 
+const normalizePrn = (value = "") => {
+  return String(value || "")
+    .trim()
+    .toUpperCase();
+};
+
 const buildExistingStudentIndex = async (firestore) => {
   const usersSnapshot = await firestore.collection("users").get();
   const studentsSnapshot = await firestore.collection("students").get();
@@ -1178,6 +1517,16 @@ io.on("connection", (socket) => {
   socket.on("join_chat", (chatRoomId) => {
     socket.join(chatRoomId);
     console.log(`User ${socket.id} joined room: ${chatRoomId}`);
+  });
+
+  socket.on("join_attendance_session", (sessionId) => {
+    const roomId = `attendance_${String(sessionId || "").trim()}`;
+    if (!sessionId) {
+      return;
+    }
+
+    socket.join(roomId);
+    console.log(`User ${socket.id} joined attendance room: ${roomId}`);
   });
 
   // Handle message sending
@@ -1743,6 +2092,1172 @@ app.get("/api/resolve-teacher-login/:loginId", async (req, res) => {
   } catch (error) {
     console.error("Error resolving teacher login:", error);
     return res.status(500).json({ message: error.message });
+  }
+});
+
+app.post("/attendance/register-device", async (req, res) => {
+  try {
+    const { decodedToken } = await verifyStudentFromRequest(req);
+    const deviceId = normalizeDeviceId(req.body.deviceId || "");
+    if (!deviceId) {
+      return res.status(400).json({ message: "deviceId is required." });
+    }
+
+    const firestore = admin.firestore();
+    await firestore.collection("student_devices").doc(decodedToken.uid).set(
+      {
+        studentId: decodedToken.uid,
+        deviceId,
+        registeredAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+
+    return res
+      .status(200)
+      .json({ success: true, message: "Trusted device registered." });
+  } catch (error) {
+    const status = /authorized|token/i.test(error.message) ? 403 : 500;
+    return res.status(status).json({ message: error.message });
+  }
+});
+
+app.post("/attendance/start", async (req, res) => {
+  try {
+    const { decodedToken, teacherDoc } = await verifyTeacherFromRequest(req);
+    const teacherData = teacherDoc.exists ? teacherDoc.data() || {} : {};
+
+    const lectureIdInput = String(req.body.lectureId || "").trim();
+    const date = String(req.body.date || new Date().toISOString().slice(0, 10));
+    const subjectNameInput = String(req.body.subjectName || "").trim();
+    const subjectIdInput = String(req.body.subjectId || "").trim();
+    const branchInput = normalizeBranch(req.body.branch || "");
+    const yearInput = normalizeYear(req.body.year || "");
+    const semesterInput = normalizeSemester(req.body.semester || "");
+    const requestedWindowSeconds = Number(req.body.attendanceWindowSeconds);
+    const teacherLocation = {
+      lat: Number(req.body?.teacherLocation?.lat),
+      lng: Number(req.body?.teacherLocation?.lng),
+    };
+
+    const attendanceWindowSeconds = ATTENDANCE_WINDOW_SLOT_SECONDS.includes(
+      requestedWindowSeconds,
+    )
+      ? requestedWindowSeconds
+      : ATTENDANCE_WINDOW_SECONDS;
+
+    if (
+      Number.isNaN(teacherLocation.lat) ||
+      Number.isNaN(teacherLocation.lng)
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Valid teacher location is required." });
+    }
+
+    const firestore = admin.firestore();
+
+    let resolvedBranch = "";
+    let resolvedYear = "";
+    let resolvedSemester = "";
+    let subjectName = "";
+    let subjectId = "";
+    let lectureDay = "";
+    let lectureStartTime = "";
+    let lectureEndTime = "";
+
+    if (lectureIdInput) {
+      const lectureDoc = await firestore
+        .collection("timetables")
+        .doc(lectureIdInput)
+        .get();
+
+      if (!lectureDoc.exists) {
+        return res.status(404).json({ message: "Selected lecture not found." });
+      }
+
+      const lectureData = lectureDoc.data() || {};
+      if (String(lectureData.teacherId || "") !== decodedToken.uid) {
+        return res.status(403).json({
+          message:
+            "You can only start attendance for your own timetable lectures.",
+        });
+      }
+
+      subjectName = String(
+        lectureData.subjectName || lectureData.subject || "",
+      ).trim();
+      subjectId = String(
+        lectureData.subjectId || makeSubjectId(subjectName),
+      ).trim();
+      resolvedBranch = normalizeBranch(
+        lectureData.branch || lectureData.dept || "",
+      );
+      resolvedYear = normalizeYear(lectureData.year || "");
+      resolvedSemester = normalizeSemester(lectureData.semester || "");
+      lectureDay = String(lectureData.day || "").trim();
+      lectureStartTime = String(lectureData.startTime || "").trim();
+      lectureEndTime = String(lectureData.endTime || "").trim();
+
+      if (!subjectName || !subjectId || !resolvedBranch || !resolvedYear) {
+        return res.status(400).json({
+          message: "Selected lecture has incomplete subject/class metadata.",
+        });
+      }
+    }
+
+    if (!lectureIdInput) {
+      const assignments = Array.isArray(teacherData.assignments)
+        ? teacherData.assignments
+        : [];
+      if (assignments.length === 0) {
+        return res
+          .status(403)
+          .json({ message: "Teacher has no active subject assignments." });
+      }
+
+      const matchingAssignments = assignments.filter((assignment) => {
+        const assignmentBranch = normalizeBranch(
+          assignment.branch || assignment.dept || "",
+        );
+        const assignmentYear = normalizeYear(assignment.year || "");
+        const assignmentSubjects = normalizeSubjectValues(assignment.subjects);
+
+        const branchOk = !branchInput || assignmentBranch === branchInput;
+        const yearOk = !yearInput || assignmentYear === yearInput;
+
+        const subjectOk = assignmentSubjects.some((subject) =>
+          subjectMatches(subjectNameInput, subjectIdInput, subject),
+        );
+
+        return branchOk && yearOk && subjectOk;
+      });
+
+      if (matchingAssignments.length === 0) {
+        return res.status(403).json({
+          message: "Teacher is not assigned to this subject/class combination.",
+        });
+      }
+
+      if (matchingAssignments.length > 1 && (!branchInput || !yearInput)) {
+        return res.status(400).json({
+          message:
+            "Multiple class assignments found for this subject. Include branch and year.",
+        });
+      }
+
+      const assignment = matchingAssignments[0];
+      resolvedBranch = normalizeBranch(
+        assignment.branch || assignment.dept || "",
+      );
+      resolvedYear = normalizeYear(assignment.year || "");
+      resolvedSemester =
+        semesterInput || normalizeSemester(assignment.semester || "");
+
+      const assignmentSubjects = normalizeSubjectValues(assignment.subjects);
+      const matchedSubject =
+        assignmentSubjects.find((subject) =>
+          subjectMatches(subjectNameInput, subjectIdInput, subject),
+        ) || subjectNameInput;
+
+      subjectName = String(matchedSubject || "").trim();
+      subjectId = subjectIdInput || makeSubjectId(subjectName);
+      if (!subjectName || !subjectId) {
+        return res
+          .status(400)
+          .json({ message: "subjectName/subjectId is required." });
+      }
+    }
+
+    const existingSessionSnapshot = await firestore
+      .collection("attendance_sessions")
+      .where("teacherId", "==", decodedToken.uid)
+      .where("subjectId", "==", subjectId)
+      .where("date", "==", date)
+      .where("status", "==", "active")
+      .limit(1)
+      .get();
+
+    if (!existingSessionSnapshot.empty) {
+      const existing = existingSessionSnapshot.docs[0];
+      return res.status(200).json({
+        success: true,
+        message: "Active attendance session already exists.",
+        sessionId: existing.id,
+        session: { id: existing.id, ...existing.data() },
+      });
+    }
+
+    const sessionRef = firestore.collection("attendance_sessions").doc();
+    const nowMs = Date.now();
+
+    const payload = {
+      sessionId: sessionRef.id,
+      teacherId: decodedToken.uid,
+      teacherName:
+        teacherData.fullName ||
+        teacherData.name ||
+        decodedToken.name ||
+        "Teacher",
+      subjectId,
+      subjectName,
+      date,
+      branch: resolvedBranch,
+      year: resolvedYear,
+      semester: resolvedSemester || "",
+      lectureId: lectureIdInput || "",
+      day: lectureDay || "",
+      lectureStartTime,
+      lectureEndTime,
+      status: "active",
+      startTime: admin.firestore.FieldValue.serverTimestamp(),
+      startTimeMs: nowMs,
+      allowedDistanceMeters: ATTENDANCE_ALLOWED_DISTANCE_METERS,
+      attendanceWindowSeconds,
+      teacherLocation,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    const enrolledStudents = await getSessionEnrolledStudents(
+      firestore,
+      payload,
+    );
+    const enrolledStudentIds = enrolledStudents
+      .map((student) => String(student.uid || "").trim())
+      .filter(Boolean);
+
+    await sessionRef.set({
+      ...payload,
+      enrolledStudentsCount: enrolledStudentIds.length,
+      enrolledStudentIds,
+    });
+
+    const responseSession = {
+      ...payload,
+      startTime: new Date(nowMs).toISOString(),
+      enrolledStudentsCount: enrolledStudentIds.length,
+      enrolledStudentIds,
+    };
+
+    io.emit("attendance-session-started", responseSession);
+    io.to(`attendance_${sessionRef.id}`).emit(
+      "attendance-session-started",
+      responseSession,
+    );
+
+    return res.status(201).json({
+      success: true,
+      message: "Attendance session started successfully.",
+      sessionId: sessionRef.id,
+      session: responseSession,
+    });
+  } catch (error) {
+    const status = /authorized|token/i.test(error.message) ? 403 : 500;
+    return res.status(status).json({ message: error.message });
+  }
+});
+
+app.get("/attendance/teacher/lectures", async (req, res) => {
+  try {
+    const { decodedToken } = await verifyTeacherFromRequest(req);
+    const firestore = admin.firestore();
+
+    const snapshot = await firestore
+      .collection("timetables")
+      .where("teacherId", "==", decodedToken.uid)
+      .get();
+
+    const lectures = snapshot.docs
+      .map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data(),
+      }))
+      .sort((a, b) => {
+        const dayOrder = {
+          Monday: 1,
+          Tuesday: 2,
+          Wednesday: 3,
+          Thursday: 4,
+          Friday: 5,
+          Saturday: 6,
+          Sunday: 7,
+        };
+
+        const dayA = dayOrder[String(a.day || "")] || 99;
+        const dayB = dayOrder[String(b.day || "")] || 99;
+        if (dayA !== dayB) return dayA - dayB;
+
+        return String(a.startTime || "").localeCompare(
+          String(b.startTime || ""),
+        );
+      });
+
+    return res.status(200).json({ success: true, lectures });
+  } catch (error) {
+    const status = /authorized|token/i.test(error.message) ? 403 : 500;
+    return res.status(status).json({ message: error.message });
+  }
+});
+
+app.get("/attendance/sessions/active", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res
+        .status(401)
+        .json({ message: "No authorization token provided" });
+    }
+
+    const token = authHeader.split("Bearer ")[1];
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    const firestore = admin.firestore();
+
+    const snapshot = await firestore
+      .collection("attendance_sessions")
+      .where("status", "==", "active")
+      .get();
+
+    let sessions = snapshot.docs.map((docSnap) => ({
+      id: docSnap.id,
+      ...docSnap.data(),
+    }));
+
+    if (!decodedToken.teacher && !decodedToken.admin) {
+      const studentData = await getStudentProfileByUid(
+        firestore,
+        decodedToken.uid,
+      );
+      if (!studentData) {
+        return res.status(200).json({ success: true, sessions: [] });
+      }
+
+      sessions = sessions.filter((session) =>
+        studentBelongsToSession(studentData, session),
+      );
+    }
+
+    sessions.sort(
+      (a, b) => Number(b.startTimeMs || 0) - Number(a.startTimeMs || 0),
+    );
+
+    return res.status(200).json({ success: true, sessions });
+  } catch (error) {
+    const status = /token/i.test(error.message) ? 401 : 500;
+    return res.status(status).json({ message: error.message });
+  }
+});
+
+app.get("/attendance/session/:subjectId", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res
+        .status(401)
+        .json({ message: "No authorization token provided" });
+    }
+
+    const token = authHeader.split("Bearer ")[1];
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    const subjectId = String(req.params.subjectId || "").trim();
+    if (!subjectId) {
+      return res.status(400).json({ message: "subjectId is required." });
+    }
+
+    const firestore = admin.firestore();
+    const activeSessionsSnapshot = await firestore
+      .collection("attendance_sessions")
+      .where("subjectId", "==", subjectId)
+      .where("status", "==", "active")
+      .limit(1)
+      .get();
+
+    if (activeSessionsSnapshot.empty) {
+      return res.status(200).json({ success: true, session: null });
+    }
+
+    const sessionDoc = activeSessionsSnapshot.docs[0];
+    const sessionData = sessionDoc.data() || {};
+    const session = { id: sessionDoc.id, ...sessionData };
+
+    if (!decodedToken.teacher) {
+      const studentData = await getStudentProfileByUid(
+        firestore,
+        decodedToken.uid,
+      );
+      if (!studentData || !studentBelongsToSession(studentData, session)) {
+        return res.status(200).json({ success: true, session: null });
+      }
+    }
+
+    return res.status(200).json({ success: true, session });
+  } catch (error) {
+    const status = /token/i.test(error.message) ? 401 : 500;
+    return res.status(status).json({ message: error.message });
+  }
+});
+
+app.post("/attendance/mark", async (req, res) => {
+  try {
+    const { decodedToken, studentData } = await verifyStudentFromRequest(req);
+    const studentId = decodedToken.uid;
+    const payloadStudentId = String(req.body.studentId || "").trim();
+    if (payloadStudentId && payloadStudentId !== studentId) {
+      return res.status(403).json({ message: "studentId mismatch." });
+    }
+
+    const sessionId = String(req.body.sessionId || "").trim();
+    const deviceId = normalizeDeviceId(req.body.deviceId || "");
+    const biometricVerified = Boolean(req.body.biometricVerified);
+    const biometricAssertionId = String(
+      req.body.biometricAssertionId || req.body.assertionId || "",
+    ).trim();
+    const studentLocation = {
+      lat: Number(req.body?.studentLocation?.lat),
+      lng: Number(req.body?.studentLocation?.lng),
+    };
+
+    if (!sessionId || !deviceId) {
+      return res
+        .status(400)
+        .json({ message: "sessionId and deviceId are required." });
+    }
+
+    if (!biometricVerified || !biometricAssertionId) {
+      return res
+        .status(403)
+        .json({ message: "Biometric verification is required." });
+    }
+
+    if (
+      Number.isNaN(studentLocation.lat) ||
+      Number.isNaN(studentLocation.lng)
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Valid student location is required." });
+    }
+
+    const firestore = admin.firestore();
+    const [sessionDoc, deviceDoc] = await Promise.all([
+      firestore.collection("attendance_sessions").doc(sessionId).get(),
+      firestore.collection("student_devices").doc(studentId).get(),
+    ]);
+
+    if (!sessionDoc.exists) {
+      return res.status(404).json({ message: "Attendance session not found." });
+    }
+
+    const sessionData = sessionDoc.data() || {};
+    if (sessionData.status !== "active") {
+      return res
+        .status(400)
+        .json({ message: "Attendance session has already ended." });
+    }
+
+    if (!deviceDoc.exists) {
+      return res.status(403).json({
+        message: "Trusted device not registered for this student.",
+        code: "DEVICE_NOT_REGISTERED",
+      });
+    }
+
+    const trustedDevice = normalizeDeviceId(deviceDoc.data()?.deviceId || "");
+    if (trustedDevice !== deviceId) {
+      return res.status(403).json({
+        message: "Device verification failed.",
+        code: "DEVICE_MISMATCH",
+      });
+    }
+
+    if (!studentBelongsToSession(studentData, sessionData)) {
+      return res
+        .status(403)
+        .json({ message: "Student is not enrolled for this session subject." });
+    }
+
+    const startMs =
+      Number(sessionData.startTimeMs) || toMillis(sessionData.startTime);
+    const nowMs = Date.now();
+    const maxWindowMs =
+      (Number(sessionData.attendanceWindowSeconds) ||
+        ATTENDANCE_WINDOW_SECONDS) * 1000;
+
+    if (!startMs || nowMs - startMs > maxWindowMs) {
+      return res
+        .status(403)
+        .json({ message: "Attendance time window has expired." });
+    }
+
+    const distance = haversineDistanceMeters(
+      studentLocation,
+      sessionData.teacherLocation || {},
+    );
+    const allowedDistance =
+      Number(sessionData.allowedDistanceMeters) ||
+      ATTENDANCE_ALLOWED_DISTANCE_METERS;
+    if (distance > allowedDistance) {
+      return res.status(403).json({
+        message: `Location verification failed. You must be within ${allowedDistance} meters.`,
+      });
+    }
+
+    const duplicateSnapshot = await firestore
+      .collection("attendance_records")
+      .where("sessionId", "==", sessionId)
+      .where("studentId", "==", studentId)
+      .limit(1)
+      .get();
+
+    if (!duplicateSnapshot.empty) {
+      return res
+        .status(409)
+        .json({ message: "Attendance already marked for this session." });
+    }
+
+    const recordRef = firestore.collection("attendance_records").doc();
+    const studentName =
+      studentData.name ||
+      studentData.displayName ||
+      decodedToken.name ||
+      "Student";
+    const studentPrn = getPrnFromRecord(studentData);
+    const recordPayload = {
+      recordId: recordRef.id,
+      sessionId,
+      studentId,
+      studentName,
+      prn: studentPrn,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      latitude: studentLocation.lat,
+      longitude: studentLocation.lng,
+      method: "biometric",
+      biometricAssertionId,
+      deviceId,
+      distanceMeters: Number(distance.toFixed(2)),
+    };
+
+    await recordRef.set(recordPayload);
+
+    const eventPayload = {
+      ...recordPayload,
+      timestamp: new Date(nowMs).toISOString(),
+    };
+
+    io.to(`attendance_${sessionId}`).emit("attendance-recorded", eventPayload);
+    io.to(`attendance_${sessionId}`).emit("attendance-heatmap-updated", {
+      lat: studentLocation.lat,
+      lng: studentLocation.lng,
+      studentId,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Attendance marked successfully.",
+      record: eventPayload,
+    });
+  } catch (error) {
+    const status = /authorized|token/i.test(error.message) ? 403 : 500;
+    return res.status(status).json({ message: error.message });
+  }
+});
+
+app.post("/attendance/mark-by-teacher", async (req, res) => {
+  try {
+    const { decodedToken } = await verifyTeacherFromRequest(req);
+    const sessionId = String(req.body.sessionId || "").trim();
+    const studentIdInput = String(req.body.studentId || "").trim();
+    const prnInput = normalizePrn(req.body.prn || "");
+
+    if (!sessionId || (!studentIdInput && !prnInput)) {
+      return res.status(400).json({
+        message: "sessionId and either studentId or prn are required.",
+      });
+    }
+
+    const firestore = admin.firestore();
+    const sessionDoc = await firestore
+      .collection("attendance_sessions")
+      .doc(sessionId)
+      .get();
+
+    if (!sessionDoc.exists) {
+      return res.status(404).json({ message: "Attendance session not found." });
+    }
+
+    const sessionData = sessionDoc.data() || {};
+    if (String(sessionData.teacherId || "") !== decodedToken.uid) {
+      return res
+        .status(403)
+        .json({ message: "Only session owner can scan student QR." });
+    }
+
+    if (sessionData.status !== "active") {
+      return res
+        .status(400)
+        .json({ message: "Attendance session has already ended." });
+    }
+
+    const studentData = await findStudentByStudentIdOrPrn(firestore, {
+      studentId: studentIdInput,
+      prn: prnInput,
+    });
+    const studentId = String(studentData?.uid || "").trim();
+
+    if (!studentData || !studentId) {
+      return res.status(404).json({ message: "Student not found." });
+    }
+
+    if (!studentData || !studentBelongsToSession(studentData, sessionData)) {
+      return res
+        .status(403)
+        .json({ message: "Student is not enrolled for this session subject." });
+    }
+
+    const duplicateSnapshot = await firestore
+      .collection("attendance_records")
+      .where("sessionId", "==", sessionId)
+      .where("studentId", "==", studentId)
+      .limit(1)
+      .get();
+
+    if (!duplicateSnapshot.empty) {
+      return res
+        .status(409)
+        .json({ message: "Attendance already marked for this student." });
+    }
+
+    const recordRef = firestore.collection("attendance_records").doc();
+    const nowMs = Date.now();
+    const recordPayload = {
+      recordId: recordRef.id,
+      sessionId,
+      studentId,
+      studentName: studentData.name || studentData.displayName || "Student",
+      prn: getPrnFromRecord(studentData),
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      latitude: null,
+      longitude: null,
+      method: "teacher_scan",
+      scannedBy: decodedToken.uid,
+    };
+    await recordRef.set(recordPayload);
+
+    const eventPayload = {
+      ...recordPayload,
+      timestamp: new Date(nowMs).toISOString(),
+    };
+
+    io.to(`attendance_${sessionId}`).emit("attendance-recorded", eventPayload);
+
+    return res.status(201).json({
+      success: true,
+      message: "Attendance marked successfully by teacher scan.",
+      record: eventPayload,
+    });
+  } catch (error) {
+    const status = /authorized|token/i.test(error.message) ? 403 : 500;
+    return res.status(status).json({ message: error.message });
+  }
+});
+
+app.post("/attendance/end", async (req, res) => {
+  try {
+    const { decodedToken } = await verifyTeacherFromRequest(req);
+    const sessionId = String(req.body.sessionId || "").trim();
+    if (!sessionId) {
+      return res.status(400).json({ message: "sessionId is required." });
+    }
+
+    const firestore = admin.firestore();
+    const sessionRef = firestore
+      .collection("attendance_sessions")
+      .doc(sessionId);
+    const sessionDoc = await sessionRef.get();
+
+    if (!sessionDoc.exists) {
+      return res.status(404).json({ message: "Attendance session not found." });
+    }
+
+    const sessionData = sessionDoc.data() || {};
+    if (String(sessionData.teacherId || "") !== decodedToken.uid) {
+      return res
+        .status(403)
+        .json({ message: "Only session owner can end session." });
+    }
+
+    if (sessionData.status === "ended") {
+      return res
+        .status(200)
+        .json({ success: true, message: "Session is already ended." });
+    }
+
+    const recordsSnapshot = await firestore
+      .collection("attendance_records")
+      .where("sessionId", "==", sessionId)
+      .get();
+
+    const presentStudentIds = new Set(
+      recordsSnapshot.docs.map((docSnap) =>
+        String(docSnap.data()?.studentId || ""),
+      ),
+    );
+
+    let enrolledStudentIds = Array.isArray(sessionData.enrolledStudentIds)
+      ? sessionData.enrolledStudentIds
+          .map((id) => String(id || "").trim())
+          .filter(Boolean)
+      : [];
+
+    if (enrolledStudentIds.length === 0) {
+      const enrolledStudents = await getSessionEnrolledStudents(
+        firestore,
+        sessionData,
+      );
+      enrolledStudentIds = enrolledStudents
+        .map((student) => String(student.uid || "").trim())
+        .filter(Boolean);
+    }
+
+    const nowMs = Date.now();
+    const enrolledStudentsCount = enrolledStudentIds.length;
+    const presentCount = presentStudentIds.size;
+    const currentRate = enrolledStudentsCount
+      ? Number(((presentCount / enrolledStudentsCount) * 100).toFixed(2))
+      : 0;
+
+    await sessionRef.set(
+      {
+        status: "ended",
+        endTime: admin.firestore.FieldValue.serverTimestamp(),
+        endTimeMs: nowMs,
+        presentCount,
+        enrolledStudentsCount,
+        enrolledStudentIds,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+
+    const sessionEndedPayload = {
+      sessionId,
+      status: "ended",
+      presentCount,
+      enrolledStudentsCount,
+      endTime: new Date(nowMs).toISOString(),
+    };
+
+    io.emit("attendance-session-ended", sessionEndedPayload);
+    io.to(`attendance_${sessionId}`).emit(
+      "attendance-session-ended",
+      sessionEndedPayload,
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Attendance session ended successfully.",
+      session: sessionEndedPayload,
+    });
+
+    (async () => {
+      for (const studentId of enrolledStudentIds) {
+        if (!studentId) continue;
+
+        const docId = `${studentId}_${sessionData.subjectId}`;
+        const attendanceRef = firestore
+          .collection("student_attendance")
+          .doc(docId);
+
+        await attendanceRef.set(
+          {
+            studentId,
+            subjectId: sessionData.subjectId,
+            subjectName: sessionData.subjectName || "",
+            totalClasses: admin.firestore.FieldValue.increment(1),
+            attendedClasses: admin.firestore.FieldValue.increment(
+              presentStudentIds.has(studentId) ? 1 : 0,
+            ),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+      }
+
+      const statsDocId = `${sessionData.subjectId}_${sessionData.teacherId}`;
+      const statsRef = firestore
+        .collection("subject_attendance_stats")
+        .doc(statsDocId);
+
+      await statsRef.set(
+        {
+          subjectId: sessionData.subjectId,
+          subjectName: sessionData.subjectName || "",
+          teacherId: sessionData.teacherId,
+          totalClasses: admin.firestore.FieldValue.increment(1),
+          cumulativeAttendanceRate:
+            admin.firestore.FieldValue.increment(currentRate),
+          lastAttendanceRate: currentRate,
+          lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    })().catch((error) => {
+      console.error("Deferred attendance rollup failed:", error);
+    });
+
+    return;
+  } catch (error) {
+    const status = /authorized|token/i.test(error.message) ? 403 : 500;
+    return res.status(status).json({ message: error.message });
+  }
+});
+
+app.get("/attendance/session/:sessionId/records", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res
+        .status(401)
+        .json({ message: "No authorization token provided" });
+    }
+
+    const token = authHeader.split("Bearer ")[1];
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    const sessionId = String(req.params.sessionId || "").trim();
+    if (!sessionId) {
+      return res.status(400).json({ message: "sessionId is required." });
+    }
+
+    const firestore = admin.firestore();
+    const sessionDoc = await firestore
+      .collection("attendance_sessions")
+      .doc(sessionId)
+      .get();
+
+    if (!sessionDoc.exists) {
+      return res.status(404).json({ message: "Attendance session not found." });
+    }
+
+    const sessionData = sessionDoc.data() || {};
+    const isTeacherOwner =
+      decodedToken.teacher &&
+      String(sessionData.teacherId || "") === String(decodedToken.uid || "");
+    const isAdmin = Boolean(decodedToken.admin);
+    if (!isTeacherOwner && !isAdmin) {
+      return res.status(403).json({ message: "Unauthorized access." });
+    }
+
+    const recordsSnapshot = await firestore
+      .collection("attendance_records")
+      .where("sessionId", "==", sessionId)
+      .get();
+
+    const records = recordsSnapshot.docs
+      .map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data(),
+      }))
+      .sort((a, b) => toMillis(b.timestamp) - toMillis(a.timestamp));
+
+    return res.status(200).json({
+      success: true,
+      session: {
+        id: sessionDoc.id,
+        ...sessionData,
+      },
+      records,
+    });
+  } catch (error) {
+    const status = /token/i.test(error.message) ? 401 : 500;
+    return res.status(status).json({ message: error.message });
+  }
+});
+
+app.get("/attendance/teacher/sessions/history", async (req, res) => {
+  try {
+    const { decodedToken } = await verifyTeacherFromRequest(req);
+    const limitRaw = Number(req.query.limit);
+    const historyLimit = Number.isFinite(limitRaw)
+      ? Math.max(1, Math.min(100, Math.floor(limitRaw)))
+      : 30;
+
+    const firestore = admin.firestore();
+    const sessionsSnapshot = await firestore
+      .collection("attendance_sessions")
+      .where("teacherId", "==", decodedToken.uid)
+      .where("status", "==", "ended")
+      .get();
+
+    const sessions = sessionsSnapshot.docs
+      .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+      .sort(
+        (a, b) =>
+          Number(b.endTimeMs || b.startTimeMs || 0) -
+          Number(a.endTimeMs || a.startTimeMs || 0),
+      )
+      .slice(0, historyLimit);
+
+    const sessionsWithDetails = await Promise.all(
+      sessions.map(async (session) => {
+        const sessionId = String(session.sessionId || session.id || "").trim();
+        const recordsSnapshot = await firestore
+          .collection("attendance_records")
+          .where("sessionId", "==", sessionId)
+          .get();
+
+        const records = recordsSnapshot.docs
+          .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+          .sort((a, b) => toMillis(b.timestamp) - toMillis(a.timestamp));
+
+        const presentStudentIds = new Set(
+          records
+            .map((record) => String(record.studentId || "").trim())
+            .filter(Boolean),
+        );
+        const enrolledStudentIds = Array.isArray(session.enrolledStudentIds)
+          ? session.enrolledStudentIds
+              .map((id) => String(id || "").trim())
+              .filter(Boolean)
+          : [];
+        const absentStudentIds = enrolledStudentIds.filter(
+          (id) => !presentStudentIds.has(id),
+        );
+
+        return {
+          ...session,
+          sessionId,
+          records,
+          presentCount: Number(session.presentCount || records.length || 0),
+          enrolledStudentsCount: Number(
+            session.enrolledStudentsCount || enrolledStudentIds.length || 0,
+          ),
+          absentCount: absentStudentIds.length,
+          absentStudentIds,
+        };
+      }),
+    );
+
+    return res.status(200).json({
+      success: true,
+      sessions: sessionsWithDetails,
+    });
+  } catch (error) {
+    const status = /authorized|token/i.test(error.message) ? 403 : 500;
+    return res.status(status).json({ message: error.message });
+  }
+});
+
+app.get("/attendance/student/:studentId", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res
+        .status(401)
+        .json({ message: "No authorization token provided" });
+    }
+
+    const token = authHeader.split("Bearer ")[1];
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    const studentId = String(req.params.studentId || "").trim();
+    if (!studentId) {
+      return res.status(400).json({ message: "studentId is required." });
+    }
+
+    if (
+      !decodedToken.admin &&
+      !decodedToken.teacher &&
+      decodedToken.uid !== studentId
+    ) {
+      return res.status(403).json({ message: "Unauthorized access." });
+    }
+
+    const firestore = admin.firestore();
+    const snapshot = await firestore
+      .collection("student_attendance")
+      .where("studentId", "==", studentId)
+      .get();
+
+    const records = snapshot.docs
+      .map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data(),
+      }))
+      .map((entry) => {
+        const totalClasses = Number(entry.totalClasses || 0);
+        const attendedClasses = Number(entry.attendedClasses || 0);
+        const percentage = totalClasses
+          ? Number(((attendedClasses / totalClasses) * 100).toFixed(2))
+          : 0;
+
+        return {
+          ...entry,
+          percentage,
+        };
+      });
+
+    return res.status(200).json({ success: true, attendance: records });
+  } catch (error) {
+    const status = /token/i.test(error.message) ? 401 : 500;
+    return res.status(status).json({ message: error.message });
+  }
+});
+
+app.get("/attendance/analytics/:subjectId", async (req, res) => {
+  try {
+    const { decodedToken, teacherDoc } = await verifyTeacherFromRequest(req);
+    const subjectId = String(req.params.subjectId || "").trim();
+    if (!subjectId) {
+      return res.status(400).json({ message: "subjectId is required." });
+    }
+
+    const teacherData = teacherDoc.exists ? teacherDoc.data() || {} : {};
+    const assignments = Array.isArray(teacherData.assignments)
+      ? teacherData.assignments
+      : [];
+    const isAssigned = assignments.some((assignment) =>
+      normalizeSubjectValues(assignment.subjects).some(
+        (subject) => makeSubjectId(subject) === subjectId,
+      ),
+    );
+
+    if (!isAssigned) {
+      return res.status(403).json({
+        message: "Teacher is not assigned to this subject.",
+      });
+    }
+
+    const firestore = admin.firestore();
+    const sessionsSnapshot = await firestore
+      .collection("attendance_sessions")
+      .where("teacherId", "==", decodedToken.uid)
+      .where("subjectId", "==", subjectId)
+      .where("status", "==", "ended")
+      .get();
+
+    const sessions = sessionsSnapshot.docs.map((docSnap) => ({
+      id: docSnap.id,
+      ...docSnap.data(),
+    }));
+
+    sessions.sort((a, b) => toMillis(a.startTime) - toMillis(b.startTime));
+
+    const weeklyCutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const weeklyTrend = [];
+    let totalRate = 0;
+
+    for (const session of sessions) {
+      let presentCount = Number(session.presentCount || 0);
+      let enrolledCount = Number(session.enrolledStudentsCount || 0);
+
+      if (!Number.isFinite(presentCount)) {
+        presentCount = 0;
+      }
+      if (!Number.isFinite(enrolledCount)) {
+        enrolledCount = 0;
+      }
+
+      if (!enrolledCount) {
+        if (Array.isArray(session.enrolledStudentIds)) {
+          enrolledCount = session.enrolledStudentIds.length;
+        } else {
+          const enrolledStudents = await getSessionEnrolledStudents(
+            firestore,
+            session,
+          );
+          enrolledCount = enrolledStudents.length;
+        }
+      }
+
+      if (!presentCount && (session.sessionId || session.id)) {
+        const sessionRecords = await firestore
+          .collection("attendance_records")
+          .where("sessionId", "==", session.sessionId || session.id)
+          .get();
+        presentCount = sessionRecords.size;
+      }
+
+      const attendanceRate = enrolledCount
+        ? Number(((presentCount / enrolledCount) * 100).toFixed(2))
+        : 0;
+
+      totalRate += attendanceRate;
+
+      const sessionStartMs =
+        Number(session.startTimeMs) || toMillis(session.startTime);
+      if (sessionStartMs >= weeklyCutoff) {
+        weeklyTrend.push({
+          date:
+            session.date || new Date(sessionStartMs).toISOString().slice(0, 10),
+          attendanceRate,
+          presentStudents: presentCount,
+          totalStudents: enrolledCount,
+        });
+      }
+    }
+
+    const studentAttendanceSnapshot = await firestore
+      .collection("student_attendance")
+      .where("subjectId", "==", subjectId)
+      .get();
+
+    const atRiskStudents = studentAttendanceSnapshot.docs
+      .map((docSnap) => {
+        const data = docSnap.data() || {};
+        const totalClasses = Number(data.totalClasses || 0);
+        const attendedClasses = Number(data.attendedClasses || 0);
+        const percentage = totalClasses
+          ? Number(((attendedClasses / totalClasses) * 100).toFixed(2))
+          : 0;
+
+        return { id: docSnap.id, ...data, percentage };
+      })
+      .filter((entry) => Number(entry.percentage || 0) < 75)
+      .sort((a, b) => Number(a.percentage || 0) - Number(b.percentage || 0));
+
+    const classAttendanceRate = sessions.length
+      ? Number((totalRate / sessions.length).toFixed(2))
+      : 0;
+
+    const statsDocId = `${subjectId}_${decodedToken.uid}`;
+    const statsDoc = await firestore
+      .collection("subject_attendance_stats")
+      .doc(statsDocId)
+      .get();
+    const summaryData = statsDoc.exists ? statsDoc.data() || {} : {};
+    const summaryTotalClasses = Number(
+      summaryData.totalClasses || sessions.length || 0,
+    );
+    const summaryCumulativeRate = Number(summaryData.cumulativeAttendanceRate);
+    const summaryAverageFromCumulative =
+      Number.isFinite(summaryCumulativeRate) && summaryTotalClasses > 0
+        ? Number((summaryCumulativeRate / summaryTotalClasses).toFixed(2))
+        : null;
+
+    const subjectSummary = {
+      subjectId,
+      ...summaryData,
+      totalClasses: summaryTotalClasses,
+      averageAttendance:
+        summaryAverageFromCumulative ??
+        Number(summaryData.averageAttendance || classAttendanceRate || 0),
+      lastUpdated: summaryData.lastUpdated || null,
+    };
+
+    return res.status(200).json({
+      success: true,
+      analytics: {
+        subjectId,
+        totalSessions: sessions.length,
+        classAttendanceRate,
+        studentsAtRisk: atRiskStudents,
+        weeklyTrend,
+        summary: subjectSummary,
+      },
+    });
+  } catch (error) {
+    const status = /authorized|token/i.test(error.message) ? 403 : 500;
+    return res.status(status).json({ message: error.message });
   }
 });
 
