@@ -112,17 +112,23 @@ function StudentDashboard() {
           setStudentName(
             studentData.name || studentData.displayName || "Student",
           );
-          setDepartment(studentData.dept || "Not assigned");
+          setDepartment(
+            studentData.dept || studentData.department || "Not assigned",
+          );
           setYear(studentData.year || "");
           setSemester(studentData.semester || "");
           setDivision(studentData.division || "A");
 
-          // Fetch timetable based on student's department, semester and division
-          if (studentData.dept && studentData.semester) {
+          // Fetch timetable based on student's branch, year and semester
+          if (
+            (studentData.dept || studentData.department) &&
+            studentData.year &&
+            studentData.semester
+          ) {
             fetchTimetable(
-              studentData.dept,
+              studentData.dept || studentData.department,
+              studentData.year,
               studentData.semester,
-              studentData.division || "A",
             );
           }
 
@@ -159,32 +165,21 @@ function StudentDashboard() {
     };
 
     // Fetch timetable from Firestore
-    const fetchTimetable = async (dept, sem, div) => {
+    const fetchTimetable = async (branch, academicYear, sem) => {
       try {
-        const timetableRef = collection(firestore, "timetable");
+        const timetableRef = collection(firestore, "timetables");
         const q = query(
           timetableRef,
-          where("dept", "==", dept),
+          where("branch", "==", branch),
+          where("year", "==", academicYear),
           where("semester", "==", sem),
         );
 
         const querySnapshot = await getDocs(q);
-        const allClasses = [];
-
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          // Filter by division if specified
-          if (
-            !data.division ||
-            data.division === div ||
-            data.division === "All"
-          ) {
-            allClasses.push({
-              id: doc.id,
-              ...data,
-            });
-          }
-        });
+        const allClasses = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
 
         // Sort by start time
         allClasses.sort((a, b) => {
@@ -196,9 +191,7 @@ function StudentDashboard() {
         setTimetable(allClasses);
 
         // Filter today's classes
-        const todayClasses = allClasses.filter(
-          (cls) => cls.dayOfWeek === today,
-        );
+        const todayClasses = allClasses.filter((cls) => cls.day === today);
         setTodaysClasses(todayClasses);
       } catch (error) {
         console.error("Error fetching timetable:", error);
@@ -408,7 +401,7 @@ function StudentDashboard() {
                               <h3
                                 className={`font-semibold text-lg ${colors.text}`}
                               >
-                                {classItem.subject}
+                                {classItem.subjectName || classItem.subject}
                               </h3>
                               <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-600">
                                 <span className="flex items-center gap-1">
@@ -487,7 +480,7 @@ function StudentDashboard() {
                   {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map(
                     (day) => {
                       const dayClasses = timetable.filter(
-                        (cls) => cls.dayOfWeek === day,
+                        (cls) => cls.day === day,
                       );
                       const isToday = day === today;
                       return (
@@ -519,7 +512,7 @@ function StudentDashboard() {
                                   } ${getSubjectColor(idx).text}`}
                                 >
                                   <div className="font-medium truncate">
-                                    {cls.subject}
+                                    {cls.subjectName || cls.subject}
                                   </div>
                                   <div className="opacity-75">
                                     {formatTime(cls.startTime)}

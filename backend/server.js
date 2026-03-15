@@ -428,6 +428,34 @@ const verifyAdminFromRequest = async (req) => {
   return decodedToken;
 };
 
+const verifyTeacherFromRequest = async (req) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    throw new Error("No authorization token provided");
+  }
+
+  const token = authHeader.split("Bearer ")[1];
+  if (!token) {
+    throw new Error("No authorization token provided");
+  }
+
+  const decodedToken = await admin.auth().verifyIdToken(token);
+  const teacherDoc = await admin
+    .firestore()
+    .collection("teachers")
+    .doc(decodedToken.uid)
+    .get();
+
+  if (!decodedToken.teacher && !teacherDoc.exists) {
+    throw new Error("Only teachers are authorized");
+  }
+
+  return {
+    decodedToken,
+    teacherDoc,
+  };
+};
+
 const ensureSubjectSetsInitialized = async () => {
   const firestore = admin.firestore();
   const snapshot = await firestore.collection("subjectSets").get();
@@ -662,6 +690,31 @@ const generateTeacherId = async (firestore, jobProfile) => {
 
   const nextSequence = String(maxSequence + 1).padStart(2, "0");
   return `${prefix}${nextSequence}`;
+};
+
+const parseTimeToMinutes = (timeValue = "") => {
+  const normalized = String(timeValue || "").trim();
+  const match = normalized.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return Number.NaN;
+
+  const hour = Number.parseInt(match[1], 10);
+  const minute = Number.parseInt(match[2], 10);
+  if (Number.isNaN(hour) || Number.isNaN(minute)) return Number.NaN;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return Number.NaN;
+
+  return hour * 60 + minute;
+};
+
+const isTimeRangeOverlapping = (aStart, aEnd, bStart, bEnd) => {
+  return aStart < bEnd && bStart < aEnd;
+};
+
+const makeSubjectId = (subjectName = "") => {
+  return String(subjectName || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
 };
 
 const syncTeacherStudentMappings = async ({
@@ -1689,6 +1742,302 @@ app.get("/api/resolve-teacher-login/:loginId", async (req, res) => {
     });
   } catch (error) {
     console.error("Error resolving teacher login:", error);
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.post("/timetable/add-lecture", async (req, res) => {
+  try {
+    const { decodedToken, teacherDoc } = await verifyTeacherFromRequest(req);
+
+    const teacherData = teacherDoc.exists ? teacherDoc.data() || {} : {};
+    const teacherId = decodedToken.uid;
+
+    const branch = normalizeBranch(req.body.branch || "");
+    const year = normalizeYear(req.body.year || "");
+    const semester = normalizeSemester(req.body.semester || "");
+    const day = String(req.body.day || "").trim();
+    const startTime = String(req.body.startTime || "").trim();
+    const endTime = String(req.body.endTime || "").trim();
+    const subjectName = String(
+      req.body.subjectName || req.body.subject || "",
+    ).trim();
+
+    if (
+      !branch ||
+      !year ||
+      !semester ||
+      !day ||
+      !startTime ||
+      !endTime ||
+      !subjectName
+    ) {
+      return res.status(400).json({
+        message:
+          "Branch, year, semester, day, startTime, endTime and subjectName are required.",
+      });
+    }
+
+    const validDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+    if (!validDays.includes(day)) {
+      return res.status(400).json({
+        message:
+          "Day must be one of Monday, Tuesday, Wednesday, Thursday or Friday.",
+      });
+    }
+
+    const startMinutes = parseTimeToMinutes(startTime);
+    const endMinutes = parseTimeToMinutes(endTime);
+    if (Number.isNaN(startMinutes) || Number.isNaN(endMinutes)) {
+      return res
+        .status(400)
+        .json({ message: "Invalid startTime/endTime format." });
+    }
+    if (startMinutes >= endMinutes) {
+      return res
+        .status(400)
+        .json({ message: "endTime must be after startTime." });
+    }
+
+    const subjectSetsMap = await getSubjectSetsMap();
+    const semesterSubjects = subjectSetsMap?.[branch]?.[year]?.[semester] || [];
+    if (!semesterSubjects.includes(subjectName)) {
+      return res.status(400).json({
+        message:
+          "Selected subject is not part of the configured subject set for branch/year/semester.",
+      });
+    }
+
+    const teacherAssignments = Array.isArray(teacherData.assignments)
+      ? teacherData.assignments
+      : [];
+    const assignment = teacherAssignments.find(
+      (item) =>
+        normalizeBranch(item?.branch || item?.dept || "") === branch &&
+        normalizeYear(item?.year || "") === year,
+    );
+
+    if (!assignment || !Array.isArray(assignment.subjects)) {
+      return res.status(403).json({
+        message: "Teacher is not assigned to the selected branch/year.",
+      });
+    }
+
+    if (!assignment.subjects.includes(subjectName)) {
+      return res.status(403).json({
+        message: "Teacher is not authorized for the selected subject.",
+      });
+    }
+
+    const firestore = admin.firestore();
+
+    const classSnapshot = await firestore
+      .collection("timetables")
+      .where("branch", "==", branch)
+      .where("year", "==", year)
+      .where("semester", "==", semester)
+      .where("day", "==", day)
+      .get();
+
+    for (const docSnap of classSnapshot.docs) {
+      const existing = docSnap.data() || {};
+      const existingStart = parseTimeToMinutes(existing.startTime || "");
+      const existingEnd = parseTimeToMinutes(existing.endTime || "");
+
+      if (Number.isNaN(existingStart) || Number.isNaN(existingEnd)) {
+        continue;
+      }
+
+      if (
+        isTimeRangeOverlapping(
+          startMinutes,
+          endMinutes,
+          existingStart,
+          existingEnd,
+        )
+      ) {
+        return res.status(409).json({
+          message:
+            "Lecture overlap detected. This branch/year/semester slot is already occupied.",
+          conflictLecture: {
+            lectureId: existing.lectureId || docSnap.id,
+            subjectName: existing.subjectName || existing.subject || "",
+            teacherName: existing.teacherName || "",
+            day: existing.day || day,
+            startTime: existing.startTime || "",
+            endTime: existing.endTime || "",
+          },
+        });
+      }
+    }
+
+    const teacherDaySnapshot = await firestore
+      .collection("timetables")
+      .where("teacherId", "==", teacherId)
+      .where("day", "==", day)
+      .get();
+
+    for (const docSnap of teacherDaySnapshot.docs) {
+      const existing = docSnap.data() || {};
+      const existingStart = parseTimeToMinutes(existing.startTime || "");
+      const existingEnd = parseTimeToMinutes(existing.endTime || "");
+
+      if (Number.isNaN(existingStart) || Number.isNaN(existingEnd)) {
+        continue;
+      }
+
+      if (
+        isTimeRangeOverlapping(
+          startMinutes,
+          endMinutes,
+          existingStart,
+          existingEnd,
+        )
+      ) {
+        return res.status(409).json({
+          message: "Teacher has another lecture overlapping this slot.",
+          conflictLecture: {
+            lectureId: existing.lectureId || docSnap.id,
+            branch: existing.branch || "",
+            year: existing.year || "",
+            semester: existing.semester || "",
+            day: existing.day || day,
+            startTime: existing.startTime || "",
+            endTime: existing.endTime || "",
+          },
+        });
+      }
+    }
+
+    const lectureRef = firestore.collection("timetables").doc();
+    const lectureId = lectureRef.id;
+    const teacherName =
+      teacherData.fullName ||
+      teacherData.name ||
+      decodedToken.name ||
+      "Teacher";
+
+    const payload = {
+      lectureId,
+      subjectId: makeSubjectId(subjectName),
+      subjectName,
+      teacherId,
+      teacherName,
+      branch,
+      year,
+      semester,
+      day,
+      startTime,
+      endTime,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    await lectureRef.set(payload);
+
+    return res.status(201).json({
+      success: true,
+      message: "Lecture added successfully.",
+      lecture: payload,
+    });
+  } catch (error) {
+    const status = /authorized|token/i.test(error.message) ? 403 : 500;
+    return res.status(status).json({ message: error.message });
+  }
+});
+
+app.get("/timetable/teacher/:teacherId", async (req, res) => {
+  try {
+    const teacherId = String(req.params.teacherId || "").trim();
+    if (!teacherId) {
+      return res.status(400).json({ message: "teacherId is required." });
+    }
+
+    const dayFilter = String(req.query.day || "").trim();
+    const firestore = admin.firestore();
+
+    let queryRef = firestore
+      .collection("timetables")
+      .where("teacherId", "==", teacherId);
+
+    if (dayFilter) {
+      queryRef = queryRef.where("day", "==", dayFilter);
+    }
+
+    const snapshot = await queryRef.get();
+    const lectures = snapshot.docs
+      .map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data(),
+      }))
+      .sort((a, b) => {
+        const dayOrder = [
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday",
+          "Sunday",
+        ];
+        const dayDiff =
+          dayOrder.indexOf(a.day || "") - dayOrder.indexOf(b.day || "");
+        if (dayDiff !== 0) return dayDiff;
+        return String(a.startTime || "").localeCompare(
+          String(b.startTime || ""),
+        );
+      });
+
+    return res.status(200).json({ success: true, lectures });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.get("/timetable/:branch/:year/:semester", async (req, res) => {
+  try {
+    const branch = normalizeBranch(req.params.branch || "");
+    const year = normalizeYear(req.params.year || "");
+    const semester = normalizeSemester(req.params.semester || "");
+
+    if (!branch || !year || !semester) {
+      return res.status(400).json({
+        message: "Valid branch, year and semester are required.",
+      });
+    }
+
+    const firestore = admin.firestore();
+    const snapshot = await firestore
+      .collection("timetables")
+      .where("branch", "==", branch)
+      .where("year", "==", year)
+      .where("semester", "==", semester)
+      .get();
+
+    const lectures = snapshot.docs
+      .map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data(),
+      }))
+      .sort((a, b) => {
+        const dayOrder = [
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday",
+          "Sunday",
+        ];
+        const dayDiff =
+          dayOrder.indexOf(a.day || "") - dayOrder.indexOf(b.day || "");
+        if (dayDiff !== 0) return dayDiff;
+        return String(a.startTime || "").localeCompare(
+          String(b.startTime || ""),
+        );
+      });
+
+    return res.status(200).json({ success: true, lectures });
+  } catch (error) {
     return res.status(500).json({ message: error.message });
   }
 });
