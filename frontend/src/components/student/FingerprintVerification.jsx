@@ -6,7 +6,11 @@ const randomChallenge = () => {
   return bytes;
 };
 
-export default function FingerprintVerification({ onVerified, disabled }) {
+export default function FingerprintVerification({
+  onVerified,
+  disabled,
+  actionLabel = "Verify Fingerprint",
+}) {
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState("");
 
@@ -65,7 +69,7 @@ export default function FingerprintVerification({ onVerified, disabled }) {
         onClick={verify}
         className="mt-3 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
       >
-        {verifying ? "Verifying..." : "Verify Fingerprint"}
+        {verifying ? "Verifying..." : actionLabel}
       </button>
       {!window.isSecureContext ? (
         <>

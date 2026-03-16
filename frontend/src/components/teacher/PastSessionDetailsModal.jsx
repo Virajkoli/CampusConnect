@@ -30,6 +30,12 @@ export default function PastSessionDetailsModal({
   }
 
   const recordsList = Array.isArray(records) ? records : [];
+  const presentStudents = Array.isArray(session.presentStudents)
+    ? session.presentStudents
+    : [];
+  const absentStudents = Array.isArray(session.absentStudents)
+    ? session.absentStudents
+    : [];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -88,6 +94,40 @@ export default function PastSessionDetailsModal({
               <p className="text-sm font-medium text-slate-700">
                 {formatDateTime(session.endTimeMs || session.endTime)}
               </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 text-xs md:grid-cols-2">
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+              <p className="font-semibold text-emerald-800">Present Students</p>
+              <div className="mt-1 max-h-32 overflow-y-auto text-emerald-700">
+                {presentStudents.length > 0 ? (
+                  presentStudents.map((student) => (
+                    <p key={`${student.studentId || student.prn}_present`}>
+                      {(student.studentName || "Student") +
+                        (student.prn ? ` (${student.prn})` : "")}
+                    </p>
+                  ))
+                ) : (
+                  <p>No present students listed.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-rose-200 bg-rose-50 p-3">
+              <p className="font-semibold text-rose-800">Absent Students</p>
+              <div className="mt-1 max-h-32 overflow-y-auto text-rose-700">
+                {absentStudents.length > 0 ? (
+                  absentStudents.map((student) => (
+                    <p key={`${student.studentId || student.prn}_absent`}>
+                      {(student.studentName || "Student") +
+                        (student.prn ? ` (${student.prn})` : "")}
+                    </p>
+                  ))
+                ) : (
+                  <p>No absent students listed.</p>
+                )}
+              </div>
             </div>
           </div>
 

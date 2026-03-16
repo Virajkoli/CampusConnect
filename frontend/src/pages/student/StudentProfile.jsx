@@ -10,12 +10,57 @@ import {
   FiLogOut,
   FiEdit,
   FiLock,
+  FiCheckCircle,
+  FiClock,
 } from "react-icons/fi";
 import { motion } from "framer-motion";
+import { useEffect, useMemo, useState } from "react";
 import StudentQRDisplay from "../../components/student/StudentQRDisplay";
+import FingerprintVerification from "../../components/student/FingerprintVerification";
+import {
+  clearOneTimePasskey,
+  createOneTimePasskey,
+} from "../../utils/biometricPasskey";
 
 const StudentProfile = ({ userData }) => {
   const navigate = useNavigate();
+  const [oneTimePasskey, setOneTimePasskey] = useState(null);
+  const [nowMs, setNowMs] = useState(Date.now());
+
+  useEffect(() => {
+    if (!oneTimePasskey?.expiresAt) {
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setNowMs(Date.now());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [oneTimePasskey?.expiresAt]);
+
+  useEffect(() => {
+    if (!oneTimePasskey?.expiresAt) {
+      return;
+    }
+
+    if (nowMs >= oneTimePasskey.expiresAt) {
+      clearOneTimePasskey();
+      setOneTimePasskey(null);
+    }
+  }, [nowMs, oneTimePasskey]);
+
+  const passkeyExpiresIn = useMemo(() => {
+    if (!oneTimePasskey?.expiresAt) {
+      return "";
+    }
+
+    const remainingMs = Math.max(oneTimePasskey.expiresAt - nowMs, 0);
+    const totalSeconds = Math.ceil(remainingMs / 1000);
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  }, [oneTimePasskey, nowMs]);
 
   const handleLogout = async () => {
     await auth.signOut();
@@ -218,6 +263,56 @@ const StudentProfile = ({ userData }) => {
                 uid: userData?.uid || auth.currentUser?.uid || "",
               }}
             />
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.3 }}
+            className="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition-shadow"
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center">
+                <FiCheckCircle className="w-6 h-6 text-white" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-800">
+                One-Time Attendance Passkey
+              </h2>
+            </div>
+
+            <FingerprintVerification
+              actionLabel="Create One-Time Passkey"
+              onVerified={(data) => {
+                if (!data?.biometricVerified || !data?.assertionId) {
+                  setOneTimePasskey(null);
+                  return;
+                }
+
+                const generated = createOneTimePasskey(data.assertionId);
+                setOneTimePasskey(generated);
+              }}
+            />
+
+            {oneTimePasskey ? (
+              <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
+                <p className="font-semibold">Passkey created successfully.</p>
+                <p className="mt-1 break-all">
+                  Assertion ID: {oneTimePasskey.assertionId}
+                </p>
+                <p className="mt-1 flex items-center gap-1">
+                  <FiClock className="h-3.5 w-3.5" />
+                  Expires in: {passkeyExpiresIn || "00:00"}
+                </p>
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={() => navigate("/student-attendance")}
+              className="mt-4 w-full rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white"
+            >
+              Continue to Attendance
+            </button>
           </motion.div>
         </div>
 
