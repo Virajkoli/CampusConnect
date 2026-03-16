@@ -164,20 +164,20 @@ export default function BulkAcademicUpdate() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-cyan-50 px-4 sm:px-6 py-6 sm:py-8">
+    <div className="min-h-screen bg-[#eef2f6] px-4 sm:px-6 py-6 sm:py-8">
       <div className="max-w-6xl mx-auto space-y-6">
         <button
-          onClick={() => navigate("/admin/usermanagement")}
-          className="flex items-center text-red-600 hover:text-green-900 transition-colors"
+          onClick={() => navigate("/admin-dashboard")}
+          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:text-[#2f87d9] sm:px-4 sm:py-2 sm:text-sm"
         >
-          <FiArrowLeft className="mr-2" /> Go Back
+          <FiArrowLeft className="h-4 w-4" /> Back to Dashboard
         </button>
 
-        <div className="bg-white rounded-xl shadow-md border border-cyan-100 p-5 sm:p-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-cyan-700 mb-2">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 sm:p-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-2">
             Bulk Academic Update
           </h1>
-          <p className="text-gray-600">
+          <p className="text-slate-600">
             Update existing students in bulk by selecting records from the list.
             Apply branch, year, and semester in one action instead of editing
             each student individually.
@@ -195,10 +195,10 @@ export default function BulkAcademicUpdate() {
           </div>
         )}
 
-        <div className="bg-white rounded-xl shadow-md border border-cyan-100 p-5 sm:p-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 sm:p-6">
           <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
                 Search Students
               </label>
               <input
@@ -210,7 +210,7 @@ export default function BulkAcademicUpdate() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
                 New Branch
               </label>
               <select
@@ -227,7 +227,7 @@ export default function BulkAcademicUpdate() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
                 New Year
               </label>
               <select
@@ -244,7 +244,7 @@ export default function BulkAcademicUpdate() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
                 New Semester
               </label>
               <select
@@ -279,7 +279,7 @@ export default function BulkAcademicUpdate() {
             </div>
           </div>
 
-          <div className="mt-4 p-3 rounded-lg bg-gray-50 text-sm">
+          <div className="mt-4 p-3 rounded-lg bg-slate-50 text-sm">
             Total Students: <strong>{students.length}</strong> | Filtered:{" "}
             <strong>{filteredStudents.length}</strong> | Selected:{" "}
             <strong>{selectedPrns.size}</strong>
@@ -287,13 +287,13 @@ export default function BulkAcademicUpdate() {
         </div>
 
         {filteredStudents.length > 0 && (
-          <div className="bg-white rounded-xl shadow-md border border-cyan-100 p-5 sm:p-6">
-            <h2 className="text-lg font-semibold text-cyan-700 mb-3">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 sm:p-6">
+            <h2 className="text-lg font-semibold text-slate-800 mb-3">
               Existing Students
             </h2>
             <div className="overflow-x-auto">
-              <table className="min-w-[980px] w-full text-sm border border-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-[980px] w-full text-sm border border-slate-200">
+                <thead className="bg-slate-50">
                   <tr>
                     <th className="text-left p-2 border-b">
                       <input
@@ -341,7 +341,7 @@ export default function BulkAcademicUpdate() {
 
         {filteredStudents.length === 0 && !isLoadingStudents && (
           <div className="bg-white rounded-xl shadow-md border border-cyan-100 p-5 sm:p-6">
-            <p className="text-gray-600">No matching students found.</p>
+            <p className="text-slate-600">No matching students found.</p>
           </div>
         )}
 
@@ -353,7 +353,7 @@ export default function BulkAcademicUpdate() {
               </h2>
               <button
                 onClick={() => setSummary(null)}
-                className="text-sm text-gray-600 hover:text-gray-900 flex items-center"
+                className="text-sm text-slate-600 hover:text-gray-900 flex items-center"
               >
                 <FiRefreshCw className="mr-1" /> Clear
               </button>
@@ -379,7 +379,7 @@ export default function BulkAcademicUpdate() {
                 <h3 className="text-sm font-semibold text-green-700 mb-2">
                   Updated Students
                 </h3>
-                <table className="min-w-[760px] w-full text-sm border border-gray-200">
+                <table className="min-w-[760px] w-full text-sm border border-slate-200">
                   <thead className="bg-green-50">
                     <tr>
                       <th className="text-left p-2 border-b">PRN</th>
@@ -411,7 +411,7 @@ export default function BulkAcademicUpdate() {
                 <h3 className="text-sm font-semibold text-amber-700 mb-2">
                   Not Found
                 </h3>
-                <table className="min-w-[520px] w-full text-sm border border-gray-200">
+                <table className="min-w-[520px] w-full text-sm border border-slate-200">
                   <thead className="bg-amber-50">
                     <tr>
                       <th className="text-left p-2 border-b">PRN</th>
@@ -435,7 +435,7 @@ export default function BulkAcademicUpdate() {
                 <h3 className="text-sm font-semibold text-red-700 mb-2">
                   Failed Updates
                 </h3>
-                <table className="min-w-[520px] w-full text-sm border border-gray-200">
+                <table className="min-w-[520px] w-full text-sm border border-slate-200">
                   <thead className="bg-red-50">
                     <tr>
                       <th className="text-left p-2 border-b">PRN</th>

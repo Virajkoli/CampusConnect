@@ -30,7 +30,7 @@ export default function AdminAuthPage() {
   if (loading || checkingAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
-        <p className="text-gray-700 text-lg">Checking admin status...</p>
+        <p className="text-slate-700 text-lg">Checking admin status...</p>
       </div>
     );
   }
@@ -57,9 +57,9 @@ export default function AdminAuthPage() {
   };
 
   return (
-    <div className="min-h-screen px-4 py-8 flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-sm bg-white rounded-xl shadow-lg p-6 sm:p-8 border border-gray-100">
-        <h2 className="text-2xl font-bold text-center text-gray-800 mb-6 tracking-tight">
+    <div className="min-h-screen px-4 py-8 flex items-center justify-center bg-slate-50">
+      <div className="w-full max-w-sm bg-white rounded-xl shadow-lg p-6 sm:p-8 border border-slate-200/80">
+        <h2 className="text-2xl font-bold text-center text-slate-800 mb-6 tracking-tight">
           Admin Login
         </h2>
         {error && (
@@ -69,7 +69,7 @@ export default function AdminAuthPage() {
         )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-gray-700 font-medium mb-1">
+            <label className="block text-slate-700 font-medium mb-1">
               Email
             </label>
             <input
@@ -77,13 +77,13 @@ export default function AdminAuthPage() {
               placeholder="Enter admin email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2 rounded border border-gray-300 focus:ring-2 focus:ring-indigo-200 focus:outline-none text-gray-800 bg-white"
+              className="w-full px-4 py-2 rounded border border-gray-300 focus:ring-2 focus:ring-indigo-200 focus:outline-none text-slate-800 bg-white"
               required
               autoFocus
             />
           </div>
           <div>
-            <label className="block text-gray-700 font-medium mb-1">
+            <label className="block text-slate-700 font-medium mb-1">
               Password
             </label>
             <input
@@ -91,7 +91,7 @@ export default function AdminAuthPage() {
               placeholder="Enter password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 rounded border border-gray-300 focus:ring-2 focus:ring-indigo-200 focus:outline-none text-gray-800 bg-white"
+              className="w-full px-4 py-2 rounded border border-gray-300 focus:ring-2 focus:ring-indigo-200 focus:outline-none text-slate-800 bg-white"
               required
             />
           </div>
@@ -105,7 +105,7 @@ export default function AdminAuthPage() {
             <button
               onClick={() => navigate("/login")}
               type="button"
-              className="text-indigo-600 hover:underline text-sm"
+              className="text-[#2f87d9] hover:underline text-sm"
             >
               ← Back to Role Selection
             </button>

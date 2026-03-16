@@ -5,7 +5,7 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import StudentNavbar from "../student/StudentNavbar"; // Import StudentNavbar
-import { FiMenu, FiX } from "react-icons/fi";
+import { FiChevronDown } from "react-icons/fi";
 
 function Navbar() {
   const navigate = useNavigate();
@@ -105,24 +105,17 @@ function Navbar() {
   const roleBasedLinks = {
     admin: [
       { path: "/admin-dashboard", name: "Dashboard" },
-      { path: "/announcements", name: "Announcements" },
       { path: "/discussions", name: "Discussions" },
-      { path: "/calendars", name: "Calendars" },
       { path: "/profile", name: "Profile" },
     ],
     teacher: [
       { path: "/teacher-dashboard", name: "Dashboard" },
-      { path: "/announcements", name: "Announcements" },
       { path: "/discussions", name: "Discussions" },
-      { path: "/calendars", name: "Calendars" },
       { path: "/profile", name: "Profile" },
     ],
     student: [
       { path: "/student-dashboard", name: "Dashboard" },
-      { path: "/announcements", name: "Announcements" },
       { path: "/discussions", name: "Discussions" },
-      { path: "/study-materials", name: "Study Materials" },
-      { path: "/calendars", name: "Calendars" },
       { path: "/profile", name: "Profile" },
     ],
   };
@@ -312,11 +305,14 @@ function Navbar() {
 
           <button
             type="button"
-            className="md:hidden p-2 rounded-lg border border-white/20"
+            className="md:hidden inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-medium"
             onClick={toggleMobileMenu}
             aria-label="Toggle menu"
           >
-            {isMobileMenuOpen ? <FiX size={22} /> : <FiMenu size={22} />}
+            Menu
+            <FiChevronDown
+              className={`h-4 w-4 transition-transform ${isMobileMenuOpen ? "rotate-180" : "rotate-0"}`}
+            />
           </button>
         </div>
       </div>

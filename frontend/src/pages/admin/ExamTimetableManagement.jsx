@@ -14,6 +14,7 @@ import {
   FiAlertCircle,
   FiCheck,
   FiEye,
+  FiArrowLeft,
 } from "react-icons/fi";
 import { getAuth } from "firebase/auth";
 import {
@@ -28,6 +29,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../../firebase";
+import { useNavigate } from "react-router-dom";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
@@ -43,6 +45,7 @@ const branches = [
 const years = ["1st", "2nd", "3rd", "4th"];
 
 const ExamTimetableManagement = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("upload"); // upload, manual, view
   const [selectedYear, setSelectedYear] = useState("4th");
   const [selectedBranch, setSelectedBranch] = useState("Computer Engineering");
@@ -396,24 +399,32 @@ const ExamTimetableManagement = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 py-6 sm:py-8 px-3 sm:px-4">
+    <div className="min-h-screen bg-[#eef2f6] py-6 sm:py-8 px-3 sm:px-4">
       <div className="max-w-7xl mx-auto">
+        <button
+          onClick={() => navigate("/admin-dashboard")}
+          className="mb-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:text-[#2f87d9] sm:px-4 sm:py-2 sm:text-sm"
+        >
+          <FiArrowLeft className="h-4 w-4" />
+          Back to Dashboard
+        </button>
+
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          <div className="bg-white rounded-3xl shadow-xl p-4 sm:p-8">
+          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-4 sm:p-8">
             <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center">
+              <div className="w-16 h-16 bg-[#2f87d9] rounded-2xl flex items-center justify-center">
                 <FiCalendar className="w-8 h-8 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                <h1 className="text-2xl sm:text-4xl font-bold text-slate-800">
                   Exam Timetable Management
                 </h1>
-                <p className="text-gray-600 mt-1">
+                <p className="text-slate-600 mt-1">
                   Upload PDF/Image, use OCR, or manually add exam schedules
                 </p>
               </div>
@@ -452,13 +463,13 @@ const ExamTimetableManagement = () => {
         <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-gray-700 mb-2 text-sm font-semibold">
+              <label className="block text-slate-700 mb-2 text-sm font-semibold">
                 Select Year
               </label>
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(e.target.value)}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 {years.map((year) => (
                   <option key={year} value={year}>
@@ -468,13 +479,13 @@ const ExamTimetableManagement = () => {
               </select>
             </div>
             <div>
-              <label className="block text-gray-700 mb-2 text-sm font-semibold">
+              <label className="block text-slate-700 mb-2 text-sm font-semibold">
                 Select Branch
               </label>
               <select
                 value={selectedBranch}
                 onChange={(e) => setSelectedBranch(e.target.value)}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 {branches.map((branch) => (
                   <option key={branch} value={branch}>
@@ -498,8 +509,8 @@ const ExamTimetableManagement = () => {
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all font-medium ${
                 activeTab === tab.id
-                  ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                  ? "bg-[#2f87d9] text-white shadow-lg"
+                  : "text-slate-600 hover:text-gray-900 hover:bg-slate-100"
               }`}
             >
               <tab.icon size={18} />
@@ -521,12 +532,12 @@ const ExamTimetableManagement = () => {
             >
               {/* Upload Section */}
               <div className="bg-white rounded-2xl shadow-lg p-6">
-                <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
                   <FiUpload className="text-blue-500" />
                   Upload Timetable (PDF/Image)
                 </h2>
 
-                <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-500 transition-colors bg-gray-50">
+                <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-500 transition-colors bg-slate-50">
                   <input
                     type="file"
                     accept=".pdf,image/*"
@@ -542,16 +553,16 @@ const ExamTimetableManagement = () => {
                     {file ? (
                       <div className="text-green-600">
                         <p className="font-semibold">{file.name}</p>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-slate-500">
                           {(file.size / 1024 / 1024).toFixed(2)} MB
                         </p>
                       </div>
                     ) : (
                       <div>
-                        <p className="text-gray-700 font-medium">
+                        <p className="text-slate-700 font-medium">
                           Drop your file here or click to browse
                         </p>
-                        <p className="text-gray-500 text-sm mt-1">
+                        <p className="text-slate-500 text-sm mt-1">
                           Supports PDF and Image files
                         </p>
                       </div>
@@ -563,7 +574,7 @@ const ExamTimetableManagement = () => {
                   <button
                     onClick={handleUpload}
                     disabled={!file || uploading}
-                    className="flex-1 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed text-white py-3 px-6 rounded-xl font-medium flex items-center justify-center gap-2 transition-all shadow-lg"
+                    className="flex-1 bg-[#2f87d9] hover:bg-[#1f6fb7] disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed text-white py-3 px-6 rounded-xl font-medium flex items-center justify-center gap-2 transition-all shadow-lg"
                   >
                     {uploading ? (
                       <>
@@ -591,10 +602,10 @@ const ExamTimetableManagement = () => {
               {/* Extracted Text Preview */}
               {extractedText && (
                 <div className="bg-white rounded-2xl shadow-lg p-6">
-                  <h2 className="text-xl font-bold text-gray-800 mb-4">
+                  <h2 className="text-xl font-bold text-slate-800 mb-4">
                     Extracted Text
                   </h2>
-                  <pre className="bg-gray-50 p-4 rounded-xl text-gray-700 text-sm overflow-auto max-h-60 whitespace-pre-wrap border border-gray-200">
+                  <pre className="bg-slate-50 p-4 rounded-xl text-slate-700 text-sm overflow-auto max-h-60 whitespace-pre-wrap border border-slate-200">
                     {extractedText}
                   </pre>
                 </div>
@@ -604,7 +615,7 @@ const ExamTimetableManagement = () => {
               {parsedExams.length > 0 && (
                 <div className="bg-white rounded-2xl shadow-lg p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-bold text-gray-800">
+                    <h2 className="text-xl font-bold text-slate-800">
                       Parsed Exams ({parsedExams.length})
                     </h2>
                     <button
@@ -619,7 +630,7 @@ const ExamTimetableManagement = () => {
                     {parsedExams.map((exam, index) => (
                       <div
                         key={index}
-                        className="bg-gray-50 rounded-xl p-4 grid grid-cols-1 md:grid-cols-6 gap-3 border border-gray-200"
+                        className="bg-slate-50 rounded-xl p-4 grid grid-cols-1 md:grid-cols-6 gap-3 border border-slate-200"
                       >
                         <input
                           type="text"
@@ -628,7 +639,7 @@ const ExamTimetableManagement = () => {
                             updateParsedExam(index, "date", e.target.value)
                           }
                           placeholder="Date (e.g., 01/12/2025)"
-                          className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-700 text-sm focus:ring-2 focus:ring-blue-500"
+                          className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-700 text-sm focus:ring-2 focus:ring-blue-500"
                         />
                         <input
                           type="text"
@@ -637,7 +648,7 @@ const ExamTimetableManagement = () => {
                             updateParsedExam(index, "time", e.target.value)
                           }
                           placeholder="Time"
-                          className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-700 text-sm focus:ring-2 focus:ring-blue-500"
+                          className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-700 text-sm focus:ring-2 focus:ring-blue-500"
                         />
                         <input
                           type="text"
@@ -650,7 +661,7 @@ const ExamTimetableManagement = () => {
                             )
                           }
                           placeholder="Course Code"
-                          className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-700 text-sm focus:ring-2 focus:ring-blue-500"
+                          className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-700 text-sm focus:ring-2 focus:ring-blue-500"
                         />
                         <input
                           type="text"
@@ -663,7 +674,7 @@ const ExamTimetableManagement = () => {
                             )
                           }
                           placeholder="Course Name"
-                          className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-700 text-sm md:col-span-2 focus:ring-2 focus:ring-blue-500"
+                          className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-700 text-sm md:col-span-2 focus:ring-2 focus:ring-blue-500"
                         />
                         <button
                           onClick={() => removeParsedExam(index)}
@@ -696,14 +707,14 @@ const ExamTimetableManagement = () => {
               exit={{ opacity: 0, x: -20 }}
               className="bg-white rounded-2xl shadow-lg p-6"
             >
-              <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+              <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
                 <FiEdit2 className="text-blue-500" />
                 Add Exam Manually
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-gray-700 mb-2 text-sm font-medium">
+                  <label className="block text-slate-700 mb-2 text-sm font-medium">
                     Date *
                   </label>
                   <input
@@ -712,11 +723,11 @@ const ExamTimetableManagement = () => {
                     onChange={(e) =>
                       setManualExam({ ...manualExam, date: e.target.value })
                     }
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-gray-700 focus:ring-2 focus:ring-blue-500"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-700 focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-gray-700 mb-2 text-sm font-medium">
+                  <label className="block text-slate-700 mb-2 text-sm font-medium">
                     Time
                   </label>
                   <input
@@ -725,11 +736,11 @@ const ExamTimetableManagement = () => {
                     onChange={(e) =>
                       setManualExam({ ...manualExam, time: e.target.value })
                     }
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-gray-700 focus:ring-2 focus:ring-blue-500"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-700 focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-gray-700 mb-2 text-sm font-medium">
+                  <label className="block text-slate-700 mb-2 text-sm font-medium">
                     Duration
                   </label>
                   <select
@@ -737,7 +748,7 @@ const ExamTimetableManagement = () => {
                     onChange={(e) =>
                       setManualExam({ ...manualExam, duration: e.target.value })
                     }
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-gray-700 focus:ring-2 focus:ring-blue-500"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-700 focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="1 hour">1 hour</option>
                     <option value="2 hours">2 hours</option>
@@ -746,7 +757,7 @@ const ExamTimetableManagement = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-gray-700 mb-2 text-sm font-medium">
+                  <label className="block text-slate-700 mb-2 text-sm font-medium">
                     Course Code *
                   </label>
                   <input
@@ -759,11 +770,11 @@ const ExamTimetableManagement = () => {
                       })
                     }
                     placeholder="e.g., CO401 or EE301"
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-gray-700 focus:ring-2 focus:ring-blue-500"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-700 focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-gray-700 mb-2 text-sm font-medium">
+                  <label className="block text-slate-700 mb-2 text-sm font-medium">
                     Course Name *
                   </label>
                   <input
@@ -776,7 +787,7 @@ const ExamTimetableManagement = () => {
                       })
                     }
                     placeholder="e.g., Machine Learning"
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-gray-700 focus:ring-2 focus:ring-blue-500"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-700 focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -795,7 +806,7 @@ const ExamTimetableManagement = () => {
 
               <button
                 onClick={handleAddManualExam}
-                className="mt-6 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white py-3 px-6 rounded-xl font-medium flex items-center gap-2 transition-all shadow-lg"
+                className="mt-6 bg-[#2f87d9] hover:bg-[#1f6fb7] text-white py-3 px-6 rounded-xl font-medium flex items-center gap-2 transition-all shadow-lg"
               >
                 <FiPlus />
                 Add Exam
@@ -813,7 +824,7 @@ const ExamTimetableManagement = () => {
               className="bg-white rounded-2xl shadow-lg p-6"
             >
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                   <FiEye className="text-blue-500" />
                   Existing Exams for {selectedYear} Year - {selectedBranch}
                 </h2>
@@ -825,7 +836,7 @@ const ExamTimetableManagement = () => {
                     <FiTrash2 />
                     Remove Duplicates
                   </button>
-                  <span className="text-gray-500 text-sm bg-gray-100 px-3 py-1 rounded-full">
+                  <span className="text-slate-500 text-sm bg-slate-100 px-3 py-1 rounded-full">
                     {existingExams.length} exams found
                   </span>
                 </div>
@@ -838,7 +849,7 @@ const ExamTimetableManagement = () => {
               ) : existingExams.length === 0 ? (
                 <div className="text-center py-12 text-gray-400">
                   <FiCalendar className="text-5xl mx-auto mb-4 opacity-50" />
-                  <p className="text-gray-600">
+                  <p className="text-slate-600">
                     No exams found for this year and branch
                   </p>
                 </div>
@@ -847,7 +858,7 @@ const ExamTimetableManagement = () => {
                   {existingExams.map((exam) => (
                     <div
                       key={exam.id}
-                      className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl p-4 flex items-center justify-between hover:shadow-md transition-all border border-gray-100"
+                      className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl p-4 flex items-center justify-between hover:shadow-md transition-all border border-slate-200/80"
                     >
                       {editingExam?.id === exam.id ? (
                         <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-3">
@@ -860,7 +871,7 @@ const ExamTimetableManagement = () => {
                                 date: e.target.value,
                               })
                             }
-                            className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-700 text-sm"
+                            className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-700 text-sm"
                           />
                           <input
                             type="text"
@@ -871,7 +882,7 @@ const ExamTimetableManagement = () => {
                                 time: e.target.value,
                               })
                             }
-                            className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-700 text-sm"
+                            className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-700 text-sm"
                           />
                           <input
                             type="text"
@@ -882,7 +893,7 @@ const ExamTimetableManagement = () => {
                                 courseCode: e.target.value,
                               })
                             }
-                            className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-700 text-sm"
+                            className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-700 text-sm"
                           />
                           <input
                             type="text"
@@ -893,7 +904,7 @@ const ExamTimetableManagement = () => {
                                 courseName: e.target.value,
                               })
                             }
-                            className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-700 text-sm"
+                            className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-700 text-sm"
                           />
                           <div className="flex gap-2">
                             <button
@@ -914,18 +925,18 @@ const ExamTimetableManagement = () => {
                         <>
                           <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div>
-                              <p className="text-xs text-gray-500 uppercase font-medium">
+                              <p className="text-xs text-slate-500 uppercase font-medium">
                                 Date & Time
                               </p>
-                              <p className="text-gray-800 font-semibold">
+                              <p className="text-slate-800 font-semibold">
                                 {exam.date}
                               </p>
-                              <p className="text-gray-500 text-sm">
+                              <p className="text-slate-500 text-sm">
                                 {exam.time || "Not specified"}
                               </p>
                             </div>
                             <div>
-                              <p className="text-xs text-gray-500 uppercase font-medium">
+                              <p className="text-xs text-slate-500 uppercase font-medium">
                                 Course Code
                               </p>
                               <p className="text-blue-600 font-mono font-bold">
@@ -933,10 +944,10 @@ const ExamTimetableManagement = () => {
                               </p>
                             </div>
                             <div className="md:col-span-2">
-                              <p className="text-xs text-gray-500 uppercase font-medium">
+                              <p className="text-xs text-slate-500 uppercase font-medium">
                                 Course Name
                               </p>
-                              <p className="text-gray-700">{exam.courseName}</p>
+                              <p className="text-slate-700">{exam.courseName}</p>
                             </div>
                           </div>
                           <div className="flex gap-2 ml-4">
@@ -980,16 +991,16 @@ const ExamTimetableManagement = () => {
                 className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl"
                 onClick={(e) => e.stopPropagation()}
               >
-                <h3 className="text-xl font-bold text-gray-800 mb-4">
+                <h3 className="text-xl font-bold text-slate-800 mb-4">
                   Clear Exam Timetable?
                 </h3>
-                <p className="text-gray-600 mb-6">
+                <p className="text-slate-600 mb-6">
                   This will delete all exam entries for{" "}
-                  <span className="text-gray-800 font-semibold">
+                  <span className="text-slate-800 font-semibold">
                     {selectedYear} Year
                   </span>{" "}
                   -{" "}
-                  <span className="text-gray-800 font-semibold">
+                  <span className="text-slate-800 font-semibold">
                     {selectedBranch}
                   </span>
                   . This action cannot be undone.
@@ -997,7 +1008,7 @@ const ExamTimetableManagement = () => {
                 <div className="flex gap-4">
                   <button
                     onClick={() => setShowConfirmClear(false)}
-                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-4 rounded-xl transition-colors font-medium"
+                    className="flex-1 bg-slate-100 hover:bg-gray-200 text-slate-700 py-2 px-4 rounded-xl transition-colors font-medium"
                   >
                     Cancel
                   </button>

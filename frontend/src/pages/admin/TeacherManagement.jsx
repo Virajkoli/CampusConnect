@@ -356,18 +356,18 @@ const TeacherManagement = () => {
   }, [filteredTeachers]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-white to-blue-100 px-4 sm:px-6 lg:px-8 py-6 sm:py-8 text-gray-800">
+    <div className="min-h-screen bg-[#eef2f6] px-4 sm:px-6 lg:px-8 py-6 sm:py-8 text-slate-800">
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <button
             onClick={() => navigate("/admin-dashboard")}
-            className="mt-4 sm:mt-8 flex items-center text-red-600 hover:text-green-900 transition-colors text-base sm:text-lg"
+            className="mb-1 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:text-[#2f87d9] sm:px-4 sm:py-2 sm:text-sm"
           >
-            <FiArrowLeft className=" mr-2 text-xl" /> Go Back
+            <FiArrowLeft className="h-4 w-4" /> Back to Dashboard
           </button>
         </div>
 
-        <h1 className="text-2xl sm:text-3xl font-bold text-indigo-600">
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">
           Teacher Management Panel
         </h1>
 
@@ -475,7 +475,7 @@ const TeacherManagement = () => {
                 placeholder="Teacher ID (Auto Generated)"
                 value={formData.employeeId || "Auto-generated after save"}
                 readOnly
-                className="border px-3 py-2 rounded w-full bg-gray-100 text-gray-600"
+                className="border px-3 py-2 rounded w-full bg-slate-100 text-slate-600"
               />
             </div>
 
@@ -532,12 +532,12 @@ const TeacherManagement = () => {
                 </div>
 
                 {currentBranch && currentYear && (
-                  <div className="mb-4 border p-4 rounded bg-gray-50">
+                  <div className="mb-4 border p-4 rounded bg-slate-50">
                     <h4 className="font-medium mb-2">
                       Select Subjects for {currentBranch} - {currentYear} Year:
                     </h4>
                     {loadingSubjects ? (
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-slate-500">
                         Loading subjects...
                       </p>
                     ) : availableSubjects.length === 0 ? (
@@ -558,7 +558,7 @@ const TeacherManagement = () => {
                               onChange={(e) =>
                                 handleSubjectChange(subject, e.target.checked)
                               }
-                              className="form-checkbox h-5 w-5 text-indigo-600"
+                              className="form-checkbox h-5 w-5 text-[#2f87d9]"
                             />
                             <span>{subject}</span>
                           </label>
@@ -615,35 +615,35 @@ const TeacherManagement = () => {
         )}
 
         <motion.div
-          className="bg-white rounded-xl shadow-md p-6 border border-indigo-100 mt-8"
+          className="bg-white rounded-2xl shadow-sm p-6 border border-slate-200/80 mt-8"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 20 }}
           transition={{ duration: 0.4, type: "spring", stiffness: 120 }}
         >
-          <div className="overflow-x-auto rounded-lg border border-gray-100">
+          <div className="overflow-x-auto rounded-lg border border-slate-200/80">
             <table className="w-full text-sm divide-y divide-gray-100">
-              <thead className="bg-gray-50">
+              <thead className="bg-slate-50">
                 <tr>
-                  <th className="p-2 text-left font-semibold text-gray-600">
+                  <th className="p-2 text-left font-semibold text-slate-600">
                     Name
                   </th>
-                  <th className="p-2 text-left font-semibold text-gray-600">
+                  <th className="p-2 text-left font-semibold text-slate-600">
                     Mobile
                   </th>
-                  <th className="p-2 text-left font-semibold text-gray-600">
+                  <th className="p-2 text-left font-semibold text-slate-600">
                     Email
                   </th>
-                  <th className="p-2 text-left font-semibold text-gray-600">
+                  <th className="p-2 text-left font-semibold text-slate-600">
                     Department
                   </th>
-                  <th className="p-2 text-left font-semibold text-gray-600">
+                  <th className="p-2 text-left font-semibold text-slate-600">
                     Teacher ID
                   </th>
-                  <th className="p-2 text-left font-semibold text-gray-600">
+                  <th className="p-2 text-left font-semibold text-slate-600">
                     Job Profile
                   </th>
-                  <th className="p-2 text-center font-semibold text-gray-600">
+                  <th className="p-2 text-center font-semibold text-slate-600">
                     Actions
                   </th>
                 </tr>
@@ -653,7 +653,7 @@ const TeacherManagement = () => {
                   sortedTeachers.map((teacher) => (
                     <tr
                       key={teacher.id}
-                      className="border-b hover:bg-gray-50 transition"
+                      className="border-b hover:bg-slate-50 transition"
                     >
                       <td className="p-2 whitespace-nowrap">{teacher.name}</td>
                       <td className="p-2 whitespace-nowrap">
@@ -689,7 +689,7 @@ const TeacherManagement = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={7} className="text-center p-6 text-gray-500">
+                    <td colSpan={7} className="text-center p-6 text-slate-500">
                       No teachers found.
                     </td>
                   </tr>

@@ -391,14 +391,14 @@ const UserManagement = () => {
   }, {});
 
   return (
-    <div className="px-4 sm:px-6 py-6 mt-12 sm:mt-16">
+    <div className="min-h-screen bg-[#eef2f6] px-4 sm:px-6 py-6 mt-12 sm:mt-16">
       <div className="mb-4">
         <button
           onClick={() => navigate("/admin-dashboard")}
-          className="flex items-center text-red-600 hover:text-green-800 transition-colors"
+          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:text-[#2f87d9] sm:px-4 sm:py-2 sm:text-sm"
         >
-          <FiArrowLeft className="mr-2" />
-          Go Back
+          <FiArrowLeft className="h-4 w-4" />
+          Back to Dashboard
         </button>
       </div>
 
@@ -548,7 +548,7 @@ const UserManagement = () => {
         {departments.map((dept) => (
           <motion.div
             key={dept}
-            className="bg-white rounded-xl shadow-md p-6 border border-indigo-100 flex flex-col"
+            className="bg-white rounded-2xl shadow-sm p-6 border border-slate-200/80 flex flex-col"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
@@ -556,8 +556,8 @@ const UserManagement = () => {
           >
             <div className="flex items-center mb-4">
               <span className="inline-block w-3 h-3 rounded-full bg-indigo-400 mr-2"></span>
-              <h2 className="text-lg font-bold text-indigo-700">{dept}</h2>
-              <span className="ml-auto text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full">
+              <h2 className="text-lg font-bold text-slate-800">{dept}</h2>
+              <span className="ml-auto text-xs bg-[#e9f2ff] text-[#1f6fb7] px-3 py-1 rounded-full">
                 {usersByDept[dept].length} students
               </span>
             </div>
@@ -566,20 +566,20 @@ const UserManagement = () => {
                 No students in this department.
               </p>
             ) : (
-              <div className="overflow-x-auto rounded-lg border border-gray-100">
+              <div className="overflow-x-auto rounded-lg border border-slate-200/80">
                 <table className="min-w-[640px] w-full text-sm divide-y divide-gray-100">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-slate-50">
                     <tr>
-                      <th className="p-2 text-left font-semibold text-gray-600">
+                      <th className="p-2 text-left font-semibold text-slate-600">
                         Name
                       </th>
-                      <th className="p-2 text-left font-semibold text-gray-600">
+                      <th className="p-2 text-left font-semibold text-slate-600">
                         Email
                       </th>
-                      <th className="p-2 text-left font-semibold text-gray-600">
+                      <th className="p-2 text-left font-semibold text-slate-600">
                         Roll No.
                       </th>
-                      <th className="p-2 text-center font-semibold text-gray-600">
+                      <th className="p-2 text-center font-semibold text-slate-600">
                         Actions
                       </th>
                     </tr>
@@ -588,7 +588,7 @@ const UserManagement = () => {
                     {usersByDept[dept].map((user) => (
                       <tr
                         key={user.id}
-                        className="border-b hover:bg-gray-50 transition"
+                        className="border-b hover:bg-slate-50 transition"
                       >
                         <td className="p-2 whitespace-nowrap">{user.name}</td>
                         <td className="p-2 whitespace-nowrap">{user.email}</td>

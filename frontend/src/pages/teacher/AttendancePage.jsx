@@ -19,6 +19,7 @@ import {
   markAttendanceByTeacher,
   startAttendanceSession,
 } from "../../services/attendanceService";
+import { FiArrowLeft } from "react-icons/fi";
 
 const getBrowserLocation = () =>
   new Promise((resolve, reject) => {
@@ -778,8 +779,9 @@ export default function AttendancePage() {
             <button
               type="button"
               onClick={() => navigate("/teacher-dashboard")}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700"
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:text-[#2f87d9] sm:px-4 sm:py-2 sm:text-sm"
             >
+              <FiArrowLeft className="h-4 w-4" />
               Back to Dashboard
             </button>
             <button
