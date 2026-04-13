@@ -5,7 +5,8 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import StudentNavbar from "../student/StudentNavbar"; // Import StudentNavbar
-import { FiMenu, FiX } from "react-icons/fi";
+import { FiChevronDown } from "react-icons/fi";
+import campusLogo from "../../assets/logo2.png";
 
 function Navbar() {
   const navigate = useNavigate();
@@ -105,24 +106,17 @@ function Navbar() {
   const roleBasedLinks = {
     admin: [
       { path: "/admin-dashboard", name: "Dashboard" },
-      { path: "/announcements", name: "Announcements" },
       { path: "/discussions", name: "Discussions" },
-      { path: "/calendars", name: "Calendars" },
       { path: "/profile", name: "Profile" },
     ],
     teacher: [
       { path: "/teacher-dashboard", name: "Dashboard" },
-      { path: "/announcements", name: "Announcements" },
       { path: "/discussions", name: "Discussions" },
-      { path: "/calendars", name: "Calendars" },
       { path: "/profile", name: "Profile" },
     ],
     student: [
       { path: "/student-dashboard", name: "Dashboard" },
-      { path: "/announcements", name: "Announcements" },
       { path: "/discussions", name: "Discussions" },
-      { path: "/study-materials", name: "Study Materials" },
-      { path: "/calendars", name: "Calendars" },
       { path: "/profile", name: "Profile" },
     ],
   };
@@ -136,7 +130,7 @@ function Navbar() {
       ? "bg-white shadow-md text-gray-800"
       : scrolled
         ? "bg-white shadow-md text-gray-800"
-        : "bg-indigo-600 text-white"
+        : "bg-black text-white"
   }`;
 
   return (
@@ -164,13 +158,17 @@ function Navbar() {
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
           >
-            <div className="w-10 h-10 mr-2 bg-gradient-to-r from-indigo-500 to-blue-500 rounded-md flex items-center justify-center text-white shadow-md">
-              <span className="text-lg font-bold">CC</span>
+            <div className="w-10 h-10 mr-2 rounded-md overflow-hidden bg-white/90">
+              <img
+                src={campusLogo}
+                alt="CampusConnect logo"
+                className="w-full h-full object-cover"
+              />
             </div>
             <h1
               className={`text-lg sm:text-xl font-bold ${
                 scrolled || isAuthPage
-                  ? "bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent"
+                  ? "bg-clip-text text-black"
                   : "text-white"
               }`}
             >
@@ -241,7 +239,7 @@ function Navbar() {
                         className={`absolute right-0 mt-2 w-56 rounded-md shadow-lg z-50 ${
                           scrolled || isAuthPage
                             ? "bg-white text-gray-800"
-                            : "bg-indigo-800 text-white"
+                            : "bg-black text-white"
                         }`}
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -312,11 +310,14 @@ function Navbar() {
 
           <button
             type="button"
-            className="md:hidden p-2 rounded-lg border border-white/20"
+            className="md:hidden inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-medium"
             onClick={toggleMobileMenu}
             aria-label="Toggle menu"
           >
-            {isMobileMenuOpen ? <FiX size={22} /> : <FiMenu size={22} />}
+            Menu
+            <FiChevronDown
+              className={`h-4 w-4 transition-transform ${isMobileMenuOpen ? "rotate-180" : "rotate-0"}`}
+            />
           </button>
         </div>
       </div>

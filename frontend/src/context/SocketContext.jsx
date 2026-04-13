@@ -3,11 +3,48 @@ import { io } from "socket.io-client";
 import { auth } from "../firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
 
-const SOCKET_SERVER_URL = String(
-  import.meta.env.VITE_API_URL || "http://localhost:5000",
-)
-  .trim()
-  .replace(/\/+$/, "");
+const normalizeBaseUrl = (value = "") =>
+  String(value || "")
+    .trim()
+    .replace(/\/+$/, "");
+
+const isLocalHost = (host = "") => {
+  const normalized = String(host || "")
+    .trim()
+    .toLowerCase();
+  return normalized === "localhost" || normalized === "127.0.0.1";
+};
+
+const resolveSocketServerUrl = () => {
+  const envBase = normalizeBaseUrl(import.meta.env.VITE_API_URL || "");
+  const localhostBase = "http://localhost:5000";
+
+  if (typeof window === "undefined") {
+    return envBase || localhostBase;
+  }
+
+  const currentHost = String(window.location.hostname || "").trim();
+  if (!isLocalHost(currentHost)) {
+    return envBase || localhostBase;
+  }
+
+  if (!envBase) {
+    return localhostBase;
+  }
+
+  try {
+    const envHost = new URL(envBase).hostname;
+    if (!isLocalHost(envHost)) {
+      return localhostBase;
+    }
+  } catch {
+    return localhostBase;
+  }
+
+  return envBase;
+};
+
+const SOCKET_SERVER_URL = resolveSocketServerUrl();
 
 // Create a context for the socket
 const SocketContext = createContext();

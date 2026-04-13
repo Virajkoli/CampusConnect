@@ -172,7 +172,7 @@ export default function AnnouncementManagement() {
       case "academic":
         return "bg-blue-100 text-blue-800";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-slate-100 text-slate-800";
     }
   };
 
@@ -191,24 +191,24 @@ export default function AnnouncementManagement() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gray-50 px-3 sm:px-4 md:px-6 py-4 md:py-6">
+    <div className="min-h-screen bg-[#eef2f6] px-3 sm:px-4 md:px-6 py-4 md:py-6">
       {/* Header */}
       <div>
         <div>
           <button
             onClick={() => navigate("/admin-dashboard")}
-            className="mb-4 flex items-center text-red-900 hover:text-green-900 transition-colors"
+            className="mb-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:text-[#2f87d9] sm:px-4 sm:py-2 sm:text-sm"
           >
-            <FiArrowLeft className="mr-2" />
-            Go Back
+            <FiArrowLeft className="h-4 w-4" />
+            Back to Dashboard
           </button>
         </div>
 
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2 flex items-center">
-          <FiBell className="mr-3 text-indigo-600" />
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-2 flex items-center">
+          <FiBell className="mr-3 text-[#2f87d9]" />
           Announcement Management
         </h1>
-        <p className="text-gray-600">
+        <p className="text-slate-600">
           Create and manage important announcements for students and staff
         </p>
       </div>
@@ -243,7 +243,7 @@ export default function AnnouncementManagement() {
               setEditingAnnouncement(null);
               setShowForm(true);
             }}
-            className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-2 px-6 rounded-lg flex items-center justify-center md:justify-start"
+            className="bg-[#2f87d9] text-white py-2 px-6 rounded-lg flex items-center justify-center md:justify-start"
           >
             <FiPlus className="mr-2" /> New Announcement
           </motion.button>
@@ -256,7 +256,7 @@ export default function AnnouncementManagement() {
                 placeholder="Search announcements..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg w-full md:w-64 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg w-full md:w-64 focus:outline-none focus:ring-2 focus:ring-[#2f87d9]"
               />
             </div>
 
@@ -265,7 +265,7 @@ export default function AnnouncementManagement() {
               <select
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full"
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-[#2f87d9] w-full"
               >
                 <option value="all">All Announcements</option>
                 <option value="active">Active Only</option>
@@ -297,10 +297,10 @@ export default function AnnouncementManagement() {
         {/* Stats Row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-indigo-50 p-4 rounded-lg">
-            <div className="text-indigo-600 text-xs font-semibold uppercase tracking-wider mb-1">
+            <div className="text-[#2f87d9] text-xs font-semibold uppercase tracking-wider mb-1">
               Total
             </div>
-            <div className="text-2xl font-bold text-gray-800">
+            <div className="text-2xl font-bold text-slate-800">
               {announcements.length}
             </div>
           </div>
@@ -308,7 +308,7 @@ export default function AnnouncementManagement() {
             <div className="text-green-600 text-xs font-semibold uppercase tracking-wider mb-1">
               Active
             </div>
-            <div className="text-2xl font-bold text-gray-800">
+            <div className="text-2xl font-bold text-slate-800">
               {announcements.filter((a) => a.active).length}
             </div>
           </div>
@@ -316,7 +316,7 @@ export default function AnnouncementManagement() {
             <div className="text-amber-600 text-xs font-semibold uppercase tracking-wider mb-1">
               Events
             </div>
-            <div className="text-2xl font-bold text-gray-800">
+            <div className="text-2xl font-bold text-slate-800">
               {announcements.filter((a) => a.type === "event").length}
             </div>
           </div>
@@ -324,7 +324,7 @@ export default function AnnouncementManagement() {
             <div className="text-red-600 text-xs font-semibold uppercase tracking-wider mb-1">
               Urgent
             </div>
-            <div className="text-2xl font-bold text-gray-800">
+            <div className="text-2xl font-bold text-slate-800">
               {announcements.filter((a) => a.type === "urgent").length}
             </div>
           </div>
@@ -333,8 +333,8 @@ export default function AnnouncementManagement() {
 
       {/* Announcements List */}
       <div className="bg-white rounded-xl shadow-md overflow-hidden">
-        <div className="border-b border-gray-200 bg-gray-50 px-6 py-4">
-          <h2 className="text-lg font-semibold text-gray-800 flex items-center">
+        <div className="border-b border-slate-200 bg-slate-50 px-6 py-4">
+          <h2 className="text-lg font-semibold text-slate-800 flex items-center">
             <FiBell className="mr-2 text-indigo-500" />
             All Announcements
           </h2>
@@ -343,17 +343,17 @@ export default function AnnouncementManagement() {
         {loading ? (
           <div className="p-12 flex flex-col items-center justify-center">
             <div className="w-16 h-16 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
-            <p className="text-gray-500">Loading announcements...</p>
+            <p className="text-slate-500">Loading announcements...</p>
           </div>
         ) : filteredAnnouncements.length === 0 ? (
           <div className="p-12 text-center">
-            <div className="inline-flex rounded-full bg-gray-100 p-4">
-              <FiInfo className="h-6 w-6 text-gray-500" />
+            <div className="inline-flex rounded-full bg-slate-100 p-4">
+              <FiInfo className="h-6 w-6 text-slate-500" />
             </div>
-            <h3 className="mt-5 text-base font-semibold text-gray-800">
+            <h3 className="mt-5 text-base font-semibold text-slate-800">
               No announcements found
             </h3>
-            <p className="mt-1 text-gray-500">
+            <p className="mt-1 text-slate-500">
               {searchTerm || filter !== "all"
                 ? "Try changing your search terms or filters"
                 : "Create a new announcement to get started"}
@@ -364,7 +364,7 @@ export default function AnnouncementManagement() {
                   setSearchTerm("");
                   setFilter("all");
                 }}
-                className="text-indigo-600 hover:text-indigo-500 flex items-center justify-center mx-auto"
+                className="text-[#2f87d9] hover:text-indigo-500 flex items-center justify-center mx-auto"
               >
                 <FiRefreshCw className="mr-2" /> Reset Filters
               </button>
@@ -379,7 +379,7 @@ export default function AnnouncementManagement() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="p-6 hover:bg-gray-50"
+                  className="p-6 hover:bg-slate-50"
                 >
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between">
                     <div className="mb-4 md:mb-0 md:pr-4 flex-grow">
@@ -393,20 +393,20 @@ export default function AnnouncementManagement() {
                             announcement.type?.slice(1) || "General"}
                         </span>
                         {!announcement.active && (
-                          <span className="inline-flex text-xs font-medium px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-800">
+                          <span className="inline-flex text-xs font-medium px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800">
                             Inactive
                           </span>
                         )}
                       </div>
 
-                      <h3 className="text-lg font-semibold text-gray-800 mb-1">
+                      <h3 className="text-lg font-semibold text-slate-800 mb-1">
                         {announcement.title}
                       </h3>
 
-                      <p className="text-gray-600 mb-2 line-clamp-2">
+                      <p className="text-slate-600 mb-2 line-clamp-2">
                         {announcement.message}
                       </p>
-                      <div className="flex items-center text-xs text-gray-500">
+                      <div className="flex items-center text-xs text-slate-500">
                         <FiCalendar className="mr-1" />
                         Posted: {formatDate(announcement.createdAt)}
                         <button
@@ -415,7 +415,7 @@ export default function AnnouncementManagement() {
                             setSelectedAnnouncement(announcement);
                             setShowReaders(true);
                           }}
-                          className="ml-4 flex items-center hover:text-indigo-600 transition-colors"
+                          className="ml-4 flex items-center hover:text-[#2f87d9] transition-colors"
                         >
                           <FiEye className="inline mr-1" />
                           {announcement.readBy?.length || 0} views
@@ -511,7 +511,7 @@ export default function AnnouncementManagement() {
               className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="border-b border-gray-200 p-4 flex items-center justify-between bg-indigo-600 text-white">
+              <div className="border-b border-slate-200 p-4 flex items-center justify-between bg-indigo-600 text-white">
                 <div className="flex items-center">
                   <FiUser className="w-5 h-5 mr-2" />
                   <h2 className="text-lg font-semibold">
@@ -536,16 +536,16 @@ export default function AnnouncementManagement() {
                     {getReadersData(selectedAnnouncement).map((user) => (
                       <div
                         key={user.id}
-                        className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
+                        className="p-3 border border-slate-200 rounded-lg hover:bg-slate-50"
                       >
-                        <div className="font-medium text-gray-800">
+                        <div className="font-medium text-slate-800">
                           {user.name}
                         </div>
-                        <div className="text-gray-500 text-sm">
+                        <div className="text-slate-500 text-sm">
                           {user.email}
                         </div>
                         {user.dept && (
-                          <div className="text-gray-500 text-sm">
+                          <div className="text-slate-500 text-sm">
                             {user.dept}
                           </div>
                         )}
@@ -554,13 +554,13 @@ export default function AnnouncementManagement() {
                   </div>
                 ) : (
                   <div className="text-center py-12">
-                    <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                    <div className="mx-auto w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
                       <FiEye className="w-8 h-8 text-gray-400" />
                     </div>
                     <h3 className="mt-2 text-lg font-medium text-gray-900">
                       No readers yet
                     </h3>
-                    <p className="mt-1 text-sm text-gray-500">
+                    <p className="mt-1 text-sm text-slate-500">
                       No students have read this announcement yet.
                     </p>
                   </div>

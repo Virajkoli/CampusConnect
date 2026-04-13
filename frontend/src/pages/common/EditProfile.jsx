@@ -73,7 +73,7 @@ function EditProfile() {
         } else if (claims.teacher) {
           setUserRole("teacher");
           const teacherDoc = await getDoc(
-            doc(firestore, "teachers", currentUser.uid)
+            doc(firestore, "teachers", currentUser.uid),
           );
           if (teacherDoc.exists()) {
             const data = teacherDoc.data();
@@ -84,7 +84,7 @@ function EditProfile() {
           setUserRole("student");
           // Try users collection first (most common)
           const userDoc = await getDoc(
-            doc(firestore, "users", currentUser.uid)
+            doc(firestore, "users", currentUser.uid),
           );
           if (userDoc.exists()) {
             const data = userDoc.data();
@@ -96,7 +96,7 @@ function EditProfile() {
           } else {
             // Fallback to students collection
             const studentDoc = await getDoc(
-              doc(firestore, "students", currentUser.uid)
+              doc(firestore, "students", currentUser.uid),
             );
             if (studentDoc.exists()) {
               const data = studentDoc.data();
@@ -144,7 +144,7 @@ function EditProfile() {
           headers: {
             "Content-Type": "multipart/form-data",
           },
-        }
+        },
       );
       setUploading(false);
       return response.data.url;
@@ -232,32 +232,32 @@ function EditProfile() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-[#eef2f6] px-3 py-6 sm:px-5 sm:py-8 lg:px-8">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-2xl"
+        className="mx-auto w-full max-w-3xl rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-6"
       >
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <FiUser className="w-10 h-10 text-white" />
+        <div className="mb-6 text-center sm:mb-7">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-xl bg-[#e9f2ff] sm:h-16 sm:w-16">
+            <FiUser className="h-7 w-7 text-[#2f87d9] sm:h-8 sm:w-8" />
           </div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
+          <h1 className="mb-1 text-2xl font-semibold text-slate-800 sm:text-3xl">
             Edit Your Profile
           </h1>
-          <p className="text-gray-600">Update your personal information</p>
+          <p className="text-sm text-slate-600">
+            Update your personal information
+          </p>
         </div>
 
-        <form onSubmit={handleUpdate} className="space-y-6">
-          {/* Profile Preview */}
+        <form onSubmit={handleUpdate} className="space-y-4 sm:space-y-5">
           {photoPreview && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="flex justify-center mb-6"
+              className="mb-4 flex justify-center"
             >
-              <div className="w-32 h-32 rounded-full ring-4 ring-purple-200 overflow-hidden shadow-lg bg-gray-100">
+              <div className="h-20 w-20 overflow-hidden rounded-full border-2 border-slate-200 bg-slate-100 shadow sm:h-24 sm:w-24">
                 <img
                   src={photoPreview}
                   alt="Preview"
@@ -270,44 +270,42 @@ function EditProfile() {
             </motion.div>
           )}
 
-          {/* Full Name Field */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.1 }}
           >
-            <label className="flex items-center gap-2 font-semibold text-gray-700 mb-2">
-              <FiUser className="w-5 h-5 text-blue-600" />
+            <label className="mb-1.5 flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <FiUser className="h-4 w-4 text-[#2f87d9]" />
               Full Name
             </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all"
+              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-[#2f87d9] focus:outline-none focus:ring-2 focus:ring-[#cfe5ff]"
               placeholder="Enter your full name"
               required
             />
           </motion.div>
 
-          {/* Photo Upload Field */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <label className="flex items-center gap-2 font-semibold text-gray-700 mb-2">
-              <FiImage className="w-5 h-5 text-purple-600" />
+            <label className="mb-1.5 flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <FiImage className="h-4 w-4 text-[#2f87d9]" />
               Profile Picture
             </label>
             <div className="flex items-center gap-4">
               <label className="flex-1 cursor-pointer">
-                <div className="w-full border-2 border-dashed border-gray-300 rounded-xl px-4 py-8 hover:border-purple-500 transition-all flex flex-col items-center justify-center gap-2">
-                  <FiUpload className="w-8 h-8 text-gray-400" />
-                  <span className="text-sm text-gray-600">
+                <div className="flex w-full flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 px-4 py-5 transition hover:border-[#2f87d9]">
+                  <FiUpload className="h-6 w-6 text-slate-400" />
+                  <span className="text-xs text-slate-600 sm:text-sm">
                     {photoFile ? photoFile.name : "Click to upload image"}
                   </span>
-                  <span className="text-xs text-gray-400">
+                  <span className="text-[11px] text-slate-500">
                     JPG, PNG or GIF (Max 5MB)
                   </span>
                 </div>
@@ -321,15 +319,14 @@ function EditProfile() {
             </div>
           </motion.div>
 
-          {/* Student-specific fields - READ ONLY */}
           {userRole === "student" && (
             <>
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="p-4 bg-amber-50 border border-amber-200 rounded-xl mb-4"
+                className="mb-2 rounded-xl border border-amber-200 bg-amber-50 p-3"
               >
-                <p className="text-amber-700 text-sm flex items-center gap-2">
+                <p className="flex items-center gap-2 text-xs text-amber-700 sm:text-sm">
                   <span>⚠️</span>
                   Academic information is managed by administrators and cannot
                   be edited.
@@ -341,10 +338,10 @@ function EditProfile() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.3 }}
               >
-                <label className="flex items-center gap-2 font-semibold text-gray-700 mb-2">
-                  <FiHash className="w-5 h-5 text-green-600" />
+                <label className="mb-1.5 flex items-center gap-2 text-sm font-semibold text-slate-700">
+                  <FiHash className="h-4 w-4 text-emerald-600" />
                   Roll Number
-                  <span className="text-xs text-gray-400 ml-2">
+                  <span className="ml-2 text-xs text-slate-400">
                     (Read-only)
                   </span>
                 </label>
@@ -353,7 +350,7 @@ function EditProfile() {
                   value={rollNumber || "Not assigned"}
                   readOnly
                   disabled
-                  className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 bg-gray-100 text-gray-600 cursor-not-allowed"
+                  className="w-full cursor-not-allowed rounded-xl border border-slate-300 bg-slate-100 px-3 py-2 text-sm text-slate-600"
                 />
               </motion.div>
 
@@ -362,10 +359,10 @@ function EditProfile() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.4 }}
               >
-                <label className="flex items-center gap-2 font-semibold text-gray-700 mb-2">
-                  <FiBook className="w-5 h-5 text-indigo-600" />
+                <label className="mb-1.5 flex items-center gap-2 text-sm font-semibold text-slate-700">
+                  <FiBook className="h-4 w-4 text-[#2f87d9]" />
                   Department
-                  <span className="text-xs text-gray-400 ml-2">
+                  <span className="ml-2 text-xs text-slate-400">
                     (Read-only)
                   </span>
                 </label>
@@ -374,26 +371,26 @@ function EditProfile() {
                   value={dept || "Not assigned"}
                   readOnly
                   disabled
-                  className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 bg-gray-100 text-gray-600 cursor-not-allowed"
+                  className="w-full cursor-not-allowed rounded-xl border border-slate-300 bg-slate-100 px-3 py-2 text-sm text-slate-600"
                 />
               </motion.div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <motion.div
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.5 }}
                 >
-                  <label className="flex items-center gap-2 font-semibold text-gray-700 mb-2">
+                  <label className="mb-1.5 flex items-center gap-2 text-sm font-semibold text-slate-700">
                     Year
-                    <span className="text-xs text-gray-400">(Read-only)</span>
+                    <span className="text-xs text-slate-400">(Read-only)</span>
                   </label>
                   <input
                     type="text"
                     value={year ? `${year} Year` : "Not assigned"}
                     readOnly
                     disabled
-                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 bg-gray-100 text-gray-600 cursor-not-allowed"
+                    className="w-full cursor-not-allowed rounded-xl border border-slate-300 bg-slate-100 px-3 py-2 text-sm text-slate-600"
                   />
                 </motion.div>
 
@@ -402,23 +399,22 @@ function EditProfile() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.6 }}
                 >
-                  <label className="flex items-center gap-2 font-semibold text-gray-700 mb-2">
+                  <label className="mb-1.5 flex items-center gap-2 text-sm font-semibold text-slate-700">
                     Semester
-                    <span className="text-xs text-gray-400">(Read-only)</span>
+                    <span className="text-xs text-slate-400">(Read-only)</span>
                   </label>
                   <input
                     type="text"
                     value={semester ? `Semester ${semester}` : "Not assigned"}
                     readOnly
                     disabled
-                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 bg-gray-100 text-gray-600 cursor-not-allowed"
+                    className="w-full cursor-not-allowed rounded-xl border border-slate-300 bg-slate-100 px-3 py-2 text-sm text-slate-600"
                   />
                 </motion.div>
               </div>
             </>
           )}
 
-          {/* Teacher-specific fields */}
           {userRole === "teacher" && (
             <>
               <motion.div
@@ -426,15 +422,15 @@ function EditProfile() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.3 }}
               >
-                <label className="flex items-center gap-2 font-semibold text-gray-700 mb-2">
-                  <FiBriefcase className="w-5 h-5 text-green-600" />
+                <label className="mb-1.5 flex items-center gap-2 text-sm font-semibold text-slate-700">
+                  <FiBriefcase className="h-4 w-4 text-emerald-600" />
                   Employee ID
                 </label>
                 <input
                   type="text"
                   value={employeeId}
                   onChange={(e) => setEmployeeId(e.target.value)}
-                  className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100 transition-all"
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-[#2f87d9] focus:outline-none focus:ring-2 focus:ring-[#cfe5ff]"
                   placeholder="Enter your employee ID"
                 />
               </motion.div>
@@ -444,14 +440,14 @@ function EditProfile() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.4 }}
               >
-                <label className="flex items-center gap-2 font-semibold text-gray-700 mb-2">
-                  <FiBook className="w-5 h-5 text-indigo-600" />
+                <label className="mb-1.5 flex items-center gap-2 text-sm font-semibold text-slate-700">
+                  <FiBook className="h-4 w-4 text-[#2f87d9]" />
                   Department
                 </label>
                 <select
                   value={dept}
                   onChange={(e) => setDept(e.target.value)}
-                  className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all"
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-[#2f87d9] focus:outline-none focus:ring-2 focus:ring-[#cfe5ff]"
                 >
                   <option value="">Select Department</option>
                   {departments.map((department) => (
@@ -464,16 +460,15 @@ function EditProfile() {
             </>
           )}
 
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 mt-8">
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               type="button"
               onClick={() => navigate("/profile")}
-              className="flex-1 flex items-center justify-center gap-2 bg-gray-100 text-gray-700 px-6 py-3 rounded-xl font-semibold hover:bg-gray-200 transition-all"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
             >
-              <FiArrowLeft className="w-5 h-5" />
+              <FiArrowLeft className="h-4 w-4" />
               Cancel
             </motion.button>
             <motion.button
@@ -481,20 +476,20 @@ function EditProfile() {
               whileTap={{ scale: loading ? 1 : 0.98 }}
               type="submit"
               disabled={loading || uploading}
-              className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all shadow-lg ${
+              className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
                 loading || uploading
                   ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+                  : "bg-[#2f87d9] text-white hover:bg-[#1f6fb7]"
               }`}
             >
               {loading || uploading ? (
                 <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
                   {uploading ? "Uploading..." : "Saving..."}
                 </>
               ) : (
                 <>
-                  <FiSave className="w-5 h-5" />
+                  <FiSave className="h-4 w-4" />
                   Save Changes
                 </>
               )}
@@ -502,14 +497,13 @@ function EditProfile() {
           </div>
         </form>
 
-        {/* Help Text */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.4 }}
-          className="mt-6 p-4 bg-blue-50 rounded-xl"
+          className="mt-5 rounded-xl bg-[#f4f8ff] p-3"
         >
-          <p className="text-sm text-blue-800 text-center">
+          <p className="text-center text-xs text-[#1f6fb7] sm:text-sm">
             💡 <strong>Tip:</strong> Use a square image (1:1 ratio) for best
             results
           </p>

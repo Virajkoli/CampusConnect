@@ -2,6 +2,23 @@ import React, { useEffect, useMemo, useState } from "react";
 import QRScanner from "./QRScanner";
 import ClassroomHeatmap from "./ClassroomHeatmap";
 
+const toDateValue = (value) => {
+  if (!value) return null;
+  if (typeof value?.toDate === "function") {
+    return value.toDate();
+  }
+  if (typeof value?.seconds === "number") {
+    return new Date(value.seconds * 1000);
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const formatTime = (value) => {
+  const dateValue = toDateValue(value);
+  return dateValue ? dateValue.toLocaleTimeString() : "-";
+};
+
 const toCsv = (session, records) => {
   const header = [
     "PRN",
@@ -27,18 +44,35 @@ const toCsv = (session, records) => {
     .join("\n");
 };
 
+const formatMethod = (method) => {
+  const value = String(method || "")
+    .trim()
+    .toLowerCase();
+  if (value === "biometric") return "Fingerprint";
+  if (value === "face_recognition") return "Face";
+  if (value === "teacher_scan") return "Teacher QR";
+  return method || "-";
+};
+
 export default function AttendanceSessionDashboard({
   session,
   records,
+  joinedStudents,
   heatmapPoints,
   onScanStudent,
+  onRefresh,
+  refreshing = false,
   onEndSession,
   ending = false,
 }) {
   const [showScanner, setShowScanner] = useState(false);
   const safeRecords = Array.isArray(records) ? records : [];
+  const safeJoinedStudents = Array.isArray(joinedStudents)
+    ? joinedStudents
+    : [];
   const enrolled = Number(session?.enrolledStudentsCount || 0);
   const present = safeRecords.length;
+  const joined = safeJoinedStudents.length;
   const pending = Math.max(enrolled - present, 0);
 
   const sortedRecords = useMemo(() => {
@@ -87,11 +121,15 @@ export default function AttendanceSessionDashboard({
           <p className="text-xs uppercase text-emerald-700">Present</p>
           <p className="text-3xl font-bold text-emerald-700">{present}</p>
         </div>
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+          <p className="text-xs uppercase text-blue-700">Joined</p>
+          <p className="text-3xl font-bold text-blue-700">{joined}</p>
+        </div>
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
           <p className="text-xs uppercase text-amber-700">Pending</p>
           <p className="text-3xl font-bold text-amber-700">{pending}</p>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 md:col-span-3">
           <p className="text-xs uppercase text-slate-600">Subject</p>
           <p className="text-lg font-semibold text-slate-800">
             {session.subjectName}
@@ -110,6 +148,14 @@ export default function AttendanceSessionDashboard({
           className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white"
         >
           {showScanner ? "Hide QR Scanner" : "Scan Student QR"}
+        </button>
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={refreshing}
+          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 disabled:opacity-60"
+        >
+          {refreshing ? "Refreshing..." : "Refresh Session Data"}
         </button>
         <button
           type="button"
@@ -136,8 +182,73 @@ export default function AttendanceSessionDashboard({
       />
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-        <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700">
-          Live Attendance List
+        <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-2">
+          <span className="text-sm font-semibold text-slate-700">
+            Students Joined Session
+          </span>
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={refreshing}
+            className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 disabled:opacity-60"
+          >
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </button>
+        </div>
+        <div className="max-h-64 overflow-y-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="sticky top-0 bg-white text-slate-500">
+              <tr>
+                <th className="px-4 py-2">Student</th>
+                <th className="px-4 py-2">Roll Number / ID</th>
+                <th className="px-4 py-2">Joined At</th>
+              </tr>
+            </thead>
+            <tbody>
+              {safeJoinedStudents.map((student) => (
+                <tr
+                  key={`${student.studentId || student.prn || "student"}_joined`}
+                  className="border-t border-slate-100"
+                >
+                  <td className="px-4 py-2">
+                    {student.studentName || "Student"}
+                  </td>
+                  <td className="px-4 py-2">
+                    {student.prn || student.studentId || "-"}
+                  </td>
+                  <td className="px-4 py-2">
+                    {formatTime(student.joinTimestamp)}
+                  </td>
+                </tr>
+              ))}
+              {safeJoinedStudents.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={3}
+                    className="px-4 py-8 text-center text-slate-500"
+                  >
+                    No students have joined the session yet.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-2">
+          <span className="text-sm font-semibold text-slate-700">
+            Live Attendance List
+          </span>
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={refreshing}
+            className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 disabled:opacity-60"
+          >
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </button>
         </div>
         <div className="max-h-80 overflow-y-auto">
           <table className="w-full text-left text-sm">
@@ -156,12 +267,8 @@ export default function AttendanceSessionDashboard({
                   <td className="px-4 py-2">
                     {record.studentName || record.studentId}
                   </td>
-                  <td className="px-4 py-2">{record.method}</td>
-                  <td className="px-4 py-2">
-                    {record.timestamp
-                      ? new Date(record.timestamp).toLocaleTimeString()
-                      : "-"}
-                  </td>
+                  <td className="px-4 py-2">{formatMethod(record.method)}</td>
+                  <td className="px-4 py-2">{formatTime(record.timestamp)}</td>
                 </tr>
               ))}
               {sortedRecords.length === 0 ? (

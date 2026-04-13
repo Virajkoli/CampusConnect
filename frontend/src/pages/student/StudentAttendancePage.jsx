@@ -1,19 +1,28 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { auth, firestore } from "../../firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { toast } from "react-toastify";
 import AttendanceSessionCard from "../../components/student/AttendanceSessionCard";
 import FingerprintVerification from "../../components/student/FingerprintVerification";
 import StudentQRDisplay from "../../components/student/StudentQRDisplay";
+import FaceRegistration from "../../components/student/FaceRegistration";
+import FaceRecognitionAttendance from "../../components/student/FaceRecognitionAttendance";
 import { useSocket } from "../../context/SocketContext";
 import {
+  createFaceChallenge,
   ensureTrustedDevice,
   getActiveAttendanceSessions,
+  getFaceProfileStatus,
   getStudentAttendance,
   markAttendance,
+  markAttendanceByFace,
   registerStudentDevice,
 } from "../../services/attendanceService";
+import {
+  consumeOneTimePasskey,
+  getOneTimePasskey,
+} from "../../utils/biometricPasskey";
 
 const getBrowserLocation = () =>
   new Promise((resolve, reject) => {
@@ -66,6 +75,7 @@ const getLocation = async () => {
 
 export default function StudentAttendancePage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { socket } = useSocket();
   const [student, setStudent] = useState(null);
   const [subjectAttendance, setSubjectAttendance] = useState([]);
@@ -75,8 +85,16 @@ export default function StudentAttendancePage() {
   const [deviceId, setDeviceId] = useState("");
   const [biometricReady, setBiometricReady] = useState(false);
   const [biometricAssertionId, setBiometricAssertionId] = useState("");
+  const [attendanceMethod, setAttendanceMethod] = useState("biometric");
+  const [faceRegistered, setFaceRegistered] = useState(false);
+  const [faceReady, setFaceReady] = useState(false);
+  const [faceDescriptor, setFaceDescriptor] = useState([]);
+  const [faceLivenessPassed, setFaceLivenessPassed] = useState(false);
   const [marking, setMarking] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [pendingAutoJoinSessionId, setPendingAutoJoinSessionId] = useState(
+    String(searchParams.get("sessionId") || "").trim(),
+  );
 
   const joinedSession = useMemo(
     () =>
@@ -120,6 +138,22 @@ export default function StudentAttendancePage() {
     }
   };
 
+  const refreshFaceStatus = async () => {
+    try {
+      const result = await getFaceProfileStatus();
+      setFaceRegistered(Boolean(result.registered));
+    } catch (error) {
+      toast.error(error.message || "Unable to fetch face profile status.");
+    }
+  };
+
+  useEffect(() => {
+    const requestedSessionId = String(
+      searchParams.get("sessionId") || "",
+    ).trim();
+    setPendingAutoJoinSessionId(requestedSessionId);
+  }, [searchParams]);
+
   useEffect(() => {
     const init = async () => {
       const user = auth.currentUser;
@@ -160,9 +194,17 @@ export default function StudentAttendancePage() {
         setDeviceId(persistedDevice);
         await registerStudentDevice(persistedDevice);
 
+        const storedPasskey = getOneTimePasskey();
+        if (storedPasskey?.assertionId) {
+          setBiometricReady(true);
+          setBiometricAssertionId(storedPasskey.assertionId);
+          toast.info("One-time passkey loaded from profile.");
+        }
+
         await Promise.all([
           refreshAttendanceSummary(user.uid),
           refreshSessions(),
+          refreshFaceStatus(),
         ]);
 
         const currentLocation = await getLocation();
@@ -193,6 +235,9 @@ export default function StudentAttendancePage() {
         setJoinedSessionId("");
         setBiometricReady(false);
         setBiometricAssertionId("");
+        setFaceReady(false);
+        setFaceDescriptor([]);
+        setFaceLivenessPassed(false);
       }
       refreshSessions();
     };
@@ -211,14 +256,89 @@ export default function StudentAttendancePage() {
       return;
     }
 
-    socket.emit("join_attendance_session", joinedSessionId);
-  }, [socket, joinedSessionId]);
+    let disposed = false;
 
-  const handleJoinSession = (sessionId) => {
-    setJoinedSessionId(sessionId);
-    setBiometricReady(false);
-    setBiometricAssertionId("");
-  };
+    const emitJoin = async () => {
+      let latestLocation = studentLocation;
+
+      if (!latestLocation) {
+        try {
+          latestLocation = await getLocation();
+          if (!disposed) {
+            setStudentLocation(latestLocation);
+          }
+        } catch {
+          latestLocation = null;
+        }
+      }
+
+      if (!disposed) {
+        socket.emit("join_attendance_session", {
+          sessionId: joinedSessionId,
+          studentLocation: latestLocation || undefined,
+        });
+      }
+    };
+
+    emitJoin();
+
+    return () => {
+      disposed = true;
+    };
+  }, [socket, joinedSessionId, studentLocation]);
+
+  const handleJoinSession = useCallback(
+    (sessionId) => {
+      const normalizedSessionId = String(sessionId || "").trim();
+      if (!normalizedSessionId) {
+        return;
+      }
+
+      setJoinedSessionId(normalizedSessionId);
+      setPendingAutoJoinSessionId("");
+
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete("sessionId");
+      setSearchParams(nextParams, { replace: true });
+
+      const storedPasskey = getOneTimePasskey();
+      if (storedPasskey?.assertionId) {
+        setBiometricReady(true);
+        setBiometricAssertionId(storedPasskey.assertionId);
+        return;
+      }
+
+      setBiometricReady(false);
+      setBiometricAssertionId("");
+      setFaceReady(false);
+      setFaceDescriptor([]);
+      setFaceLivenessPassed(false);
+    },
+    [searchParams, setSearchParams],
+  );
+
+  useEffect(() => {
+    if (!pendingAutoJoinSessionId || joinedSessionId) {
+      return;
+    }
+
+    const matchingSession = activeSessions.find(
+      (session) =>
+        String(session.sessionId || session.id || "") ===
+        pendingAutoJoinSessionId,
+    );
+
+    if (!matchingSession) {
+      return;
+    }
+
+    handleJoinSession(pendingAutoJoinSessionId);
+  }, [
+    activeSessions,
+    handleJoinSession,
+    joinedSessionId,
+    pendingAutoJoinSessionId,
+  ]);
 
   const handleMark = async () => {
     const sessionId = String(
@@ -239,19 +359,49 @@ export default function StudentAttendancePage() {
         );
       }
 
-      const result = await markAttendance({
-        sessionId,
-        studentId: student.uid,
-        studentLocation: latestLocation,
-        deviceId,
-        biometricVerified: biometricReady,
-        biometricAssertionId,
-      });
+      const finalResult =
+        attendanceMethod === "face"
+          ? await (async () => {
+              if (!faceRegistered) {
+                throw new Error(
+                  "Face is not registered. Please register your face first.",
+                );
+              }
 
-      toast.success(result.message || "Attendance marked successfully.");
+              if (!faceReady || faceDescriptor.length !== 128) {
+                throw new Error(
+                  "Complete face verification before marking attendance.",
+                );
+              }
+
+              const challenge = await createFaceChallenge(sessionId);
+              return markAttendanceByFace({
+                sessionId,
+                studentId: student.uid,
+                studentLocation: latestLocation,
+                deviceId,
+                descriptor: faceDescriptor,
+                livenessPassed: faceLivenessPassed,
+                challengeId: challenge.challengeId,
+              });
+            })()
+          : await markAttendance({
+              sessionId,
+              studentId: student.uid,
+              studentLocation: latestLocation,
+              deviceId,
+              biometricVerified: biometricReady,
+              biometricAssertionId,
+            });
+
+      toast.success(finalResult.message || "Attendance marked successfully.");
+      consumeOneTimePasskey(biometricAssertionId);
       setJoinedSessionId("");
       setBiometricReady(false);
       setBiometricAssertionId("");
+      setFaceReady(false);
+      setFaceDescriptor([]);
+      setFaceLivenessPassed(false);
 
       await Promise.all([
         refreshAttendanceSummary(student.uid),
@@ -303,6 +453,36 @@ export default function StudentAttendancePage() {
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
           <div className="space-y-4 lg:col-span-2">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <h3 className="text-sm font-semibold text-slate-700">
+                Attendance Method
+              </h3>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAttendanceMethod("biometric")}
+                  className={`rounded-lg px-3 py-2 text-xs font-medium ${
+                    attendanceMethod === "biometric"
+                      ? "bg-emerald-600 text-white"
+                      : "border border-slate-300 text-slate-700"
+                  }`}
+                >
+                  Fingerprint
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAttendanceMethod("face")}
+                  className={`rounded-lg px-3 py-2 text-xs font-medium ${
+                    attendanceMethod === "face"
+                      ? "bg-sky-600 text-white"
+                      : "border border-slate-300 text-slate-700"
+                  }`}
+                >
+                  Face Recognition
+                </button>
+              </div>
+            </div>
+
             <div className="rounded-2xl border border-slate-200 bg-white p-4">
               <div className="mb-3 flex items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold text-slate-700">
@@ -364,23 +544,61 @@ export default function StudentAttendancePage() {
               )}
             </div>
 
-            <FingerprintVerification
-              onVerified={(data) => {
-                const verified = Boolean(data?.biometricVerified);
-                setBiometricReady(verified);
-                setBiometricAssertionId(
-                  verified ? String(data?.assertionId || "") : "",
-                );
-              }}
-              disabled={!joinedSession}
-            />
+            {attendanceMethod === "biometric" ? (
+              <FingerprintVerification
+                onVerified={(data) => {
+                  const verified = Boolean(data?.biometricVerified);
+                  setBiometricReady(verified);
+                  setBiometricAssertionId(
+                    verified ? String(data?.assertionId || "") : "",
+                  );
+                }}
+                disabled={!joinedSession}
+              />
+            ) : (
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs text-slate-500">
+                    Face profile status:{" "}
+                    {faceRegistered ? "Registered" : "Not Registered"}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Face registration is required only once. After that, only
+                    face verification is needed for attendance marking.
+                  </p>
+                </div>
+                {!faceRegistered ? (
+                  <FaceRegistration
+                    studentId={student?.uid}
+                    onRegistered={refreshFaceStatus}
+                  />
+                ) : null}
+                <FaceRecognitionAttendance
+                  disabled={!joinedSession || !faceRegistered}
+                  ready={faceReady}
+                  onVerified={(payload) => {
+                    const ready =
+                      Array.isArray(payload?.descriptor) &&
+                      payload.descriptor.length === 128;
+                    setFaceReady(ready);
+                    setFaceDescriptor(ready ? payload.descriptor : []);
+                    setFaceLivenessPassed(Boolean(payload?.livenessPassed));
+                  }}
+                />
+              </div>
+            )}
 
             <AttendanceSessionCard
               session={joinedSession}
               studentLocation={studentLocation}
               onMark={handleMark}
               marking={marking}
-              biometricReady={biometricReady}
+              verificationReady={
+                attendanceMethod === "biometric" ? biometricReady : faceReady
+              }
+              verificationLabel={
+                attendanceMethod === "biometric" ? "fingerprint" : "face"
+              }
             />
 
             <div className="rounded-2xl border border-slate-200 bg-white p-4">

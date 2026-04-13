@@ -184,7 +184,7 @@ const NotificationsModal = ({ isOpen, onClose }) => {
             className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="border-b border-gray-200 p-4 flex items-center justify-between bg-indigo-600 text-white">
+            <div className="border-b border-gray-200 p-4 flex items-center justify-between bg-[#52525a] text-white">
               <div className="flex items-center">
                 <FiBell className="w-5 h-5 mr-2" />
                 <h2 className="text-lg font-semibold">Notifications</h2>

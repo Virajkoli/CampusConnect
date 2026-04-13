@@ -5,9 +5,53 @@ const normalizeBaseUrl = (value = "") =>
     .trim()
     .replace(/\/+$/, "");
 
-const API_BASE = normalizeBaseUrl(
-  import.meta.env.VITE_API_URL || "http://localhost:5000",
-);
+const isLocalHost = (host = "") => {
+  const normalized = String(host || "")
+    .trim()
+    .toLowerCase();
+  return normalized === "localhost" || normalized === "127.0.0.1";
+};
+
+const resolveApiBase = () => {
+  const envBase = normalizeBaseUrl(import.meta.env.VITE_API_URL || "");
+  const localhostBase = "http://localhost:5000";
+
+  if (typeof window === "undefined") {
+    return envBase || localhostBase;
+  }
+
+  const currentHost = String(window.location.hostname || "").trim();
+  if (!isLocalHost(currentHost)) {
+    return envBase || localhostBase;
+  }
+
+  if (!envBase) {
+    return localhostBase;
+  }
+
+  try {
+    const envHost = new URL(envBase).hostname;
+    if (!isLocalHost(envHost)) {
+      return localhostBase;
+    }
+  } catch {
+    return localhostBase;
+  }
+
+  return envBase;
+};
+
+const API_BASE = resolveApiBase();
+
+const fetchWithNetworkHint = async (url, options) => {
+  try {
+    return await fetch(url, options);
+  } catch {
+    throw new Error(
+      `Unable to reach backend at ${API_BASE}. Ensure backend server is running and update VITE_API_URL if needed.`,
+    );
+  }
+};
 
 const authHeaders = async () => {
   const user = auth.currentUser;
@@ -42,17 +86,20 @@ const parseResponse = async (response) => {
 };
 
 export const registerStudentDevice = async (deviceId) => {
-  const response = await fetch(`${API_BASE}/attendance/register-device`, {
-    method: "POST",
-    headers: await authHeaders(),
-    body: JSON.stringify({ deviceId }),
-  });
+  const response = await fetchWithNetworkHint(
+    `${API_BASE}/attendance/register-device`,
+    {
+      method: "POST",
+      headers: await authHeaders(),
+      body: JSON.stringify({ deviceId }),
+    },
+  );
 
   return parseResponse(response);
 };
 
 export const startAttendanceSession = async (payload) => {
-  const response = await fetch(`${API_BASE}/attendance/start`, {
+  const response = await fetchWithNetworkHint(`${API_BASE}/attendance/start`, {
     method: "POST",
     headers: await authHeaders(),
     body: JSON.stringify(payload),
@@ -62,25 +109,31 @@ export const startAttendanceSession = async (payload) => {
 };
 
 export const getTeacherAttendanceLectures = async () => {
-  const response = await fetch(`${API_BASE}/attendance/teacher/lectures`, {
-    method: "GET",
-    headers: await authHeaders(),
-  });
+  const response = await fetchWithNetworkHint(
+    `${API_BASE}/attendance/teacher/lectures`,
+    {
+      method: "GET",
+      headers: await authHeaders(),
+    },
+  );
 
   return parseResponse(response);
 };
 
 export const getActiveAttendanceSessions = async () => {
-  const response = await fetch(`${API_BASE}/attendance/sessions/active`, {
-    method: "GET",
-    headers: await authHeaders(),
-  });
+  const response = await fetchWithNetworkHint(
+    `${API_BASE}/attendance/sessions/active`,
+    {
+      method: "GET",
+      headers: await authHeaders(),
+    },
+  );
 
   return parseResponse(response);
 };
 
 export const getActiveSessionBySubject = async (subjectId) => {
-  const response = await fetch(
+  const response = await fetchWithNetworkHint(
     `${API_BASE}/attendance/session/${encodeURIComponent(subjectId)}`,
     {
       method: "GET",
@@ -92,7 +145,46 @@ export const getActiveSessionBySubject = async (subjectId) => {
 };
 
 export const markAttendance = async (payload) => {
-  const response = await fetch(`${API_BASE}/attendance/mark`, {
+  const response = await fetchWithNetworkHint(`${API_BASE}/attendance/mark`, {
+    method: "POST",
+    headers: await authHeaders(),
+    body: JSON.stringify(payload),
+  });
+
+  return parseResponse(response);
+};
+
+export const getFaceProfileStatus = async () => {
+  const response = await fetch(`${API_BASE}/attendance/face/me`, {
+    method: "GET",
+    headers: await authHeaders(),
+  });
+
+  return parseResponse(response);
+};
+
+export const registerFaceProfile = async (payload) => {
+  const response = await fetch(`${API_BASE}/attendance/face/register`, {
+    method: "POST",
+    headers: await authHeaders(),
+    body: JSON.stringify(payload),
+  });
+
+  return parseResponse(response);
+};
+
+export const createFaceChallenge = async (sessionId) => {
+  const response = await fetch(`${API_BASE}/attendance/face/challenge`, {
+    method: "POST",
+    headers: await authHeaders(),
+    body: JSON.stringify({ sessionId }),
+  });
+
+  return parseResponse(response);
+};
+
+export const markAttendanceByFace = async (payload) => {
+  const response = await fetch(`${API_BASE}/attendance/mark-face`, {
     method: "POST",
     headers: await authHeaders(),
     body: JSON.stringify(payload),
@@ -102,17 +194,20 @@ export const markAttendance = async (payload) => {
 };
 
 export const markAttendanceByTeacher = async (payload) => {
-  const response = await fetch(`${API_BASE}/attendance/mark-by-teacher`, {
-    method: "POST",
-    headers: await authHeaders(),
-    body: JSON.stringify(payload),
-  });
+  const response = await fetchWithNetworkHint(
+    `${API_BASE}/attendance/mark-by-teacher`,
+    {
+      method: "POST",
+      headers: await authHeaders(),
+      body: JSON.stringify(payload),
+    },
+  );
 
   return parseResponse(response);
 };
 
 export const endAttendanceSession = async (sessionId) => {
-  const response = await fetch(`${API_BASE}/attendance/end`, {
+  const response = await fetchWithNetworkHint(`${API_BASE}/attendance/end`, {
     method: "POST",
     headers: await authHeaders(),
     body: JSON.stringify({ sessionId }),
@@ -122,7 +217,7 @@ export const endAttendanceSession = async (sessionId) => {
 };
 
 export const getStudentAttendance = async (studentId) => {
-  const response = await fetch(
+  const response = await fetchWithNetworkHint(
     `${API_BASE}/attendance/student/${encodeURIComponent(studentId)}`,
     {
       method: "GET",
@@ -134,7 +229,7 @@ export const getStudentAttendance = async (studentId) => {
 };
 
 export const getAttendanceAnalytics = async (subjectId) => {
-  const response = await fetch(
+  const response = await fetchWithNetworkHint(
     `${API_BASE}/attendance/analytics/${encodeURIComponent(subjectId)}`,
     {
       method: "GET",
@@ -146,7 +241,7 @@ export const getAttendanceAnalytics = async (subjectId) => {
 };
 
 export const getAttendanceSessionRecords = async (sessionId) => {
-  const response = await fetch(
+  const response = await fetchWithNetworkHint(
     `${API_BASE}/attendance/session/${encodeURIComponent(sessionId)}/records`,
     {
       method: "GET",
@@ -157,9 +252,39 @@ export const getAttendanceSessionRecords = async (sessionId) => {
   return parseResponse(response);
 };
 
+export const deleteAttendanceSession = async (sessionId) => {
+  const response = await fetchWithNetworkHint(
+    `${API_BASE}/attendance/session/${encodeURIComponent(sessionId)}`,
+    {
+      method: "DELETE",
+      headers: await authHeaders(),
+    },
+  );
+
+  return parseResponse(response);
+};
+
 export const getTeacherAttendanceSessionHistory = async (limit = 30) => {
-  const response = await fetch(
+  const response = await fetchWithNetworkHint(
     `${API_BASE}/attendance/teacher/sessions/history?limit=${encodeURIComponent(String(limit))}`,
+    {
+      method: "GET",
+      headers: await authHeaders(),
+    },
+  );
+
+  return parseResponse(response);
+};
+
+export const getTeacherSubjectAttendanceStudents = async (
+  subjectId,
+  subjectName = "",
+) => {
+  const query = subjectName
+    ? `?subjectName=${encodeURIComponent(String(subjectName))}`
+    : "";
+  const response = await fetchWithNetworkHint(
+    `${API_BASE}/attendance/teacher/subject/${encodeURIComponent(subjectId)}/students${query}`,
     {
       method: "GET",
       headers: await authHeaders(),

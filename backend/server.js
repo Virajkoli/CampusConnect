@@ -5,6 +5,7 @@ const nodemailer = require("nodemailer");
 const http = require("http");
 const socketIO = require("socket.io");
 const multer = require("multer");
+const crypto = require("crypto");
 const cloudinary = require("./cloudinary-config");
 
 dotenv.config();
@@ -400,6 +401,9 @@ const JOB_PROFILE_ALIASES = {
 const ATTENDANCE_ALLOWED_DISTANCE_METERS = 30;
 const ATTENDANCE_WINDOW_SECONDS = 60;
 const ATTENDANCE_WINDOW_SLOT_SECONDS = [60, 120, 180, 240, 300, 600];
+const FACE_DESCRIPTOR_LENGTH = 128;
+const FACE_MATCH_DISTANCE_THRESHOLD = 0.5;
+const FACE_CHALLENGE_TTL_MS = 45 * 1000;
 
 const createMailTransporter = () => {
   return nodemailer.createTransport({
@@ -837,6 +841,46 @@ const haversineDistanceMeters = (pointA, pointB) => {
   return R * c;
 };
 
+const normalizeFaceDescriptor = (descriptor = []) => {
+  if (!Array.isArray(descriptor)) {
+    return [];
+  }
+
+  const normalized = descriptor
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value));
+
+  if (normalized.length !== FACE_DESCRIPTOR_LENGTH) {
+    return [];
+  }
+
+  return normalized;
+};
+
+const euclideanDistance = (leftDescriptor = [], rightDescriptor = []) => {
+  if (
+    !Array.isArray(leftDescriptor) ||
+    !Array.isArray(rightDescriptor) ||
+    leftDescriptor.length !== rightDescriptor.length ||
+    leftDescriptor.length === 0
+  ) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  let sum = 0;
+  for (let i = 0; i < leftDescriptor.length; i += 1) {
+    sum += (leftDescriptor[i] - rightDescriptor[i]) ** 2;
+  }
+
+  return Math.sqrt(sum);
+};
+
+const buildFaceConfidenceScore = (distance) => {
+  if (!Number.isFinite(distance)) return 0;
+  const score = Math.max(0, 1 - distance / FACE_MATCH_DISTANCE_THRESHOLD);
+  return Number(score.toFixed(4));
+};
+
 const normalizeSubjectValues = (subjects = []) => {
   return (Array.isArray(subjects) ? subjects : [])
     .map((item) => String(item || "").trim())
@@ -1060,6 +1104,138 @@ const getSessionEnrolledStudents = async (firestore, sessionData) => {
   return Array.from(merged.values()).filter((student) =>
     studentBelongsToSession(student, sessionData),
   );
+};
+
+const getSessionStudentIds = (sessionData = {}) => {
+  const ids = [
+    ...(Array.isArray(sessionData.enrolledStudentIds)
+      ? sessionData.enrolledStudentIds
+      : []),
+    ...(Array.isArray(sessionData.presentStudentIds)
+      ? sessionData.presentStudentIds
+      : []),
+    ...(Array.isArray(sessionData.absentStudentIds)
+      ? sessionData.absentStudentIds
+      : []),
+    ...(Array.isArray(sessionData.presentStudents)
+      ? sessionData.presentStudents.map((student) => student.studentId)
+      : []),
+    ...(Array.isArray(sessionData.absentStudents)
+      ? sessionData.absentStudents.map((student) => student.studentId)
+      : []),
+  ];
+
+  return Array.from(
+    new Set(
+      ids.map((studentId) => String(studentId || "").trim()).filter(Boolean),
+    ),
+  );
+};
+
+const getSessionPresentStudentIds = async (
+  firestore,
+  sessionData,
+  sessionId,
+  recordsCache,
+) => {
+  const explicit = Array.from(
+    new Set(
+      [
+        ...(Array.isArray(sessionData.presentStudentIds)
+          ? sessionData.presentStudentIds
+          : []),
+        ...(Array.isArray(sessionData.presentStudents)
+          ? sessionData.presentStudents.map((student) => student.studentId)
+          : []),
+      ]
+        .map((studentId) => String(studentId || "").trim())
+        .filter(Boolean),
+    ),
+  );
+
+  if (explicit.length > 0) {
+    return explicit;
+  }
+
+  if (!sessionId) {
+    return [];
+  }
+
+  if (recordsCache.has(sessionId)) {
+    return recordsCache.get(sessionId);
+  }
+
+  const recordsSnapshot = await firestore
+    .collection("attendance_records")
+    .where("sessionId", "==", sessionId)
+    .get();
+
+  const ids = Array.from(
+    new Set(
+      recordsSnapshot.docs
+        .map((docSnap) => String(docSnap.data()?.studentId || "").trim())
+        .filter(Boolean),
+    ),
+  );
+
+  recordsCache.set(sessionId, ids);
+  return ids;
+};
+
+const buildSubjectAttendanceIndex = async (firestore, subjectId) => {
+  const sessionsSnapshot = await firestore
+    .collection("attendance_sessions")
+    .where("subjectId", "==", subjectId)
+    .where("status", "==", "ended")
+    .get();
+
+  const sessions = sessionsSnapshot.docs
+    .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+    .sort(
+      (a, b) =>
+        Number(a.startTimeMs || toMillis(a.startTime) || 0) -
+        Number(b.startTimeMs || toMillis(b.startTime) || 0),
+    );
+
+  const attendanceByStudentId = new Map();
+  const recordsCache = new Map();
+
+  for (const session of sessions) {
+    const sessionId = String(session.sessionId || session.id || "").trim();
+    const enrolledIds = getSessionStudentIds(session);
+    const presentIds = await getSessionPresentStudentIds(
+      firestore,
+      session,
+      sessionId,
+      recordsCache,
+    );
+    const presentSet = new Set(presentIds);
+    const targetStudentIds = Array.from(
+      new Set([...(enrolledIds.length > 0 ? enrolledIds : []), ...presentIds]),
+    );
+
+    if (targetStudentIds.length === 0) {
+      continue;
+    }
+
+    targetStudentIds.forEach((studentId) => {
+      const current = attendanceByStudentId.get(studentId) || {
+        totalClasses: 0,
+        attendedClasses: 0,
+      };
+
+      attendanceByStudentId.set(studentId, {
+        totalClasses: current.totalClasses + 1,
+        attendedClasses:
+          current.attendedClasses + (presentSet.has(studentId) ? 1 : 0),
+      });
+    });
+  }
+
+  return {
+    sessions,
+    attendanceByStudentId,
+  };
 };
 
 const syncTeacherStudentMappings = async ({
@@ -1521,6 +1697,32 @@ const buildExistingStudentIndex = async (firestore) => {
   return byPrn;
 };
 
+const attendanceSessionJoinedStudents = new Map();
+
+const getAttendanceSessionJoinMap = (sessionId) => {
+  const normalizedSessionId = String(sessionId || "").trim();
+  if (!normalizedSessionId) {
+    return null;
+  }
+
+  if (!attendanceSessionJoinedStudents.has(normalizedSessionId)) {
+    attendanceSessionJoinedStudents.set(normalizedSessionId, new Map());
+  }
+
+  return attendanceSessionJoinedStudents.get(normalizedSessionId);
+};
+
+const getAttendanceJoinedStudentsList = (sessionId) => {
+  const joinMap = getAttendanceSessionJoinMap(sessionId);
+  if (!joinMap) {
+    return [];
+  }
+
+  return Array.from(joinMap.values()).sort(
+    (a, b) => toMillis(b.joinTimestamp) - toMillis(a.joinTimestamp),
+  );
+};
+
 // Socket.IO Connection Logic
 io.on("connection", (socket) => {
   console.log("New client connected:", socket.id);
@@ -1531,14 +1733,96 @@ io.on("connection", (socket) => {
     console.log(`User ${socket.id} joined room: ${chatRoomId}`);
   });
 
-  socket.on("join_attendance_session", (sessionId) => {
-    const roomId = `attendance_${String(sessionId || "").trim()}`;
-    if (!sessionId) {
+  socket.on("join_attendance_session", async (sessionPayload) => {
+    const normalizedSessionId = String(
+      typeof sessionPayload === "string"
+        ? sessionPayload
+        : sessionPayload?.sessionId || "",
+    ).trim();
+    const candidateLocation = {
+      lat: Number(sessionPayload?.studentLocation?.lat),
+      lng: Number(sessionPayload?.studentLocation?.lng),
+    };
+    const hasStudentLocation =
+      !Number.isNaN(candidateLocation.lat) &&
+      !Number.isNaN(candidateLocation.lng);
+    const roomId = `attendance_${normalizedSessionId}`;
+    if (!normalizedSessionId) {
       return;
     }
 
     socket.join(roomId);
     console.log(`User ${socket.id} joined attendance room: ${roomId}`);
+
+    const joinedSnapshot = getAttendanceJoinedStudentsList(normalizedSessionId);
+    socket.emit("attendance-joined-students-snapshot", {
+      sessionId: normalizedSessionId,
+      students: joinedSnapshot,
+    });
+
+    const connectedUserId = String(
+      socket.handshake?.query?.userId || "",
+    ).trim();
+    if (!connectedUserId) {
+      return;
+    }
+
+    try {
+      const firestore = admin.firestore();
+      const studentProfile = await getStudentProfileByUid(
+        firestore,
+        connectedUserId,
+      );
+      if (!studentProfile) {
+        return;
+      }
+
+      const roleValue = String(studentProfile.role || "").toLowerCase();
+      if (roleValue && roleValue !== "student") {
+        return;
+      }
+
+      const joinMap = getAttendanceSessionJoinMap(normalizedSessionId);
+      if (!joinMap) {
+        return;
+      }
+
+      const existingJoinedPayload = joinMap.get(connectedUserId) || null;
+
+      const joinedPayload = {
+        sessionId: normalizedSessionId,
+        studentId: connectedUserId,
+        studentName:
+          studentProfile.name || studentProfile.displayName || "Student",
+        prn: getPrnFromRecord(studentProfile),
+        joinTimestamp:
+          existingJoinedPayload?.joinTimestamp || new Date().toISOString(),
+        lat: hasStudentLocation
+          ? candidateLocation.lat
+          : (existingJoinedPayload?.lat ?? null),
+        lng: hasStudentLocation
+          ? candidateLocation.lng
+          : (existingJoinedPayload?.lng ?? null),
+      };
+
+      joinMap.set(connectedUserId, joinedPayload);
+      io.to(roomId).emit("attendance-student-joined", joinedPayload);
+      io.to(roomId).emit("attendance-joined-students-snapshot", {
+        sessionId: normalizedSessionId,
+        students: getAttendanceJoinedStudentsList(normalizedSessionId),
+      });
+
+      if (hasStudentLocation) {
+        io.to(roomId).emit("attendance-heatmap-updated", {
+          sessionId: normalizedSessionId,
+          lat: candidateLocation.lat,
+          lng: candidateLocation.lng,
+          studentId: connectedUserId,
+        });
+      }
+    } catch (error) {
+      console.error("Attendance join tracking error:", error.message);
+    }
   });
 
   // Handle message sending
@@ -2135,6 +2419,141 @@ app.post("/attendance/register-device", async (req, res) => {
   }
 });
 
+app.get("/attendance/face/me", async (req, res) => {
+  try {
+    const { decodedToken } = await verifyStudentFromRequest(req);
+    const firestore = admin.firestore();
+    const faceDoc = await firestore
+      .collection("student_faces")
+      .doc(decodedToken.uid)
+      .get();
+
+    if (!faceDoc.exists) {
+      return res.status(200).json({
+        success: true,
+        registered: false,
+      });
+    }
+
+    const data = faceDoc.data() || {};
+    return res.status(200).json({
+      success: true,
+      registered: true,
+      modelVersion: String(data.modelVersion || "face-api-v1"),
+      descriptorLength: Array.isArray(data.descriptor)
+        ? data.descriptor.length
+        : 0,
+      updatedAt: data.updatedAt || null,
+      registeredAt: data.registeredAt || null,
+    });
+  } catch (error) {
+    const status = /authorized|token/i.test(error.message) ? 403 : 500;
+    return res.status(status).json({ message: error.message });
+  }
+});
+
+app.post("/attendance/face/challenge", async (req, res) => {
+  try {
+    const { decodedToken } = await verifyStudentFromRequest(req);
+    const studentId = decodedToken.uid;
+    const sessionId = String(req.body.sessionId || "").trim();
+    if (!sessionId) {
+      return res.status(400).json({ message: "sessionId is required." });
+    }
+
+    const firestore = admin.firestore();
+    const sessionDoc = await firestore
+      .collection("attendance_sessions")
+      .doc(sessionId)
+      .get();
+
+    if (!sessionDoc.exists) {
+      return res.status(404).json({ message: "Attendance session not found." });
+    }
+
+    const challengeRef = firestore
+      .collection("attendance_face_challenges")
+      .doc();
+    const nowMs = Date.now();
+    const expiresAtMs = nowMs + FACE_CHALLENGE_TTL_MS;
+
+    await challengeRef.set({
+      challengeId: challengeRef.id,
+      sessionId,
+      studentId,
+      challenge: crypto.randomBytes(24).toString("hex"),
+      createdAtMs: nowMs,
+      expiresAtMs,
+      used: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return res.status(201).json({
+      success: true,
+      challengeId: challengeRef.id,
+      expiresAtMs,
+      ttlSeconds: Math.floor(FACE_CHALLENGE_TTL_MS / 1000),
+    });
+  } catch (error) {
+    const status = /authorized|token/i.test(error.message) ? 403 : 500;
+    return res.status(status).json({ message: error.message });
+  }
+});
+
+app.post("/attendance/face/register", async (req, res) => {
+  try {
+    const { decodedToken } = await verifyStudentFromRequest(req);
+    const studentId = decodedToken.uid;
+    const payloadStudentId = String(req.body.studentId || "").trim();
+    if (payloadStudentId && payloadStudentId !== studentId) {
+      return res.status(403).json({ message: "studentId mismatch." });
+    }
+
+    const descriptor = normalizeFaceDescriptor(req.body.descriptor);
+    if (descriptor.length !== FACE_DESCRIPTOR_LENGTH) {
+      return res.status(400).json({
+        message: `descriptor must contain ${FACE_DESCRIPTOR_LENGTH} numeric values.`,
+      });
+    }
+
+    const modelVersion = String(req.body.modelVersion || "face-api-v1").trim();
+    const firestore = admin.firestore();
+
+    const existingDoc = await firestore
+      .collection("student_faces")
+      .doc(studentId)
+      .get();
+
+    await firestore
+      .collection("student_faces")
+      .doc(studentId)
+      .set(
+        {
+          studentId,
+          descriptor,
+          modelVersion,
+          registeredAt: existingDoc.exists
+            ? existingDoc.data()?.registeredAt ||
+              admin.firestore.FieldValue.serverTimestamp()
+            : admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+
+    return res.status(201).json({
+      success: true,
+      message: existingDoc.exists
+        ? "Face profile updated successfully."
+        : "Face profile registered successfully.",
+    });
+  } catch (error) {
+    const status = /authorized|token/i.test(error.message) ? 403 : 500;
+    return res.status(status).json({ message: error.message });
+  }
+});
+
 app.post("/attendance/start", async (req, res) => {
   try {
     const { decodedToken, teacherDoc } = await verifyTeacherFromRequest(req);
@@ -2282,22 +2701,68 @@ app.post("/attendance/start", async (req, res) => {
       }
     }
 
-    const existingSessionSnapshot = await firestore
+    const sameDateSessionsSnapshot = await firestore
       .collection("attendance_sessions")
       .where("teacherId", "==", decodedToken.uid)
-      .where("subjectId", "==", subjectId)
       .where("date", "==", date)
-      .where("status", "==", "active")
-      .limit(1)
       .get();
 
-    if (!existingSessionSnapshot.empty) {
-      const existing = existingSessionSnapshot.docs[0];
-      return res.status(200).json({
-        success: true,
-        message: "Active attendance session already exists.",
-        sessionId: existing.id,
-        session: { id: existing.id, ...existing.data() },
+    const sameDateSessions = sameDateSessionsSnapshot.docs.map((docSnap) => ({
+      id: docSnap.id,
+      ...docSnap.data(),
+    }));
+
+    const matchingSession = sameDateSessions.find((session) => {
+      const sameLectureId =
+        lectureIdInput &&
+        String(session.lectureId || "").trim() === lectureIdInput;
+
+      if (sameLectureId) {
+        return true;
+      }
+
+      if (lectureIdInput && String(session.lectureId || "").trim()) {
+        return false;
+      }
+
+      const sameSubject = String(session.subjectId || "").trim() === subjectId;
+      if (!sameSubject) {
+        return false;
+      }
+
+      const sameDay = lectureDay
+        ? String(session.day || "")
+            .trim()
+            .toLowerCase() === lectureDay.toLowerCase()
+        : true;
+      const sameStart = lectureStartTime
+        ? String(session.lectureStartTime || "").trim() === lectureStartTime
+        : true;
+      const sameEnd = lectureEndTime
+        ? String(session.lectureEndTime || "").trim() === lectureEndTime
+        : true;
+
+      return sameDay && sameStart && sameEnd;
+    });
+
+    if (matchingSession) {
+      const normalizedStatus = String(matchingSession.status || "")
+        .trim()
+        .toLowerCase();
+
+      if (normalizedStatus === "active") {
+        return res.status(200).json({
+          success: true,
+          message: "Active attendance session already exists.",
+          sessionId: matchingSession.id,
+          session: matchingSession,
+        });
+      }
+
+      return res.status(409).json({
+        message:
+          "Attendance for this lecture and date is already taken. Open Past Attendance Sessions to view/export it.",
+        existingSession: matchingSession,
       });
     }
 
@@ -2345,6 +2810,8 @@ app.post("/attendance/start", async (req, res) => {
       enrolledStudentsCount: enrolledStudentIds.length,
       enrolledStudentIds,
     });
+
+    attendanceSessionJoinedStudents.set(sessionRef.id, new Map());
 
     const responseSession = {
       ...payload,
@@ -2675,6 +3142,242 @@ app.post("/attendance/mark", async (req, res) => {
   }
 });
 
+app.post("/attendance/mark-face", async (req, res) => {
+  try {
+    const { decodedToken, studentData } = await verifyStudentFromRequest(req);
+    const studentId = decodedToken.uid;
+    const payloadStudentId = String(req.body.studentId || "").trim();
+    if (payloadStudentId && payloadStudentId !== studentId) {
+      return res.status(403).json({ message: "studentId mismatch." });
+    }
+
+    const sessionId = String(req.body.sessionId || "").trim();
+    const challengeId = String(req.body.challengeId || "").trim();
+    const deviceId = normalizeDeviceId(req.body.deviceId || "");
+    const descriptor = normalizeFaceDescriptor(req.body.descriptor);
+    const livenessPassed = Boolean(req.body.livenessPassed);
+    const studentLocation = {
+      lat: Number(req.body?.studentLocation?.lat),
+      lng: Number(req.body?.studentLocation?.lng),
+    };
+
+    if (!sessionId || !deviceId || !challengeId) {
+      return res.status(400).json({
+        message: "sessionId, deviceId, and challengeId are required.",
+      });
+    }
+
+    if (descriptor.length !== FACE_DESCRIPTOR_LENGTH) {
+      return res.status(400).json({
+        message: `descriptor must contain ${FACE_DESCRIPTOR_LENGTH} numeric values.`,
+      });
+    }
+
+    if (
+      Number.isNaN(studentLocation.lat) ||
+      Number.isNaN(studentLocation.lng)
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Valid student location is required." });
+    }
+
+    if (!livenessPassed) {
+      return res.status(403).json({ message: "Face liveness check failed." });
+    }
+
+    const firestore = admin.firestore();
+
+    const [sessionDoc, deviceDoc, faceDoc, challengeDoc] = await Promise.all([
+      firestore.collection("attendance_sessions").doc(sessionId).get(),
+      firestore.collection("student_devices").doc(studentId).get(),
+      firestore.collection("student_faces").doc(studentId).get(),
+      firestore.collection("attendance_face_challenges").doc(challengeId).get(),
+    ]);
+
+    if (!sessionDoc.exists) {
+      return res.status(404).json({ message: "Attendance session not found." });
+    }
+
+    const sessionData = sessionDoc.data() || {};
+    if (sessionData.status !== "active") {
+      return res
+        .status(400)
+        .json({ message: "Attendance session has already ended." });
+    }
+
+    if (!deviceDoc.exists) {
+      return res.status(403).json({
+        message: "Trusted device not registered for this student.",
+        code: "DEVICE_NOT_REGISTERED",
+      });
+    }
+
+    const trustedDevice = normalizeDeviceId(deviceDoc.data()?.deviceId || "");
+    if (trustedDevice !== deviceId) {
+      return res.status(403).json({
+        message: "Device verification failed.",
+        code: "DEVICE_MISMATCH",
+      });
+    }
+
+    if (!studentBelongsToSession(studentData, sessionData)) {
+      return res
+        .status(403)
+        .json({ message: "Student is not enrolled for this session subject." });
+    }
+
+    const startMs =
+      Number(sessionData.startTimeMs) || toMillis(sessionData.startTime);
+    const nowMs = Date.now();
+    const maxWindowMs =
+      (Number(sessionData.attendanceWindowSeconds) ||
+        ATTENDANCE_WINDOW_SECONDS) * 1000;
+
+    if (!startMs || nowMs - startMs > maxWindowMs) {
+      return res
+        .status(403)
+        .json({ message: "Attendance time window has expired." });
+    }
+
+    const distance = haversineDistanceMeters(
+      studentLocation,
+      sessionData.teacherLocation || {},
+    );
+    const allowedDistance =
+      Number(sessionData.allowedDistanceMeters) ||
+      ATTENDANCE_ALLOWED_DISTANCE_METERS;
+    if (distance > allowedDistance) {
+      return res.status(403).json({
+        message: `Location verification failed. You must be within ${allowedDistance} meters.`,
+      });
+    }
+
+    const duplicateSnapshot = await firestore
+      .collection("attendance_records")
+      .where("sessionId", "==", sessionId)
+      .where("studentId", "==", studentId)
+      .limit(1)
+      .get();
+
+    if (!duplicateSnapshot.empty) {
+      return res
+        .status(409)
+        .json({ message: "Attendance already marked for this session." });
+    }
+
+    if (!faceDoc.exists) {
+      return res.status(403).json({
+        message:
+          "No registered face profile found. Please complete face registration first.",
+      });
+    }
+
+    const challengeData = challengeDoc.exists
+      ? challengeDoc.data() || {}
+      : null;
+    if (!challengeData) {
+      return res.status(403).json({ message: "Invalid face challenge." });
+    }
+    if (Boolean(challengeData.used)) {
+      return res.status(403).json({ message: "Face challenge already used." });
+    }
+    if (String(challengeData.studentId || "") !== studentId) {
+      return res
+        .status(403)
+        .json({ message: "Face challenge student mismatch." });
+    }
+    if (String(challengeData.sessionId || "") !== sessionId) {
+      return res
+        .status(403)
+        .json({ message: "Face challenge session mismatch." });
+    }
+
+    const expiresAtMs = Number(challengeData.expiresAtMs || 0);
+    if (!expiresAtMs || Date.now() > expiresAtMs) {
+      return res.status(403).json({ message: "Face challenge expired." });
+    }
+
+    const storedDescriptor = normalizeFaceDescriptor(
+      faceDoc.data()?.descriptor,
+    );
+    if (storedDescriptor.length !== FACE_DESCRIPTOR_LENGTH) {
+      return res.status(500).json({
+        message: "Registered face profile is invalid. Please register again.",
+      });
+    }
+
+    const distanceScore = euclideanDistance(descriptor, storedDescriptor);
+    if (distanceScore >= FACE_MATCH_DISTANCE_THRESHOLD) {
+      return res.status(403).json({
+        message: "Face verification failed.",
+        faceDistance: Number(distanceScore.toFixed(4)),
+      });
+    }
+
+    await firestore
+      .collection("attendance_face_challenges")
+      .doc(challengeId)
+      .set(
+        {
+          used: true,
+          usedAtMs: Date.now(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+
+    const recordRef = firestore.collection("attendance_records").doc();
+    const studentName =
+      studentData.name ||
+      studentData.displayName ||
+      decodedToken.name ||
+      "Student";
+    const studentPrn = getPrnFromRecord(studentData);
+    const recordPayload = {
+      recordId: recordRef.id,
+      sessionId,
+      studentId,
+      studentName,
+      prn: studentPrn,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      latitude: studentLocation.lat,
+      longitude: studentLocation.lng,
+      method: "face_recognition",
+      confidenceScore: buildFaceConfidenceScore(distanceScore),
+      faceDistance: Number(distanceScore.toFixed(4)),
+      modelVersion: String(faceDoc.data()?.modelVersion || "face-api-v1"),
+      livenessPassed: true,
+      deviceId,
+      distanceMeters: Number(distance.toFixed(2)),
+      challengeId,
+    };
+
+    await recordRef.set(recordPayload);
+
+    const eventPayload = {
+      ...recordPayload,
+      timestamp: new Date(nowMs).toISOString(),
+    };
+
+    io.to(`attendance_${sessionId}`).emit("attendance-recorded", eventPayload);
+    io.to(`attendance_${sessionId}`).emit("attendance-heatmap-updated", {
+      lat: studentLocation.lat,
+      lng: studentLocation.lng,
+      studentId,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Attendance marked successfully using face recognition.",
+      record: eventPayload,
+    });
+  } catch (error) {
+    const status = /authorized|token/i.test(error.message) ? 403 : 500;
+    return res.status(status).json({ message: error.message });
+  }
+});
+
 app.post("/attendance/mark-by-teacher", async (req, res) => {
   try {
     const { decodedToken } = await verifyTeacherFromRequest(req);
@@ -2810,10 +3513,15 @@ app.post("/attendance/end", async (req, res) => {
       .where("sessionId", "==", sessionId)
       .get();
 
+    const attendanceRecords = recordsSnapshot.docs.map((docSnap) => ({
+      id: docSnap.id,
+      ...docSnap.data(),
+    }));
+
     const presentStudentIds = new Set(
-      recordsSnapshot.docs.map((docSnap) =>
-        String(docSnap.data()?.studentId || ""),
-      ),
+      attendanceRecords
+        .map((record) => String(record.studentId || "").trim())
+        .filter(Boolean),
     );
 
     let enrolledStudentIds = Array.isArray(sessionData.enrolledStudentIds)
@@ -2835,6 +3543,44 @@ app.post("/attendance/end", async (req, res) => {
     const nowMs = Date.now();
     const enrolledStudentsCount = enrolledStudentIds.length;
     const presentCount = presentStudentIds.size;
+    const absentStudentIds = enrolledStudentIds.filter(
+      (studentId) => !presentStudentIds.has(studentId),
+    );
+
+    const studentProfilePairs = await Promise.all(
+      enrolledStudentIds.map(async (studentId) => {
+        const profile = await getStudentProfileByUid(firestore, studentId);
+        return [studentId, profile];
+      }),
+    );
+    const studentProfilesById = new Map(studentProfilePairs);
+
+    const attendanceByStudentId = new Map();
+    attendanceRecords.forEach((record) => {
+      const studentId = String(record.studentId || "").trim();
+      if (!studentId || attendanceByStudentId.has(studentId)) {
+        return;
+      }
+      attendanceByStudentId.set(studentId, record);
+    });
+
+    const toStudentSummary = (studentId) => {
+      const profile = studentProfilesById.get(studentId) || {};
+      const record = attendanceByStudentId.get(studentId) || {};
+      return {
+        studentId,
+        studentName:
+          record.studentName ||
+          profile.name ||
+          profile.displayName ||
+          "Student",
+        prn: record.prn || getPrnFromRecord(profile) || "",
+      };
+    };
+
+    const presentStudents = Array.from(presentStudentIds).map(toStudentSummary);
+    const absentStudents = absentStudentIds.map(toStudentSummary);
+
     const currentRate = enrolledStudentsCount
       ? Number(((presentCount / enrolledStudentsCount) * 100).toFixed(2))
       : 0;
@@ -2847,6 +3593,9 @@ app.post("/attendance/end", async (req, res) => {
         presentCount,
         enrolledStudentsCount,
         enrolledStudentIds,
+        absentStudentIds,
+        presentStudents,
+        absentStudents,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       },
       { merge: true },
@@ -2857,6 +3606,11 @@ app.post("/attendance/end", async (req, res) => {
       status: "ended",
       presentCount,
       enrolledStudentsCount,
+      absentCount: absentStudentIds.length,
+      presentStudentIds: Array.from(presentStudentIds),
+      absentStudentIds,
+      presentStudents,
+      absentStudents,
       endTime: new Date(nowMs).toISOString(),
     };
 
@@ -2869,8 +3623,15 @@ app.post("/attendance/end", async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Attendance session ended successfully.",
-      session: sessionEndedPayload,
+      session: {
+        ...sessionEndedPayload,
+        subjectId: sessionData.subjectId || "",
+        subjectName: sessionData.subjectName || "",
+        date: sessionData.date || "",
+      },
     });
+
+    attendanceSessionJoinedStudents.delete(sessionId);
 
     (async () => {
       for (const studentId of enrolledStudentIds) {
@@ -2977,11 +3738,197 @@ app.get("/attendance/session/:sessionId/records", async (req, res) => {
       session: {
         id: sessionDoc.id,
         ...sessionData,
+        presentStudentIds: Array.isArray(sessionData.presentStudentIds)
+          ? sessionData.presentStudentIds
+          : [],
+        absentStudentIds: Array.isArray(sessionData.absentStudentIds)
+          ? sessionData.absentStudentIds
+          : [],
+        presentStudents: Array.isArray(sessionData.presentStudents)
+          ? sessionData.presentStudents
+          : [],
+        absentStudents: Array.isArray(sessionData.absentStudents)
+          ? sessionData.absentStudents
+          : [],
+        joinedStudents: getAttendanceJoinedStudentsList(sessionId),
       },
       records,
     });
   } catch (error) {
     const status = /token/i.test(error.message) ? 401 : 500;
+    return res.status(status).json({ message: error.message });
+  }
+});
+
+app.delete("/attendance/session/:sessionId", async (req, res) => {
+  try {
+    const { decodedToken } = await verifyTeacherFromRequest(req);
+    const sessionId = String(req.params.sessionId || "").trim();
+    if (!sessionId) {
+      return res.status(400).json({ message: "sessionId is required." });
+    }
+
+    const firestore = admin.firestore();
+    const sessionRef = firestore
+      .collection("attendance_sessions")
+      .doc(sessionId);
+    const sessionDoc = await sessionRef.get();
+
+    if (!sessionDoc.exists) {
+      return res.status(404).json({ message: "Attendance session not found." });
+    }
+
+    const sessionData = sessionDoc.data() || {};
+    if (String(sessionData.teacherId || "") !== decodedToken.uid) {
+      return res
+        .status(403)
+        .json({ message: "Only session owner can delete this session." });
+    }
+
+    if (String(sessionData.status || "").toLowerCase() !== "ended") {
+      return res.status(400).json({
+        message: "Only ended attendance sessions can be deleted from history.",
+      });
+    }
+
+    const recordsSnapshot = await firestore
+      .collection("attendance_records")
+      .where("sessionId", "==", sessionId)
+      .get();
+
+    const attendanceRecords = recordsSnapshot.docs.map((docSnap) => ({
+      id: docSnap.id,
+      ...docSnap.data(),
+    }));
+
+    const presentStudentIds = new Set(
+      (Array.isArray(sessionData.presentStudentIds)
+        ? sessionData.presentStudentIds
+        : attendanceRecords.map((record) => record.studentId)
+      )
+        .map((studentId) => String(studentId || "").trim())
+        .filter(Boolean),
+    );
+
+    const enrolledStudentIds = Array.from(
+      new Set(
+        [
+          ...(Array.isArray(sessionData.enrolledStudentIds)
+            ? sessionData.enrolledStudentIds
+            : []),
+          ...(Array.isArray(sessionData.presentStudentIds)
+            ? sessionData.presentStudentIds
+            : []),
+          ...(Array.isArray(sessionData.absentStudentIds)
+            ? sessionData.absentStudentIds
+            : []),
+          ...(Array.isArray(sessionData.presentStudents)
+            ? sessionData.presentStudents.map((student) => student.studentId)
+            : []),
+          ...(Array.isArray(sessionData.absentStudents)
+            ? sessionData.absentStudents.map((student) => student.studentId)
+            : []),
+          ...attendanceRecords.map((record) => record.studentId),
+        ]
+          .map((studentId) => String(studentId || "").trim())
+          .filter(Boolean),
+      ),
+    );
+
+    if (sessionData.subjectId) {
+      for (const studentId of enrolledStudentIds) {
+        const attendanceRef = firestore
+          .collection("student_attendance")
+          .doc(`${studentId}_${sessionData.subjectId}`);
+
+        await firestore.runTransaction(async (transaction) => {
+          const attendanceDoc = await transaction.get(attendanceRef);
+          if (!attendanceDoc.exists) {
+            return;
+          }
+
+          const attendanceData = attendanceDoc.data() || {};
+          const currentTotal = Number(attendanceData.totalClasses || 0);
+          const currentAttended = Number(attendanceData.attendedClasses || 0);
+          const nextTotal = Math.max(currentTotal - 1, 0);
+          const nextAttended = Math.max(
+            currentAttended - (presentStudentIds.has(studentId) ? 1 : 0),
+            0,
+          );
+
+          transaction.set(
+            attendanceRef,
+            {
+              totalClasses: nextTotal,
+              attendedClasses: nextAttended,
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            },
+            { merge: true },
+          );
+        });
+      }
+
+      const statsDocId = `${sessionData.subjectId}_${sessionData.teacherId}`;
+      const statsRef = firestore
+        .collection("subject_attendance_stats")
+        .doc(statsDocId);
+      const enrolledCount = Number(
+        sessionData.enrolledStudentsCount || enrolledStudentIds.length || 0,
+      );
+      const presentCount = Number(sessionData.presentCount || 0);
+      const rateDelta = enrolledCount
+        ? Number(((presentCount / enrolledCount) * 100).toFixed(2))
+        : 0;
+
+      await firestore.runTransaction(async (transaction) => {
+        const statsDoc = await transaction.get(statsRef);
+        if (!statsDoc.exists) {
+          return;
+        }
+
+        const statsData = statsDoc.data() || {};
+        const nextTotalClasses = Math.max(
+          Number(statsData.totalClasses || 0) - 1,
+          0,
+        );
+        const nextCumulativeRate = Math.max(
+          Number(statsData.cumulativeAttendanceRate || 0) - rateDelta,
+          0,
+        );
+
+        transaction.set(
+          statsRef,
+          {
+            totalClasses: nextTotalClasses,
+            cumulativeAttendanceRate: Number(nextCumulativeRate.toFixed(2)),
+            lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+      });
+    }
+
+    const recordRefs = recordsSnapshot.docs.map((docSnap) => docSnap.ref);
+    const batchSize = 400;
+
+    for (let index = 0; index < recordRefs.length; index += batchSize) {
+      const batch = firestore.batch();
+      recordRefs.slice(index, index + batchSize).forEach((recordRef) => {
+        batch.delete(recordRef);
+      });
+      await batch.commit();
+    }
+
+    await sessionRef.delete();
+    attendanceSessionJoinedStudents.delete(sessionId);
+
+    return res.status(200).json({
+      success: true,
+      message: "Attendance session deleted successfully.",
+      deletedSessionId: sessionId,
+    });
+  } catch (error) {
+    const status = /authorized|token/i.test(error.message) ? 403 : 500;
     return res.status(status).json({ message: error.message });
   }
 });
@@ -3036,6 +3983,22 @@ app.get("/attendance/teacher/sessions/history", async (req, res) => {
           (id) => !presentStudentIds.has(id),
         );
 
+        const presentStudents = Array.isArray(session.presentStudents)
+          ? session.presentStudents
+          : records.map((record) => ({
+              studentId: String(record.studentId || "").trim(),
+              studentName: record.studentName || "Student",
+              prn: record.prn || "",
+            }));
+
+        const absentStudents = Array.isArray(session.absentStudents)
+          ? session.absentStudents
+          : absentStudentIds.map((studentId) => ({
+              studentId,
+              studentName: "",
+              prn: "",
+            }));
+
         return {
           ...session,
           sessionId,
@@ -3046,6 +4009,8 @@ app.get("/attendance/teacher/sessions/history", async (req, res) => {
           ),
           absentCount: absentStudentIds.length,
           absentStudentIds,
+          presentStudents,
+          absentStudents,
         };
       }),
     );
@@ -3053,6 +4018,129 @@ app.get("/attendance/teacher/sessions/history", async (req, res) => {
     return res.status(200).json({
       success: true,
       sessions: sessionsWithDetails,
+    });
+  } catch (error) {
+    const status = /authorized|token/i.test(error.message) ? 403 : 500;
+    return res.status(status).json({ message: error.message });
+  }
+});
+
+app.get("/attendance/teacher/subject/:subjectId/students", async (req, res) => {
+  try {
+    const { teacherDoc } = await verifyTeacherFromRequest(req);
+    const subjectId = String(req.params.subjectId || "").trim();
+    if (!subjectId) {
+      return res.status(400).json({ message: "subjectId is required." });
+    }
+
+    const teacherData = teacherDoc.exists ? teacherDoc.data() || {} : {};
+    const assignments = Array.isArray(teacherData.assignments)
+      ? teacherData.assignments
+      : [];
+
+    const relevantAssignments = assignments
+      .map((assignment) => {
+        const subjects = normalizeSubjectValues(assignment.subjects);
+        const matchedSubjects = subjects.filter(
+          (subject) => makeSubjectId(subject) === subjectId,
+        );
+
+        if (matchedSubjects.length === 0) {
+          return null;
+        }
+
+        return {
+          branch: normalizeBranch(
+            assignment.branch || assignment.dept || assignment.department || "",
+          ),
+          year: normalizeYear(assignment.year || ""),
+          semester: normalizeSemester(assignment.semester || ""),
+          matchedSubjects,
+        };
+      })
+      .filter(Boolean)
+      .filter((assignment) => assignment.branch && assignment.year);
+
+    if (relevantAssignments.length === 0) {
+      return res.status(403).json({
+        message: "Teacher is not assigned to this subject.",
+      });
+    }
+
+    const firestore = admin.firestore();
+    const rosterMap = new Map();
+
+    for (const assignment of relevantAssignments) {
+      for (const subjectName of assignment.matchedSubjects) {
+        const candidates = await getSessionEnrolledStudents(firestore, {
+          branch: assignment.branch,
+          year: assignment.year,
+          semester: assignment.semester,
+          subjectId,
+          subjectName,
+        });
+
+        candidates.forEach((student) => {
+          const studentId = String(student.uid || "").trim();
+          if (!studentId || rosterMap.has(studentId)) {
+            return;
+          }
+
+          rosterMap.set(studentId, {
+            studentId,
+            studentName: student.name || student.displayName || "Student",
+            prn: getPrnFromRecord(student),
+            branch:
+              student.dept || student.department || assignment.branch || "",
+            year: student.year || assignment.year || "",
+            semester: student.semester || assignment.semester || "",
+          });
+        });
+      }
+    }
+
+    const { attendanceByStudentId } = await buildSubjectAttendanceIndex(
+      firestore,
+      subjectId,
+    );
+
+    const students = Array.from(rosterMap.values())
+      .map((student) => {
+        const attendance = attendanceByStudentId.get(student.studentId) || {
+          totalClasses: 0,
+          attendedClasses: 0,
+        };
+        const attendancePercentage = attendance.totalClasses
+          ? Number(
+              (
+                (attendance.attendedClasses / attendance.totalClasses) *
+                100
+              ).toFixed(2),
+            )
+          : 0;
+
+        return {
+          ...student,
+          totalClasses: attendance.totalClasses,
+          attendedClasses: attendance.attendedClasses,
+          attendancePercentage,
+        };
+      })
+      .sort((a, b) =>
+        String(a.studentName || "").localeCompare(String(b.studentName || "")),
+      );
+
+    return res.status(200).json({
+      success: true,
+      subject: {
+        subjectId,
+        subjectName:
+          relevantAssignments[0]?.matchedSubjects?.[0] ||
+          req.query.subjectName ||
+          subjectId,
+      },
+      totalStudents: students.length,
+      students,
     });
   } catch (error) {
     const status = /authorized|token/i.test(error.message) ? 403 : 500;
@@ -3085,28 +4173,61 @@ app.get("/attendance/student/:studentId", async (req, res) => {
     }
 
     const firestore = admin.firestore();
-    const snapshot = await firestore
+    const studentProfile = await getStudentProfileByUid(firestore, studentId);
+    const subjectNameById = new Map();
+
+    normalizeSubjectValues(studentProfile?.subjects).forEach((subjectName) => {
+      const id = makeSubjectId(subjectName);
+      if (!id || subjectNameById.has(id)) {
+        return;
+      }
+      subjectNameById.set(id, subjectName);
+    });
+
+    const existingSnapshot = await firestore
       .collection("student_attendance")
       .where("studentId", "==", studentId)
       .get();
 
-    const records = snapshot.docs
-      .map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-      }))
-      .map((entry) => {
-        const totalClasses = Number(entry.totalClasses || 0);
-        const attendedClasses = Number(entry.attendedClasses || 0);
-        const percentage = totalClasses
-          ? Number(((attendedClasses / totalClasses) * 100).toFixed(2))
-          : 0;
+    existingSnapshot.docs.forEach((docSnap) => {
+      const data = docSnap.data() || {};
+      const subjectId = String(data.subjectId || "").trim();
+      if (!subjectId) {
+        return;
+      }
 
-        return {
-          ...entry,
-          percentage,
-        };
+      if (!subjectNameById.has(subjectId)) {
+        const subjectName = String(data.subjectName || "").trim();
+        subjectNameById.set(subjectId, subjectName || subjectId);
+      }
+    });
+
+    const records = [];
+    for (const [subjectId, subjectName] of subjectNameById.entries()) {
+      const { attendanceByStudentId } = await buildSubjectAttendanceIndex(
+        firestore,
+        subjectId,
+      );
+      const attendance = attendanceByStudentId.get(studentId) || {
+        totalClasses: 0,
+        attendedClasses: 0,
+      };
+      const totalClasses = Number(attendance.totalClasses || 0);
+      const attendedClasses = Number(attendance.attendedClasses || 0);
+      const percentage = totalClasses
+        ? Number(((attendedClasses / totalClasses) * 100).toFixed(2))
+        : 0;
+
+      records.push({
+        id: `${studentId}_${subjectId}`,
+        studentId,
+        subjectId,
+        subjectName: subjectName || subjectId,
+        totalClasses,
+        attendedClasses,
+        percentage,
       });
+    }
 
     return res.status(200).json({ success: true, attendance: records });
   } catch (error) {
@@ -3213,7 +4334,7 @@ app.get("/attendance/analytics/:subjectId", async (req, res) => {
       .where("subjectId", "==", subjectId)
       .get();
 
-    const atRiskStudents = studentAttendanceSnapshot.docs
+    const atRiskBase = studentAttendanceSnapshot.docs
       .map((docSnap) => {
         const data = docSnap.data() || {};
         const totalClasses = Number(data.totalClasses || 0);
@@ -3226,6 +4347,27 @@ app.get("/attendance/analytics/:subjectId", async (req, res) => {
       })
       .filter((entry) => Number(entry.percentage || 0) < 75)
       .sort((a, b) => Number(a.percentage || 0) - Number(b.percentage || 0));
+
+    const atRiskStudents = await Promise.all(
+      atRiskBase.map(async (entry) => {
+        const studentId = String(entry.studentId || "").trim();
+        if (!studentId) {
+          return {
+            ...entry,
+            studentName: entry.studentName || "",
+            prn: entry.prn || "",
+          };
+        }
+
+        const profile = await getStudentProfileByUid(firestore, studentId);
+        return {
+          ...entry,
+          studentName:
+            entry.studentName || profile?.name || profile?.displayName || "",
+          prn: entry.prn || getPrnFromRecord(profile || {}) || "",
+        };
+      }),
+    );
 
     const classAttendanceRate = sessions.length
       ? Number((totalRate / sessions.length).toFixed(2))

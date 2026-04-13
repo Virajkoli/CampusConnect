@@ -218,20 +218,20 @@ export default function BulkStudentOnboarding() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 px-4 sm:px-6 py-6 sm:py-8">
+    <div className="min-h-screen bg-[#eef2f6] px-4 sm:px-6 py-6 sm:py-8">
       <div className="max-w-7xl mx-auto space-y-6">
         <button
           onClick={() => navigate("/admin-dashboard")}
-          className="flex items-center text-red-600 hover:text-green-900 transition-colors"
+          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:text-[#2f87d9] sm:px-4 sm:py-2 sm:text-sm"
         >
-          <FiArrowLeft className="mr-2" /> Go Back
+          <FiArrowLeft className="h-4 w-4" /> Back to Dashboard
         </button>
 
-        <div className="bg-white rounded-xl shadow-md border border-indigo-100 p-5 sm:p-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-indigo-700 mb-2">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 sm:p-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-2">
             Bulk Student Onboarding
           </h1>
-          <p className="text-gray-600">
+          <p className="text-slate-600">
             Upload final admission list (CSV/PDF/image), parse with OCR or CSV
             parser, validate entries, and auto-create student accounts with
             branch/year/semester subject assignment.
@@ -249,10 +249,10 @@ export default function BulkStudentOnboarding() {
           </div>
         )}
 
-        <div className="bg-white rounded-xl shadow-md border border-indigo-100 p-5 sm:p-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 sm:p-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
                 Admission List File
               </label>
               <input
@@ -261,13 +261,13 @@ export default function BulkStudentOnboarding() {
                 onChange={(e) => setFile(e.target.files?.[0] || null)}
                 className="w-full border rounded-lg px-3 py-2"
               />
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="text-xs text-slate-500 mt-2">
                 Recommended: CSV with columns Name, PRN, Mobile, Branch, Year,
                 Semester, Email. PDF/image parsing depends on document clarity.
               </p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
                 Existing PRN Strategy
               </label>
               <select
@@ -292,7 +292,7 @@ export default function BulkStudentOnboarding() {
               <button
                 onClick={parseFile}
                 disabled={isParsing}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center justify-center"
+                className="flex-1 bg-[#2f87d9] hover:bg-[#1f6fb7] text-white px-4 py-2 rounded-lg flex items-center justify-center"
               >
                 <FiUpload className="mr-2" />{" "}
                 {isParsing ? "Parsing..." : "Parse File"}
@@ -308,7 +308,7 @@ export default function BulkStudentOnboarding() {
           </div>
 
           {parsedEntries.length > 0 && (
-            <div className="mt-4 p-3 rounded-lg bg-gray-50 text-sm">
+            <div className="mt-4 p-3 rounded-lg bg-slate-50 text-sm">
               Parsed: <strong>{validationPreview.total}</strong> | Valid:{" "}
               <strong className="text-green-700">
                 {validationPreview.valid}
@@ -322,13 +322,13 @@ export default function BulkStudentOnboarding() {
         </div>
 
         {parsedEntries.length > 0 && (
-          <div className="bg-white rounded-xl shadow-md border border-indigo-100 p-5 sm:p-6">
-            <h2 className="text-lg font-semibold text-indigo-700 mb-3">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 sm:p-6">
+            <h2 className="text-lg font-semibold text-slate-800 mb-3">
               Parsed Entries
             </h2>
             <div className="overflow-x-auto">
-              <table className="min-w-[980px] w-full text-sm border border-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-[980px] w-full text-sm border border-slate-200">
+                <thead className="bg-slate-50">
                   <tr>
                     <th className="text-left p-2 border-b">Name</th>
                     <th className="text-left p-2 border-b">PRN</th>
@@ -377,8 +377,8 @@ export default function BulkStudentOnboarding() {
         )}
 
         {precheck && (
-          <div className="bg-white rounded-xl shadow-md border border-indigo-100 p-5 sm:p-6">
-            <h2 className="text-lg font-semibold text-indigo-700 mb-3">
+          <div className="bg-white rounded-xl shadow-md border border-slate-200/80 p-5 sm:p-6">
+            <h2 className="text-lg font-semibold text-slate-800 mb-3">
               Database Pre-check
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
@@ -395,8 +395,8 @@ export default function BulkStudentOnboarding() {
             </div>
             {precheck.duplicateInDb?.length > 0 && (
               <div className="overflow-x-auto">
-                <table className="min-w-[820px] w-full text-sm border border-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-[820px] w-full text-sm border border-slate-200">
+                  <thead className="bg-slate-50">
                     <tr>
                       <th className="text-left p-2 border-b">PRN</th>
                       <th className="text-left p-2 border-b">Name in Upload</th>
@@ -421,8 +421,8 @@ export default function BulkStudentOnboarding() {
         )}
 
         {summary && (
-          <div className="bg-white rounded-xl shadow-md border border-indigo-100 p-5 sm:p-6">
-            <h2 className="text-lg font-semibold text-indigo-700 mb-3">
+          <div className="bg-white rounded-xl shadow-md border border-slate-200/80 p-5 sm:p-6">
+            <h2 className="text-lg font-semibold text-slate-800 mb-3">
               Onboarding Summary
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-6 gap-3 mb-4">
@@ -464,8 +464,8 @@ export default function BulkStudentOnboarding() {
 
             {summary.failedEntries?.length > 0 && (
               <div className="overflow-x-auto">
-                <table className="min-w-[760px] w-full text-sm border border-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-[760px] w-full text-sm border border-slate-200">
+                  <thead className="bg-slate-50">
                     <tr>
                       <th className="text-left p-2 border-b">PRN</th>
                       <th className="text-left p-2 border-b">Name</th>
@@ -490,7 +490,7 @@ export default function BulkStudentOnboarding() {
                 <h3 className="text-md font-semibold text-amber-700 mb-2">
                   Students Needing Manual Credential Sharing
                 </h3>
-                <table className="min-w-[980px] w-full text-sm border border-gray-200">
+                <table className="min-w-[980px] w-full text-sm border border-slate-200">
                   <thead className="bg-amber-50">
                     <tr>
                       <th className="text-left p-2 border-b">Name</th>
@@ -529,7 +529,7 @@ export default function BulkStudentOnboarding() {
                 <h3 className="text-md font-semibold text-slate-700 mb-2">
                   Already Enrolled (Skipped)
                 </h3>
-                <table className="min-w-[760px] w-full text-sm border border-gray-200">
+                <table className="min-w-[760px] w-full text-sm border border-slate-200">
                   <thead className="bg-slate-50">
                     <tr>
                       <th className="text-left p-2 border-b">PRN</th>
@@ -557,10 +557,10 @@ export default function BulkStudentOnboarding() {
 
             {summary.updatedEntries?.length > 0 && (
               <div className="mt-6 overflow-x-auto">
-                <h3 className="text-md font-semibold text-indigo-700 mb-2">
+                <h3 className="text-md font-semibold text-slate-800 mb-2">
                   Existing Students Updated
                 </h3>
-                <table className="min-w-[760px] w-full text-sm border border-gray-200">
+                <table className="min-w-[760px] w-full text-sm border border-slate-200">
                   <thead className="bg-indigo-50">
                     <tr>
                       <th className="text-left p-2 border-b">PRN</th>

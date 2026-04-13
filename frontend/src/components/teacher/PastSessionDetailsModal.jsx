@@ -23,13 +23,22 @@ export default function PastSessionDetailsModal({
   session,
   records,
   loading,
-  onExport,
+  onExportCsv,
+  onExportPdf,
+  onDelete,
+  deleting = false,
 }) {
   if (!isOpen || !session) {
     return null;
   }
 
   const recordsList = Array.isArray(records) ? records : [];
+  const presentStudents = Array.isArray(session.presentStudents)
+    ? session.presentStudents
+    : [];
+  const absentStudents = Array.isArray(session.absentStudents)
+    ? session.absentStudents
+    : [];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -47,11 +56,27 @@ export default function PastSessionDetailsModal({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => onExport(session, recordsList)}
+              onClick={() => onExportCsv?.(session, recordsList)}
               className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white"
               disabled={loading}
             >
               Export CSV
+            </button>
+            <button
+              type="button"
+              onClick={() => onExportPdf?.(session, recordsList)}
+              className="rounded-md bg-slate-700 px-3 py-1.5 text-xs font-medium text-white"
+              disabled={loading}
+            >
+              Export PDF
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete?.(session)}
+              className="rounded-md bg-rose-600 px-3 py-1.5 text-xs font-medium text-white"
+              disabled={loading || deleting}
+            >
+              {deleting ? "Deleting..." : "Delete"}
             </button>
             <button
               type="button"
@@ -88,6 +113,40 @@ export default function PastSessionDetailsModal({
               <p className="text-sm font-medium text-slate-700">
                 {formatDateTime(session.endTimeMs || session.endTime)}
               </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 text-xs md:grid-cols-2">
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+              <p className="font-semibold text-emerald-800">Present Students</p>
+              <div className="mt-1 max-h-32 overflow-y-auto text-emerald-700">
+                {presentStudents.length > 0 ? (
+                  presentStudents.map((student) => (
+                    <p key={`${student.studentId || student.prn}_present`}>
+                      {(student.studentName || "Student") +
+                        (student.prn ? ` (${student.prn})` : "")}
+                    </p>
+                  ))
+                ) : (
+                  <p>No present students listed.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-rose-200 bg-rose-50 p-3">
+              <p className="font-semibold text-rose-800">Absent Students</p>
+              <div className="mt-1 max-h-32 overflow-y-auto text-rose-700">
+                {absentStudents.length > 0 ? (
+                  absentStudents.map((student) => (
+                    <p key={`${student.studentId || student.prn}_absent`}>
+                      {(student.studentName || "Student") +
+                        (student.prn ? ` (${student.prn})` : "")}
+                    </p>
+                  ))
+                ) : (
+                  <p>No absent students listed.</p>
+                )}
+              </div>
             </div>
           </div>
 

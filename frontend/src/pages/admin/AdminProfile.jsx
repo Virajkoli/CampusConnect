@@ -6,6 +6,13 @@ import {
   FiShield,
   FiUser,
   FiCheckCircle,
+  FiUsers,
+  FiUserCheck,
+  FiBookOpen,
+  FiBell,
+  FiSettings,
+  FiEdit,
+  FiLock,
 } from "react-icons/fi";
 import { motion } from "framer-motion";
 
@@ -14,249 +21,267 @@ const AdminProfile = ({ userData }) => {
 
   const permissions = [
     {
-      icon: "👥",
+      icon: FiUsers,
       label: "User Management",
       description: "Manage students and accounts",
     },
     {
-      icon: "👨‍🏫",
+      icon: FiUserCheck,
       label: "Teacher Management",
       description: "Oversee faculty members",
     },
     {
-      icon: "📚",
+      icon: FiBookOpen,
       label: "Course Management",
       description: "Handle curriculum & subjects",
     },
     {
-      icon: "📢",
+      icon: FiBell,
       label: "Announcements",
       description: "Broadcast important updates",
     },
     {
-      icon: "⚙️",
+      icon: FiSettings,
       label: "System Configuration",
       description: "Configure platform settings",
     },
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 py-8 sm:py-12 px-4">
+    <div className="min-h-screen bg-[#eef2f6] px-3 py-5 sm:px-5 sm:py-7 lg:px-8">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-5xl mx-auto"
+        className="mx-auto max-w-6xl"
       >
-        {/* Back Button */}
         <motion.button
           whileHover={{ x: -5 }}
           onClick={() => navigate("/admin-dashboard")}
-          className="flex items-center mb-6 text-gray-700 hover:text-purple-600 transition-colors font-medium group"
+          className="mb-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:text-[#2f87d9] sm:px-4 sm:py-2 sm:text-sm"
         >
-          <FiArrowLeft className="mr-2 group-hover:animate-pulse" />
+          <FiArrowLeft className="h-4 w-4" />
           Back to Dashboard
         </motion.button>
 
-        {/* Profile Header Card */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-white rounded-3xl shadow-xl overflow-hidden mb-6"
+          className="mb-5 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm sm:rounded-3xl"
         >
-          {/* Cover with Gradient */}
-          <div className="h-32 bg-gradient-to-r from-purple-600 via-pink-500 to-blue-500 relative">
-            <div className="absolute inset-0 bg-black opacity-10"></div>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center backdrop-blur-sm">
-                <FiShield className="w-8 h-8 text-white" />
-              </div>
-            </div>
-          </div>
+          <div className="h-20 bg-white sm:h-24" />
 
-          {/* Profile Info */}
-          <div className="px-4 sm:px-8 pb-6 sm:pb-8 -mt-16 relative">
-            <div className="flex flex-col md:flex-row items-center md:items-end gap-6">
-              {/* Avatar with Ring */}
-              <motion.div whileHover={{ scale: 1.05 }} className="relative">
-                <div className="w-32 h-32 rounded-full ring-4 ring-white shadow-xl overflow-hidden bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center">
+          <div className="relative -mt-10 px-3 pb-4 sm:-mt-12 sm:px-5 sm:pb-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                className="relative self-center md:self-auto"
+              >
+                <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-[#2f87d9] shadow-lg sm:h-24 sm:w-24">
                   {userData?.photoURL ? (
                     <img
                       src={userData.photoURL}
                       alt="Profile"
-                      className="w-full h-full object-cover"
+                      className="h-full w-full object-cover"
                     />
                   ) : (
-                    <FiUser className="w-16 h-16 text-white" />
+                    <FiUser className="h-10 w-10 text-white" />
                   )}
                 </div>
-                <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center text-white text-xl shadow-lg">
-                  👑
-                </div>
+                <div className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full border-2 border-white bg-emerald-500 shadow" />
               </motion.div>
 
-              {/* Name and Email */}
-              <div className="flex-1 text-center md:text-left mb-4 md:mb-0">
-                <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">
+              <div className="flex-1 text-center md:text-left">
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                  Admin Profile
+                </p>
+                <h1 className="mt-1 text-2xl font-semibold text-slate-800 sm:text-3xl">
                   {userData?.displayName || userData?.name || "Administrator"}
                 </h1>
-                <div className="flex items-center justify-center md:justify-start gap-2 text-gray-600 mb-3">
-                  <FiMail className="w-4 h-4" />
+                <div className="mt-1.5 flex items-center justify-center gap-2 text-xs text-slate-600 sm:text-sm md:justify-start">
+                  <FiMail className="h-4 w-4" />
                   <span>{userData?.email}</span>
                 </div>
-                <div className="inline-block px-4 py-1 bg-gradient-to-r from-purple-100 to-pink-100 rounded-full">
-                  <span className="text-purple-700 font-semibold text-sm">
-                    System Administrator
-                  </span>
+                <div className="mt-3 inline-flex rounded-full bg-[#e9f2ff] px-3 py-1 text-xs font-semibold text-[#1f6fb7]">
+                  <span>System Administrator</span>
                 </div>
+              </div>
+
+              <div className="flex w-full md:w-auto">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => navigate("/edit-profile")}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#2f87d9] px-4 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-[#1f6fb7] sm:px-5 sm:py-2.5 sm:text-sm md:w-auto"
+                >
+                  <FiEdit className="h-4 w-4" />
+                  Edit Profile
+                </motion.button>
               </div>
             </div>
           </div>
         </motion.div>
 
-        {/* Info Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          {/* Admin Details Card */}
+        <div className="mb-5 grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition-shadow"
+            className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-5"
           >
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
-                <FiShield className="w-6 h-6 text-white" />
+            <div className="mb-4 flex items-center gap-2.5 sm:mb-5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#e9f2ff] sm:h-10 sm:w-10">
+                <FiShield className="h-5 w-5 text-[#2f87d9]" />
               </div>
-              <h2 className="text-xl font-bold text-gray-800">Admin Details</h2>
+              <h2 className="text-lg font-semibold text-slate-800 sm:text-xl">
+                Admin Details
+              </h2>
             </div>
 
             <div className="space-y-4">
-              <div className="flex justify-between items-center p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl">
-                <span className="text-gray-600 font-medium">Admin ID</span>
-                <span className="text-gray-800 font-semibold">
+              <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3 sm:p-4">
+                <span className="text-sm font-medium text-slate-600">
+                  Admin ID
+                </span>
+                <span className="font-semibold text-slate-800">
                   {userData?.adminId || "ADMIN-001"}
                 </span>
               </div>
 
-              <div className="flex justify-between items-center p-4 bg-gradient-to-r from-pink-50 to-blue-50 rounded-xl">
-                <span className="text-gray-600 font-medium">Role</span>
-                <span className="text-gray-800 font-semibold">
+              <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3 sm:p-4">
+                <span className="text-sm font-medium text-slate-600">Role</span>
+                <span className="font-semibold text-slate-800">
                   System Administrator
                 </span>
               </div>
 
-              <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl">
-                <div className="flex items-center gap-2 text-green-600 mb-2">
-                  <FiCheckCircle className="w-5 h-5" />
+              <div className="rounded-xl bg-[#f7fbf1] p-3 sm:p-4">
+                <div className="mb-1.5 flex items-center gap-2 text-emerald-700">
+                  <FiCheckCircle className="h-4 w-4" />
                   <span className="font-semibold">Full Access Granted</span>
                 </div>
-                <div className="text-gray-600 text-sm">
+                <div className="text-sm text-slate-600">
                   All system permissions active
                 </div>
               </div>
             </div>
           </motion.div>
 
-          {/* Permissions Card */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
-            className="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition-shadow"
+            className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-5"
           >
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-                <FiCheckCircle className="w-6 h-6 text-white" />
+            <div className="mb-4 flex items-center gap-2.5 sm:mb-5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#fff8ef] sm:h-10 sm:w-10">
+                <FiCheckCircle className="h-5 w-5 text-[#d97706]" />
               </div>
-              <h2 className="text-xl font-bold text-gray-800">Permissions</h2>
+              <h2 className="text-lg font-semibold text-slate-800 sm:text-xl">
+                Permissions
+              </h2>
             </div>
 
-            <div className="space-y-3 max-h-80 overflow-y-auto custom-scrollbar">
+            <div className="custom-scrollbar max-h-80 space-y-3 overflow-y-auto">
               {permissions.map((perm, index) => (
                 <motion.div
                   key={index}
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.3 + index * 0.05 }}
-                  className="flex items-start gap-3 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl hover:shadow-md transition-all group"
+                  className="group flex items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50 p-3"
                 >
-                  <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center text-xl group-hover:scale-110 transition-transform flex-shrink-0">
-                    {perm.icon}
+                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-[#2f87d9] text-white transition-transform group-hover:scale-110">
+                    <perm.icon className="h-4 w-4" />
                   </div>
                   <div className="flex-1">
-                    <div className="text-gray-800 font-semibold">
+                    <div className="text-sm font-semibold text-slate-800">
                       {perm.label}
                     </div>
-                    <div className="text-gray-500 text-sm">
+                    <div className="text-xs text-slate-500 sm:text-sm">
                       {perm.description}
                     </div>
                   </div>
-                  <FiCheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                  <FiCheckCircle className="h-4 w-4 flex-shrink-0 text-emerald-500" />
                 </motion.div>
               ))}
             </div>
           </motion.div>
         </div>
 
-        {/* Stats Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-white rounded-2xl shadow-lg p-6"
+          className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-5"
         >
-          <h2 className="text-xl font-bold text-gray-800 mb-6">
-            Platform Overview
+          <h2 className="mb-4 text-lg font-semibold text-slate-800 sm:mb-5 sm:text-xl">
+            Quick Actions
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-            <motion.div
-              whileHover={{ scale: 1.05, y: -5 }}
-              className="p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl text-center"
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <motion.button
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate("/edit-profile")}
+              className="group rounded-xl border border-slate-200 bg-slate-50 p-4 text-center transition hover:bg-[#f4f8ff] sm:p-5"
             >
-              <div className="text-3xl mb-2">👥</div>
-              <div className="text-2xl font-bold text-blue-600">1,250</div>
-              <div className="text-gray-600 text-sm">Total Students</div>
-            </motion.div>
+              <div className="mx-auto mb-2.5 flex h-10 w-10 items-center justify-center rounded-lg bg-[#2f87d9] transition-transform group-hover:scale-110 sm:mb-3 sm:h-11 sm:w-11">
+                <FiEdit className="h-5 w-5 text-white" />
+              </div>
+              <div className="text-sm font-semibold text-slate-800">
+                Edit Profile
+              </div>
+              <div className="mt-1 text-xs text-slate-500 sm:text-sm">
+                Update your details
+              </div>
+            </motion.button>
 
-            <motion.div
-              whileHover={{ scale: 1.05, y: -5 }}
-              className="p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-xl text-center"
+            <motion.button
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate("/change-password")}
+              className="group rounded-xl border border-slate-200 bg-slate-50 p-4 transition hover:bg-[#f4f8ff] sm:p-5"
             >
-              <div className="text-3xl mb-2">👨‍🏫</div>
-              <div className="text-2xl font-bold text-green-600">85</div>
-              <div className="text-gray-600 text-sm">Teachers</div>
-            </motion.div>
+              <div className="mx-auto mb-2.5 flex h-10 w-10 items-center justify-center rounded-lg bg-[#2f87d9] transition-transform group-hover:scale-110 sm:mb-3 sm:h-11 sm:w-11">
+                <FiLock className="h-5 w-5 text-white" />
+              </div>
+              <div className="text-sm font-semibold text-slate-800">
+                Change Password
+              </div>
+              <div className="mt-1 text-xs text-slate-500 sm:text-sm">
+                Secure your account
+              </div>
+            </motion.button>
 
-            <motion.div
-              whileHover={{ scale: 1.05, y: -5 }}
-              className="p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl text-center"
+            <motion.button
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate("/admin-dashboard")}
+              className="group rounded-xl border border-slate-200 bg-slate-50 p-4 transition hover:bg-[#f4f8ff] sm:p-5"
             >
-              <div className="text-3xl mb-2">📚</div>
-              <div className="text-2xl font-bold text-purple-600">42</div>
-              <div className="text-gray-600 text-sm">Active Courses</div>
-            </motion.div>
-
-            <motion.div
-              whileHover={{ scale: 1.05, y: -5 }}
-              className="p-6 bg-gradient-to-br from-pink-50 to-pink-100 rounded-xl text-center"
-            >
-              <div className="text-3xl mb-2">📢</div>
-              <div className="text-2xl font-bold text-pink-600">156</div>
-              <div className="text-gray-600 text-sm">Announcements</div>
-            </motion.div>
+              <div className="mx-auto mb-2.5 flex h-10 w-10 items-center justify-center rounded-lg bg-[#2f87d9] transition-transform group-hover:scale-110 sm:mb-3 sm:h-11 sm:w-11">
+                <FiArrowLeft className="h-5 w-5 text-white" />
+              </div>
+              <div className="text-sm font-semibold text-slate-800">
+                Back to Dashboard
+              </div>
+              <div className="mt-1 text-xs text-slate-500 sm:text-sm">
+                Continue managing system
+              </div>
+            </motion.button>
           </div>
         </motion.div>
       </motion.div>
 
-      <style jsx>{`
+      <style>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 6px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
-          background: #f1f1f1;
+          background: #e2e8f0;
           border-radius: 10px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: linear-gradient(to bottom, #a855f7, #ec4899);
+          background: linear-gradient(to bottom, #60a5fa, #3b82f6);
           border-radius: 10px;
         }
       `}</style>
