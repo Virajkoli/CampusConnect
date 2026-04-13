@@ -101,6 +101,45 @@ export const markAttendance = async (payload) => {
   return parseResponse(response);
 };
 
+export const getFaceProfileStatus = async () => {
+  const response = await fetch(`${API_BASE}/attendance/face/me`, {
+    method: "GET",
+    headers: await authHeaders(),
+  });
+
+  return parseResponse(response);
+};
+
+export const registerFaceProfile = async (payload) => {
+  const response = await fetch(`${API_BASE}/attendance/face/register`, {
+    method: "POST",
+    headers: await authHeaders(),
+    body: JSON.stringify(payload),
+  });
+
+  return parseResponse(response);
+};
+
+export const createFaceChallenge = async (sessionId) => {
+  const response = await fetch(`${API_BASE}/attendance/face/challenge`, {
+    method: "POST",
+    headers: await authHeaders(),
+    body: JSON.stringify({ sessionId }),
+  });
+
+  return parseResponse(response);
+};
+
+export const markAttendanceByFace = async (payload) => {
+  const response = await fetch(`${API_BASE}/attendance/mark-face`, {
+    method: "POST",
+    headers: await authHeaders(),
+    body: JSON.stringify(payload),
+  });
+
+  return parseResponse(response);
+};
+
 export const markAttendanceByTeacher = async (payload) => {
   const response = await fetch(`${API_BASE}/attendance/mark-by-teacher`, {
     method: "POST",

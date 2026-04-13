@@ -27,6 +27,14 @@ const toCsv = (session, records) => {
     .join("\n");
 };
 
+const formatMethod = (method) => {
+  const value = String(method || "").trim().toLowerCase();
+  if (value === "biometric") return "Fingerprint";
+  if (value === "face_recognition") return "Face";
+  if (value === "teacher_scan") return "Teacher QR";
+  return method || "-";
+};
+
 export default function AttendanceSessionDashboard({
   session,
   records,
@@ -156,7 +164,7 @@ export default function AttendanceSessionDashboard({
                   <td className="px-4 py-2">
                     {record.studentName || record.studentId}
                   </td>
-                  <td className="px-4 py-2">{record.method}</td>
+                  <td className="px-4 py-2">{formatMethod(record.method)}</td>
                   <td className="px-4 py-2">
                     {record.timestamp
                       ? new Date(record.timestamp).toLocaleTimeString()

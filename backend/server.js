@@ -5,6 +5,7 @@ const nodemailer = require("nodemailer");
 const http = require("http");
 const socketIO = require("socket.io");
 const multer = require("multer");
+const crypto = require("crypto");
 const cloudinary = require("./cloudinary-config");
 
 dotenv.config();
@@ -400,6 +401,9 @@ const JOB_PROFILE_ALIASES = {
 const ATTENDANCE_ALLOWED_DISTANCE_METERS = 30;
 const ATTENDANCE_WINDOW_SECONDS = 60;
 const ATTENDANCE_WINDOW_SLOT_SECONDS = [60, 120, 180, 240, 300, 600];
+const FACE_DESCRIPTOR_LENGTH = 128;
+const FACE_MATCH_DISTANCE_THRESHOLD = 0.5;
+const FACE_CHALLENGE_TTL_MS = 45 * 1000;
 
 const createMailTransporter = () => {
   return nodemailer.createTransport({
@@ -835,6 +839,46 @@ const haversineDistanceMeters = (pointA, pointB) => {
 
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
+};
+
+const normalizeFaceDescriptor = (descriptor = []) => {
+  if (!Array.isArray(descriptor)) {
+    return [];
+  }
+
+  const normalized = descriptor
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value));
+
+  if (normalized.length !== FACE_DESCRIPTOR_LENGTH) {
+    return [];
+  }
+
+  return normalized;
+};
+
+const euclideanDistance = (leftDescriptor = [], rightDescriptor = []) => {
+  if (
+    !Array.isArray(leftDescriptor) ||
+    !Array.isArray(rightDescriptor) ||
+    leftDescriptor.length !== rightDescriptor.length ||
+    leftDescriptor.length === 0
+  ) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  let sum = 0;
+  for (let i = 0; i < leftDescriptor.length; i += 1) {
+    sum += (leftDescriptor[i] - rightDescriptor[i]) ** 2;
+  }
+
+  return Math.sqrt(sum);
+};
+
+const buildFaceConfidenceScore = (distance) => {
+  if (!Number.isFinite(distance)) return 0;
+  const score = Math.max(0, 1 - distance / FACE_MATCH_DISTANCE_THRESHOLD);
+  return Number(score.toFixed(4));
 };
 
 const normalizeSubjectValues = (subjects = []) => {
@@ -2135,6 +2179,135 @@ app.post("/attendance/register-device", async (req, res) => {
   }
 });
 
+app.get("/attendance/face/me", async (req, res) => {
+  try {
+    const { decodedToken } = await verifyStudentFromRequest(req);
+    const firestore = admin.firestore();
+    const faceDoc = await firestore
+      .collection("student_faces")
+      .doc(decodedToken.uid)
+      .get();
+
+    if (!faceDoc.exists) {
+      return res.status(200).json({
+        success: true,
+        registered: false,
+      });
+    }
+
+    const data = faceDoc.data() || {};
+    return res.status(200).json({
+      success: true,
+      registered: true,
+      modelVersion: String(data.modelVersion || "face-api-v1"),
+      descriptorLength: Array.isArray(data.descriptor)
+        ? data.descriptor.length
+        : 0,
+      updatedAt: data.updatedAt || null,
+      registeredAt: data.registeredAt || null,
+    });
+  } catch (error) {
+    const status = /authorized|token/i.test(error.message) ? 403 : 500;
+    return res.status(status).json({ message: error.message });
+  }
+});
+
+app.post("/attendance/face/challenge", async (req, res) => {
+  try {
+    const { decodedToken } = await verifyStudentFromRequest(req);
+    const studentId = decodedToken.uid;
+    const sessionId = String(req.body.sessionId || "").trim();
+    if (!sessionId) {
+      return res.status(400).json({ message: "sessionId is required." });
+    }
+
+    const firestore = admin.firestore();
+    const sessionDoc = await firestore
+      .collection("attendance_sessions")
+      .doc(sessionId)
+      .get();
+
+    if (!sessionDoc.exists) {
+      return res.status(404).json({ message: "Attendance session not found." });
+    }
+
+    const challengeRef = firestore.collection("attendance_face_challenges").doc();
+    const nowMs = Date.now();
+    const expiresAtMs = nowMs + FACE_CHALLENGE_TTL_MS;
+
+    await challengeRef.set({
+      challengeId: challengeRef.id,
+      sessionId,
+      studentId,
+      challenge: crypto.randomBytes(24).toString("hex"),
+      createdAtMs: nowMs,
+      expiresAtMs,
+      used: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return res.status(201).json({
+      success: true,
+      challengeId: challengeRef.id,
+      expiresAtMs,
+      ttlSeconds: Math.floor(FACE_CHALLENGE_TTL_MS / 1000),
+    });
+  } catch (error) {
+    const status = /authorized|token/i.test(error.message) ? 403 : 500;
+    return res.status(status).json({ message: error.message });
+  }
+});
+
+app.post("/attendance/face/register", async (req, res) => {
+  try {
+    const { decodedToken } = await verifyStudentFromRequest(req);
+    const studentId = decodedToken.uid;
+    const payloadStudentId = String(req.body.studentId || "").trim();
+    if (payloadStudentId && payloadStudentId !== studentId) {
+      return res.status(403).json({ message: "studentId mismatch." });
+    }
+
+    const descriptor = normalizeFaceDescriptor(req.body.descriptor);
+    if (descriptor.length !== FACE_DESCRIPTOR_LENGTH) {
+      return res.status(400).json({
+        message: `descriptor must contain ${FACE_DESCRIPTOR_LENGTH} numeric values.`,
+      });
+    }
+
+    const modelVersion = String(req.body.modelVersion || "face-api-v1").trim();
+    const firestore = admin.firestore();
+
+    const existingDoc = await firestore
+      .collection("student_faces")
+      .doc(studentId)
+      .get();
+
+    await firestore.collection("student_faces").doc(studentId).set(
+      {
+        studentId,
+        descriptor,
+        modelVersion,
+        registeredAt: existingDoc.exists
+          ? existingDoc.data()?.registeredAt || admin.firestore.FieldValue.serverTimestamp()
+          : admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+
+    return res.status(201).json({
+      success: true,
+      message: existingDoc.exists
+        ? "Face profile updated successfully."
+        : "Face profile registered successfully.",
+    });
+  } catch (error) {
+    const status = /authorized|token/i.test(error.message) ? 403 : 500;
+    return res.status(status).json({ message: error.message });
+  }
+});
+
 app.post("/attendance/start", async (req, res) => {
   try {
     const { decodedToken, teacherDoc } = await verifyTeacherFromRequest(req);
@@ -2667,6 +2840,235 @@ app.post("/attendance/mark", async (req, res) => {
     return res.status(201).json({
       success: true,
       message: "Attendance marked successfully.",
+      record: eventPayload,
+    });
+  } catch (error) {
+    const status = /authorized|token/i.test(error.message) ? 403 : 500;
+    return res.status(status).json({ message: error.message });
+  }
+});
+
+app.post("/attendance/mark-face", async (req, res) => {
+  try {
+    const { decodedToken, studentData } = await verifyStudentFromRequest(req);
+    const studentId = decodedToken.uid;
+    const payloadStudentId = String(req.body.studentId || "").trim();
+    if (payloadStudentId && payloadStudentId !== studentId) {
+      return res.status(403).json({ message: "studentId mismatch." });
+    }
+
+    const sessionId = String(req.body.sessionId || "").trim();
+    const challengeId = String(req.body.challengeId || "").trim();
+    const deviceId = normalizeDeviceId(req.body.deviceId || "");
+    const descriptor = normalizeFaceDescriptor(req.body.descriptor);
+    const livenessPassed = Boolean(req.body.livenessPassed);
+    const studentLocation = {
+      lat: Number(req.body?.studentLocation?.lat),
+      lng: Number(req.body?.studentLocation?.lng),
+    };
+
+    if (!sessionId || !deviceId || !challengeId) {
+      return res.status(400).json({
+        message: "sessionId, deviceId, and challengeId are required.",
+      });
+    }
+
+    if (descriptor.length !== FACE_DESCRIPTOR_LENGTH) {
+      return res.status(400).json({
+        message: `descriptor must contain ${FACE_DESCRIPTOR_LENGTH} numeric values.`,
+      });
+    }
+
+    if (
+      Number.isNaN(studentLocation.lat) ||
+      Number.isNaN(studentLocation.lng)
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Valid student location is required." });
+    }
+
+    if (!livenessPassed) {
+      return res.status(403).json({ message: "Face liveness check failed." });
+    }
+
+    const firestore = admin.firestore();
+
+    const [sessionDoc, deviceDoc, faceDoc, challengeDoc] = await Promise.all([
+      firestore.collection("attendance_sessions").doc(sessionId).get(),
+      firestore.collection("student_devices").doc(studentId).get(),
+      firestore.collection("student_faces").doc(studentId).get(),
+      firestore.collection("attendance_face_challenges").doc(challengeId).get(),
+    ]);
+
+    if (!sessionDoc.exists) {
+      return res.status(404).json({ message: "Attendance session not found." });
+    }
+
+    const sessionData = sessionDoc.data() || {};
+    if (sessionData.status !== "active") {
+      return res
+        .status(400)
+        .json({ message: "Attendance session has already ended." });
+    }
+
+    if (!deviceDoc.exists) {
+      return res.status(403).json({
+        message: "Trusted device not registered for this student.",
+        code: "DEVICE_NOT_REGISTERED",
+      });
+    }
+
+    const trustedDevice = normalizeDeviceId(deviceDoc.data()?.deviceId || "");
+    if (trustedDevice !== deviceId) {
+      return res.status(403).json({
+        message: "Device verification failed.",
+        code: "DEVICE_MISMATCH",
+      });
+    }
+
+    if (!studentBelongsToSession(studentData, sessionData)) {
+      return res
+        .status(403)
+        .json({ message: "Student is not enrolled for this session subject." });
+    }
+
+    const startMs =
+      Number(sessionData.startTimeMs) || toMillis(sessionData.startTime);
+    const nowMs = Date.now();
+    const maxWindowMs =
+      (Number(sessionData.attendanceWindowSeconds) ||
+        ATTENDANCE_WINDOW_SECONDS) *
+      1000;
+
+    if (!startMs || nowMs - startMs > maxWindowMs) {
+      return res
+        .status(403)
+        .json({ message: "Attendance time window has expired." });
+    }
+
+    const distance = haversineDistanceMeters(
+      studentLocation,
+      sessionData.teacherLocation || {},
+    );
+    const allowedDistance =
+      Number(sessionData.allowedDistanceMeters) ||
+      ATTENDANCE_ALLOWED_DISTANCE_METERS;
+    if (distance > allowedDistance) {
+      return res.status(403).json({
+        message: `Location verification failed. You must be within ${allowedDistance} meters.`,
+      });
+    }
+
+    const duplicateSnapshot = await firestore
+      .collection("attendance_records")
+      .where("sessionId", "==", sessionId)
+      .where("studentId", "==", studentId)
+      .limit(1)
+      .get();
+
+    if (!duplicateSnapshot.empty) {
+      return res
+        .status(409)
+        .json({ message: "Attendance already marked for this session." });
+    }
+
+    if (!faceDoc.exists) {
+      return res.status(403).json({
+        message:
+          "No registered face profile found. Please complete face registration first.",
+      });
+    }
+
+    const challengeData = challengeDoc.exists ? challengeDoc.data() || {} : null;
+    if (!challengeData) {
+      return res.status(403).json({ message: "Invalid face challenge." });
+    }
+    if (Boolean(challengeData.used)) {
+      return res.status(403).json({ message: "Face challenge already used." });
+    }
+    if (String(challengeData.studentId || "") !== studentId) {
+      return res.status(403).json({ message: "Face challenge student mismatch." });
+    }
+    if (String(challengeData.sessionId || "") !== sessionId) {
+      return res.status(403).json({ message: "Face challenge session mismatch." });
+    }
+
+    const expiresAtMs = Number(challengeData.expiresAtMs || 0);
+    if (!expiresAtMs || Date.now() > expiresAtMs) {
+      return res.status(403).json({ message: "Face challenge expired." });
+    }
+
+    const storedDescriptor = normalizeFaceDescriptor(faceDoc.data()?.descriptor);
+    if (storedDescriptor.length !== FACE_DESCRIPTOR_LENGTH) {
+      return res.status(500).json({
+        message: "Registered face profile is invalid. Please register again.",
+      });
+    }
+
+    const distanceScore = euclideanDistance(descriptor, storedDescriptor);
+    if (distanceScore >= FACE_MATCH_DISTANCE_THRESHOLD) {
+      return res.status(403).json({
+        message: "Face verification failed.",
+        faceDistance: Number(distanceScore.toFixed(4)),
+      });
+    }
+
+    await firestore
+      .collection("attendance_face_challenges")
+      .doc(challengeId)
+      .set(
+        {
+          used: true,
+          usedAtMs: Date.now(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+
+    const recordRef = firestore.collection("attendance_records").doc();
+    const studentName =
+      studentData.name ||
+      studentData.displayName ||
+      decodedToken.name ||
+      "Student";
+    const studentPrn = getPrnFromRecord(studentData);
+    const recordPayload = {
+      recordId: recordRef.id,
+      sessionId,
+      studentId,
+      studentName,
+      prn: studentPrn,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      latitude: studentLocation.lat,
+      longitude: studentLocation.lng,
+      method: "face_recognition",
+      confidenceScore: buildFaceConfidenceScore(distanceScore),
+      faceDistance: Number(distanceScore.toFixed(4)),
+      modelVersion: String(faceDoc.data()?.modelVersion || "face-api-v1"),
+      livenessPassed: true,
+      deviceId,
+      distanceMeters: Number(distance.toFixed(2)),
+      challengeId,
+    };
+
+    await recordRef.set(recordPayload);
+
+    const eventPayload = {
+      ...recordPayload,
+      timestamp: new Date(nowMs).toISOString(),
+    };
+
+    io.to(`attendance_${sessionId}`).emit("attendance-recorded", eventPayload);
+    io.to(`attendance_${sessionId}`).emit("attendance-heatmap-updated", {
+      lat: studentLocation.lat,
+      lng: studentLocation.lng,
+      studentId,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Attendance marked successfully using face recognition.",
       record: eventPayload,
     });
   } catch (error) {
