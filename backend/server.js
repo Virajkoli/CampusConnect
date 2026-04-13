@@ -1106,6 +1106,138 @@ const getSessionEnrolledStudents = async (firestore, sessionData) => {
   );
 };
 
+const getSessionStudentIds = (sessionData = {}) => {
+  const ids = [
+    ...(Array.isArray(sessionData.enrolledStudentIds)
+      ? sessionData.enrolledStudentIds
+      : []),
+    ...(Array.isArray(sessionData.presentStudentIds)
+      ? sessionData.presentStudentIds
+      : []),
+    ...(Array.isArray(sessionData.absentStudentIds)
+      ? sessionData.absentStudentIds
+      : []),
+    ...(Array.isArray(sessionData.presentStudents)
+      ? sessionData.presentStudents.map((student) => student.studentId)
+      : []),
+    ...(Array.isArray(sessionData.absentStudents)
+      ? sessionData.absentStudents.map((student) => student.studentId)
+      : []),
+  ];
+
+  return Array.from(
+    new Set(
+      ids.map((studentId) => String(studentId || "").trim()).filter(Boolean),
+    ),
+  );
+};
+
+const getSessionPresentStudentIds = async (
+  firestore,
+  sessionData,
+  sessionId,
+  recordsCache,
+) => {
+  const explicit = Array.from(
+    new Set(
+      [
+        ...(Array.isArray(sessionData.presentStudentIds)
+          ? sessionData.presentStudentIds
+          : []),
+        ...(Array.isArray(sessionData.presentStudents)
+          ? sessionData.presentStudents.map((student) => student.studentId)
+          : []),
+      ]
+        .map((studentId) => String(studentId || "").trim())
+        .filter(Boolean),
+    ),
+  );
+
+  if (explicit.length > 0) {
+    return explicit;
+  }
+
+  if (!sessionId) {
+    return [];
+  }
+
+  if (recordsCache.has(sessionId)) {
+    return recordsCache.get(sessionId);
+  }
+
+  const recordsSnapshot = await firestore
+    .collection("attendance_records")
+    .where("sessionId", "==", sessionId)
+    .get();
+
+  const ids = Array.from(
+    new Set(
+      recordsSnapshot.docs
+        .map((docSnap) => String(docSnap.data()?.studentId || "").trim())
+        .filter(Boolean),
+    ),
+  );
+
+  recordsCache.set(sessionId, ids);
+  return ids;
+};
+
+const buildSubjectAttendanceIndex = async (firestore, subjectId) => {
+  const sessionsSnapshot = await firestore
+    .collection("attendance_sessions")
+    .where("subjectId", "==", subjectId)
+    .where("status", "==", "ended")
+    .get();
+
+  const sessions = sessionsSnapshot.docs
+    .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+    .sort(
+      (a, b) =>
+        Number(a.startTimeMs || toMillis(a.startTime) || 0) -
+        Number(b.startTimeMs || toMillis(b.startTime) || 0),
+    );
+
+  const attendanceByStudentId = new Map();
+  const recordsCache = new Map();
+
+  for (const session of sessions) {
+    const sessionId = String(session.sessionId || session.id || "").trim();
+    const enrolledIds = getSessionStudentIds(session);
+    const presentIds = await getSessionPresentStudentIds(
+      firestore,
+      session,
+      sessionId,
+      recordsCache,
+    );
+    const presentSet = new Set(presentIds);
+    const targetStudentIds = Array.from(
+      new Set([...(enrolledIds.length > 0 ? enrolledIds : []), ...presentIds]),
+    );
+
+    if (targetStudentIds.length === 0) {
+      continue;
+    }
+
+    targetStudentIds.forEach((studentId) => {
+      const current = attendanceByStudentId.get(studentId) || {
+        totalClasses: 0,
+        attendedClasses: 0,
+      };
+
+      attendanceByStudentId.set(studentId, {
+        totalClasses: current.totalClasses + 1,
+        attendedClasses:
+          current.attendedClasses + (presentSet.has(studentId) ? 1 : 0),
+      });
+    });
+  }
+
+  return {
+    sessions,
+    attendanceByStudentId,
+  };
+};
+
 const syncTeacherStudentMappings = async ({
   firestore,
   teacherUid,
@@ -1601,8 +1733,19 @@ io.on("connection", (socket) => {
     console.log(`User ${socket.id} joined room: ${chatRoomId}`);
   });
 
-  socket.on("join_attendance_session", async (sessionId) => {
-    const normalizedSessionId = String(sessionId || "").trim();
+  socket.on("join_attendance_session", async (sessionPayload) => {
+    const normalizedSessionId = String(
+      typeof sessionPayload === "string"
+        ? sessionPayload
+        : sessionPayload?.sessionId || "",
+    ).trim();
+    const candidateLocation = {
+      lat: Number(sessionPayload?.studentLocation?.lat),
+      lng: Number(sessionPayload?.studentLocation?.lng),
+    };
+    const hasStudentLocation =
+      !Number.isNaN(candidateLocation.lat) &&
+      !Number.isNaN(candidateLocation.lng);
     const roomId = `attendance_${normalizedSessionId}`;
     if (!normalizedSessionId) {
       return;
@@ -1644,9 +1787,7 @@ io.on("connection", (socket) => {
         return;
       }
 
-      if (joinMap.has(connectedUserId)) {
-        return;
-      }
+      const existingJoinedPayload = joinMap.get(connectedUserId) || null;
 
       const joinedPayload = {
         sessionId: normalizedSessionId,
@@ -1654,7 +1795,14 @@ io.on("connection", (socket) => {
         studentName:
           studentProfile.name || studentProfile.displayName || "Student",
         prn: getPrnFromRecord(studentProfile),
-        joinTimestamp: new Date().toISOString(),
+        joinTimestamp:
+          existingJoinedPayload?.joinTimestamp || new Date().toISOString(),
+        lat: hasStudentLocation
+          ? candidateLocation.lat
+          : (existingJoinedPayload?.lat ?? null),
+        lng: hasStudentLocation
+          ? candidateLocation.lng
+          : (existingJoinedPayload?.lng ?? null),
       };
 
       joinMap.set(connectedUserId, joinedPayload);
@@ -1663,6 +1811,15 @@ io.on("connection", (socket) => {
         sessionId: normalizedSessionId,
         students: getAttendanceJoinedStudentsList(normalizedSessionId),
       });
+
+      if (hasStudentLocation) {
+        io.to(roomId).emit("attendance-heatmap-updated", {
+          sessionId: normalizedSessionId,
+          lat: candidateLocation.lat,
+          lng: candidateLocation.lng,
+          studentId: connectedUserId,
+        });
+      }
     } catch (error) {
       console.error("Attendance join tracking error:", error.message);
     }
@@ -2544,22 +2701,68 @@ app.post("/attendance/start", async (req, res) => {
       }
     }
 
-    const existingSessionSnapshot = await firestore
+    const sameDateSessionsSnapshot = await firestore
       .collection("attendance_sessions")
       .where("teacherId", "==", decodedToken.uid)
-      .where("subjectId", "==", subjectId)
       .where("date", "==", date)
-      .where("status", "==", "active")
-      .limit(1)
       .get();
 
-    if (!existingSessionSnapshot.empty) {
-      const existing = existingSessionSnapshot.docs[0];
-      return res.status(200).json({
-        success: true,
-        message: "Active attendance session already exists.",
-        sessionId: existing.id,
-        session: { id: existing.id, ...existing.data() },
+    const sameDateSessions = sameDateSessionsSnapshot.docs.map((docSnap) => ({
+      id: docSnap.id,
+      ...docSnap.data(),
+    }));
+
+    const matchingSession = sameDateSessions.find((session) => {
+      const sameLectureId =
+        lectureIdInput &&
+        String(session.lectureId || "").trim() === lectureIdInput;
+
+      if (sameLectureId) {
+        return true;
+      }
+
+      if (lectureIdInput && String(session.lectureId || "").trim()) {
+        return false;
+      }
+
+      const sameSubject = String(session.subjectId || "").trim() === subjectId;
+      if (!sameSubject) {
+        return false;
+      }
+
+      const sameDay = lectureDay
+        ? String(session.day || "")
+            .trim()
+            .toLowerCase() === lectureDay.toLowerCase()
+        : true;
+      const sameStart = lectureStartTime
+        ? String(session.lectureStartTime || "").trim() === lectureStartTime
+        : true;
+      const sameEnd = lectureEndTime
+        ? String(session.lectureEndTime || "").trim() === lectureEndTime
+        : true;
+
+      return sameDay && sameStart && sameEnd;
+    });
+
+    if (matchingSession) {
+      const normalizedStatus = String(matchingSession.status || "")
+        .trim()
+        .toLowerCase();
+
+      if (normalizedStatus === "active") {
+        return res.status(200).json({
+          success: true,
+          message: "Active attendance session already exists.",
+          sessionId: matchingSession.id,
+          session: matchingSession,
+        });
+      }
+
+      return res.status(409).json({
+        message:
+          "Attendance for this lecture and date is already taken. Open Past Attendance Sessions to view/export it.",
+        existingSession: matchingSession,
       });
     }
 
@@ -3547,11 +3750,185 @@ app.get("/attendance/session/:sessionId/records", async (req, res) => {
         absentStudents: Array.isArray(sessionData.absentStudents)
           ? sessionData.absentStudents
           : [],
+        joinedStudents: getAttendanceJoinedStudentsList(sessionId),
       },
       records,
     });
   } catch (error) {
     const status = /token/i.test(error.message) ? 401 : 500;
+    return res.status(status).json({ message: error.message });
+  }
+});
+
+app.delete("/attendance/session/:sessionId", async (req, res) => {
+  try {
+    const { decodedToken } = await verifyTeacherFromRequest(req);
+    const sessionId = String(req.params.sessionId || "").trim();
+    if (!sessionId) {
+      return res.status(400).json({ message: "sessionId is required." });
+    }
+
+    const firestore = admin.firestore();
+    const sessionRef = firestore
+      .collection("attendance_sessions")
+      .doc(sessionId);
+    const sessionDoc = await sessionRef.get();
+
+    if (!sessionDoc.exists) {
+      return res.status(404).json({ message: "Attendance session not found." });
+    }
+
+    const sessionData = sessionDoc.data() || {};
+    if (String(sessionData.teacherId || "") !== decodedToken.uid) {
+      return res
+        .status(403)
+        .json({ message: "Only session owner can delete this session." });
+    }
+
+    if (String(sessionData.status || "").toLowerCase() !== "ended") {
+      return res.status(400).json({
+        message: "Only ended attendance sessions can be deleted from history.",
+      });
+    }
+
+    const recordsSnapshot = await firestore
+      .collection("attendance_records")
+      .where("sessionId", "==", sessionId)
+      .get();
+
+    const attendanceRecords = recordsSnapshot.docs.map((docSnap) => ({
+      id: docSnap.id,
+      ...docSnap.data(),
+    }));
+
+    const presentStudentIds = new Set(
+      (Array.isArray(sessionData.presentStudentIds)
+        ? sessionData.presentStudentIds
+        : attendanceRecords.map((record) => record.studentId)
+      )
+        .map((studentId) => String(studentId || "").trim())
+        .filter(Boolean),
+    );
+
+    const enrolledStudentIds = Array.from(
+      new Set(
+        [
+          ...(Array.isArray(sessionData.enrolledStudentIds)
+            ? sessionData.enrolledStudentIds
+            : []),
+          ...(Array.isArray(sessionData.presentStudentIds)
+            ? sessionData.presentStudentIds
+            : []),
+          ...(Array.isArray(sessionData.absentStudentIds)
+            ? sessionData.absentStudentIds
+            : []),
+          ...(Array.isArray(sessionData.presentStudents)
+            ? sessionData.presentStudents.map((student) => student.studentId)
+            : []),
+          ...(Array.isArray(sessionData.absentStudents)
+            ? sessionData.absentStudents.map((student) => student.studentId)
+            : []),
+          ...attendanceRecords.map((record) => record.studentId),
+        ]
+          .map((studentId) => String(studentId || "").trim())
+          .filter(Boolean),
+      ),
+    );
+
+    if (sessionData.subjectId) {
+      for (const studentId of enrolledStudentIds) {
+        const attendanceRef = firestore
+          .collection("student_attendance")
+          .doc(`${studentId}_${sessionData.subjectId}`);
+
+        await firestore.runTransaction(async (transaction) => {
+          const attendanceDoc = await transaction.get(attendanceRef);
+          if (!attendanceDoc.exists) {
+            return;
+          }
+
+          const attendanceData = attendanceDoc.data() || {};
+          const currentTotal = Number(attendanceData.totalClasses || 0);
+          const currentAttended = Number(attendanceData.attendedClasses || 0);
+          const nextTotal = Math.max(currentTotal - 1, 0);
+          const nextAttended = Math.max(
+            currentAttended - (presentStudentIds.has(studentId) ? 1 : 0),
+            0,
+          );
+
+          transaction.set(
+            attendanceRef,
+            {
+              totalClasses: nextTotal,
+              attendedClasses: nextAttended,
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            },
+            { merge: true },
+          );
+        });
+      }
+
+      const statsDocId = `${sessionData.subjectId}_${sessionData.teacherId}`;
+      const statsRef = firestore
+        .collection("subject_attendance_stats")
+        .doc(statsDocId);
+      const enrolledCount = Number(
+        sessionData.enrolledStudentsCount || enrolledStudentIds.length || 0,
+      );
+      const presentCount = Number(sessionData.presentCount || 0);
+      const rateDelta = enrolledCount
+        ? Number(((presentCount / enrolledCount) * 100).toFixed(2))
+        : 0;
+
+      await firestore.runTransaction(async (transaction) => {
+        const statsDoc = await transaction.get(statsRef);
+        if (!statsDoc.exists) {
+          return;
+        }
+
+        const statsData = statsDoc.data() || {};
+        const nextTotalClasses = Math.max(
+          Number(statsData.totalClasses || 0) - 1,
+          0,
+        );
+        const nextCumulativeRate = Math.max(
+          Number(statsData.cumulativeAttendanceRate || 0) - rateDelta,
+          0,
+        );
+
+        transaction.set(
+          statsRef,
+          {
+            totalClasses: nextTotalClasses,
+            cumulativeAttendanceRate: Number(nextCumulativeRate.toFixed(2)),
+            lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+      });
+    }
+
+    const recordRefs = recordsSnapshot.docs.map((docSnap) => docSnap.ref);
+    const batchSize = 400;
+
+    for (let index = 0; index < recordRefs.length; index += batchSize) {
+      const batch = firestore.batch();
+      recordRefs.slice(index, index + batchSize).forEach((recordRef) => {
+        batch.delete(recordRef);
+      });
+      await batch.commit();
+    }
+
+    await sessionRef.delete();
+    attendanceSessionJoinedStudents.delete(sessionId);
+
+    return res.status(200).json({
+      success: true,
+      message: "Attendance session deleted successfully.",
+      deletedSessionId: sessionId,
+    });
+  } catch (error) {
+    const status = /authorized|token/i.test(error.message) ? 403 : 500;
     return res.status(status).json({ message: error.message });
   }
 });
@@ -3722,24 +4099,10 @@ app.get("/attendance/teacher/subject/:subjectId/students", async (req, res) => {
       }
     }
 
-    const attendanceSnapshot = await firestore
-      .collection("student_attendance")
-      .where("subjectId", "==", subjectId)
-      .get();
-
-    const attendanceByStudentId = new Map();
-    attendanceSnapshot.docs.forEach((docSnap) => {
-      const entry = docSnap.data() || {};
-      const studentId = String(entry.studentId || "").trim();
-      if (!studentId) {
-        return;
-      }
-
-      attendanceByStudentId.set(studentId, {
-        totalClasses: Number(entry.totalClasses || 0),
-        attendedClasses: Number(entry.attendedClasses || 0),
-      });
-    });
+    const { attendanceByStudentId } = await buildSubjectAttendanceIndex(
+      firestore,
+      subjectId,
+    );
 
     const students = Array.from(rosterMap.values())
       .map((student) => {
@@ -3810,28 +4173,61 @@ app.get("/attendance/student/:studentId", async (req, res) => {
     }
 
     const firestore = admin.firestore();
-    const snapshot = await firestore
+    const studentProfile = await getStudentProfileByUid(firestore, studentId);
+    const subjectNameById = new Map();
+
+    normalizeSubjectValues(studentProfile?.subjects).forEach((subjectName) => {
+      const id = makeSubjectId(subjectName);
+      if (!id || subjectNameById.has(id)) {
+        return;
+      }
+      subjectNameById.set(id, subjectName);
+    });
+
+    const existingSnapshot = await firestore
       .collection("student_attendance")
       .where("studentId", "==", studentId)
       .get();
 
-    const records = snapshot.docs
-      .map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-      }))
-      .map((entry) => {
-        const totalClasses = Number(entry.totalClasses || 0);
-        const attendedClasses = Number(entry.attendedClasses || 0);
-        const percentage = totalClasses
-          ? Number(((attendedClasses / totalClasses) * 100).toFixed(2))
-          : 0;
+    existingSnapshot.docs.forEach((docSnap) => {
+      const data = docSnap.data() || {};
+      const subjectId = String(data.subjectId || "").trim();
+      if (!subjectId) {
+        return;
+      }
 
-        return {
-          ...entry,
-          percentage,
-        };
+      if (!subjectNameById.has(subjectId)) {
+        const subjectName = String(data.subjectName || "").trim();
+        subjectNameById.set(subjectId, subjectName || subjectId);
+      }
+    });
+
+    const records = [];
+    for (const [subjectId, subjectName] of subjectNameById.entries()) {
+      const { attendanceByStudentId } = await buildSubjectAttendanceIndex(
+        firestore,
+        subjectId,
+      );
+      const attendance = attendanceByStudentId.get(studentId) || {
+        totalClasses: 0,
+        attendedClasses: 0,
+      };
+      const totalClasses = Number(attendance.totalClasses || 0);
+      const attendedClasses = Number(attendance.attendedClasses || 0);
+      const percentage = totalClasses
+        ? Number(((attendedClasses / totalClasses) * 100).toFixed(2))
+        : 0;
+
+      records.push({
+        id: `${studentId}_${subjectId}`,
+        studentId,
+        subjectId,
+        subjectName: subjectName || subjectId,
+        totalClasses,
+        attendedClasses,
+        percentage,
       });
+    }
 
     return res.status(200).json({ success: true, attendance: records });
   } catch (error) {
@@ -3938,7 +4334,7 @@ app.get("/attendance/analytics/:subjectId", async (req, res) => {
       .where("subjectId", "==", subjectId)
       .get();
 
-    const atRiskStudents = studentAttendanceSnapshot.docs
+    const atRiskBase = studentAttendanceSnapshot.docs
       .map((docSnap) => {
         const data = docSnap.data() || {};
         const totalClasses = Number(data.totalClasses || 0);
@@ -3951,6 +4347,27 @@ app.get("/attendance/analytics/:subjectId", async (req, res) => {
       })
       .filter((entry) => Number(entry.percentage || 0) < 75)
       .sort((a, b) => Number(a.percentage || 0) - Number(b.percentage || 0));
+
+    const atRiskStudents = await Promise.all(
+      atRiskBase.map(async (entry) => {
+        const studentId = String(entry.studentId || "").trim();
+        if (!studentId) {
+          return {
+            ...entry,
+            studentName: entry.studentName || "",
+            prn: entry.prn || "",
+          };
+        }
+
+        const profile = await getStudentProfileByUid(firestore, studentId);
+        return {
+          ...entry,
+          studentName:
+            entry.studentName || profile?.name || profile?.displayName || "",
+          prn: entry.prn || getPrnFromRecord(profile || {}) || "",
+        };
+      }),
+    );
 
     const classAttendanceRate = sessions.length
       ? Number((totalRate / sessions.length).toFixed(2))

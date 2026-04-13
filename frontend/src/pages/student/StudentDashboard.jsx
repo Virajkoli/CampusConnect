@@ -128,6 +128,7 @@ function StudentDashboard() {
   const [timetable, setTimetable] = useState([]);
   const [todaysClasses, setTodaysClasses] = useState([]);
   const [attendanceStatsBySubject, setAttendanceStatsBySubject] = useState({});
+  const [attendanceRefreshing, setAttendanceRefreshing] = useState(false);
   const [studyMaterials, setStudyMaterials] = useState([]);
   const [activeSessions, setActiveSessions] = useState([]);
   const [examSchedule, setExamSchedule] = useState([]);
@@ -182,6 +183,36 @@ function StudentDashboard() {
       .split("")
       .reduce((acc, char) => acc + char.charCodeAt(0), 0);
     return subjectColorClasses[seed % subjectColorClasses.length];
+  };
+
+  const refreshAttendanceSummary = async (studentId, options = {}) => {
+    const targetStudentId = String(studentId || "").trim();
+    if (!targetStudentId) {
+      return;
+    }
+
+    const silent = Boolean(options?.silent);
+    setAttendanceRefreshing(true);
+    try {
+      const attendanceResult = await getStudentAttendance(targetStudentId);
+      const stats = Array.isArray(attendanceResult.attendance)
+        ? attendanceResult.attendance
+        : [];
+      const statsMap = {};
+      stats.forEach((entry) => {
+        const byId = String(entry.subjectId || "");
+        const byName = makeSubjectId(entry.subjectName || "");
+        if (byId) statsMap[byId] = entry;
+        if (byName) statsMap[byName] = entry;
+      });
+      setAttendanceStatsBySubject(statsMap);
+    } catch (error) {
+      if (!silent) {
+        console.error("Error refreshing attendance summary:", error);
+      }
+    } finally {
+      setAttendanceRefreshing(false);
+    }
   };
 
   const calculateNeededClassesFor75 = (attended = 0, total = 0) => {
@@ -270,18 +301,7 @@ function StudentDashboard() {
             setSubjectTeachersMap({});
           }
 
-          const attendanceResult = await getStudentAttendance(user.uid);
-          const stats = Array.isArray(attendanceResult.attendance)
-            ? attendanceResult.attendance
-            : [];
-          const statsMap = {};
-          stats.forEach((entry) => {
-            const byId = String(entry.subjectId || "");
-            const byName = makeSubjectId(entry.subjectName || "");
-            if (byId) statsMap[byId] = entry;
-            if (byName) statsMap[byName] = entry;
-          });
-          setAttendanceStatsBySubject(statsMap);
+          await refreshAttendanceSummary(user.uid, { silent: true });
 
           await fetchExamSchedule(resolvedDept, resolvedYear);
         }
@@ -624,7 +644,7 @@ function StudentDashboard() {
                 {new Date().toLocaleDateString("en-US", {
                   weekday: "long",
                   month: "short",
-                  day: "numeric",   
+                  day: "numeric",
                 })}
               </p>
             </div>
@@ -945,18 +965,39 @@ function StudentDashboard() {
                 key={session.sessionId || session.id}
                 className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
               >
-                <p className="font-semibold text-slate-800">
-                  {session.subjectName || "Subject"}
-                </p>
-                <p className="mt-1 text-sm text-slate-600">
-                  {session.teacherName || "Teacher"} • {session.day || "-"} •{" "}
-                  {session.lectureStartTime || "--:--"} -{" "}
-                  {session.lectureEndTime || "--:--"}
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  {session.branch || "-"} {session.year || ""}
-                  {session.semester ? ` / Sem ${session.semester}` : ""}
-                </p>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-slate-800">
+                      {session.subjectName || "Subject"}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-600">
+                      {session.teacherName || "Teacher"} • {session.day || "-"}{" "}
+                      • {session.lectureStartTime || "--:--"} -{" "}
+                      {session.lectureEndTime || "--:--"}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {session.branch || "-"} {session.year || ""}
+                      {session.semester ? ` / Sem ${session.semester}` : ""}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const sessionId = String(
+                        session.sessionId || session.id || "",
+                      ).trim();
+                      if (!sessionId) {
+                        return;
+                      }
+                      navigate(
+                        `/student-attendance?sessionId=${encodeURIComponent(sessionId)}`,
+                      );
+                    }}
+                    className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-medium text-white"
+                  >
+                    Join Session
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -968,11 +1009,21 @@ function StudentDashboard() {
       </div>
 
       <div className="rounded-3xl border border-slate-200/80 bg-white p-5 sm:p-6">
-        <div className="mb-4 flex items-center gap-2">
-          <FiBarChart2 className="h-5 w-5 text-[#2f87d9]" />
-          <h2 className="text-xl font-semibold text-slate-800">
-            Subject Attendance Summary
-          </h2>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <FiBarChart2 className="h-5 w-5 text-[#2f87d9]" />
+            <h2 className="text-xl font-semibold text-slate-800">
+              Subject Attendance Summary
+            </h2>
+          </div>
+          <button
+            type="button"
+            disabled={attendanceRefreshing || !user?.uid}
+            onClick={() => refreshAttendanceSummary(user?.uid)}
+            className="rounded-md border border-slate-300 px-3 py-1 text-xs text-slate-700 disabled:opacity-60"
+          >
+            {attendanceRefreshing ? "Refreshing..." : "Refresh"}
+          </button>
         </div>
 
         {courses.length > 0 ? (

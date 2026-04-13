@@ -2,6 +2,23 @@ import React, { useEffect, useMemo, useState } from "react";
 import QRScanner from "./QRScanner";
 import ClassroomHeatmap from "./ClassroomHeatmap";
 
+const toDateValue = (value) => {
+  if (!value) return null;
+  if (typeof value?.toDate === "function") {
+    return value.toDate();
+  }
+  if (typeof value?.seconds === "number") {
+    return new Date(value.seconds * 1000);
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const formatTime = (value) => {
+  const dateValue = toDateValue(value);
+  return dateValue ? dateValue.toLocaleTimeString() : "-";
+};
+
 const toCsv = (session, records) => {
   const header = [
     "PRN",
@@ -28,7 +45,9 @@ const toCsv = (session, records) => {
 };
 
 const formatMethod = (method) => {
-  const value = String(method || "").trim().toLowerCase();
+  const value = String(method || "")
+    .trim()
+    .toLowerCase();
   if (value === "biometric") return "Fingerprint";
   if (value === "face_recognition") return "Face";
   if (value === "teacher_scan") return "Teacher QR";
@@ -41,6 +60,8 @@ export default function AttendanceSessionDashboard({
   joinedStudents,
   heatmapPoints,
   onScanStudent,
+  onRefresh,
+  refreshing = false,
   onEndSession,
   ending = false,
 }) {
@@ -130,6 +151,14 @@ export default function AttendanceSessionDashboard({
         </button>
         <button
           type="button"
+          onClick={onRefresh}
+          disabled={refreshing}
+          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 disabled:opacity-60"
+        >
+          {refreshing ? "Refreshing..." : "Refresh Session Data"}
+        </button>
+        <button
+          type="button"
           onClick={exportCsv}
           className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white"
         >
@@ -153,8 +182,18 @@ export default function AttendanceSessionDashboard({
       />
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-        <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700">
-          Students Joined Session
+        <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-2">
+          <span className="text-sm font-semibold text-slate-700">
+            Students Joined Session
+          </span>
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={refreshing}
+            className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 disabled:opacity-60"
+          >
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </button>
         </div>
         <div className="max-h-64 overflow-y-auto">
           <table className="w-full text-left text-sm">
@@ -178,9 +217,7 @@ export default function AttendanceSessionDashboard({
                     {student.prn || student.studentId || "-"}
                   </td>
                   <td className="px-4 py-2">
-                    {student.joinTimestamp
-                      ? new Date(student.joinTimestamp).toLocaleTimeString()
-                      : "-"}
+                    {formatTime(student.joinTimestamp)}
                   </td>
                 </tr>
               ))}
@@ -200,8 +237,18 @@ export default function AttendanceSessionDashboard({
       </div>
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-        <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700">
-          Live Attendance List
+        <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-2">
+          <span className="text-sm font-semibold text-slate-700">
+            Live Attendance List
+          </span>
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={refreshing}
+            className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 disabled:opacity-60"
+          >
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </button>
         </div>
         <div className="max-h-80 overflow-y-auto">
           <table className="w-full text-left text-sm">
@@ -221,11 +268,7 @@ export default function AttendanceSessionDashboard({
                     {record.studentName || record.studentId}
                   </td>
                   <td className="px-4 py-2">{formatMethod(record.method)}</td>
-                  <td className="px-4 py-2">
-                    {record.timestamp
-                      ? new Date(record.timestamp).toLocaleTimeString()
-                      : "-"}
-                  </td>
+                  <td className="px-4 py-2">{formatTime(record.timestamp)}</td>
                 </tr>
               ))}
               {sortedRecords.length === 0 ? (

@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { auth, firestore } from "../../firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { toast } from "react-toastify";
@@ -75,6 +75,7 @@ const getLocation = async () => {
 
 export default function StudentAttendancePage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { socket } = useSocket();
   const [student, setStudent] = useState(null);
   const [subjectAttendance, setSubjectAttendance] = useState([]);
@@ -91,6 +92,9 @@ export default function StudentAttendancePage() {
   const [faceLivenessPassed, setFaceLivenessPassed] = useState(false);
   const [marking, setMarking] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [pendingAutoJoinSessionId, setPendingAutoJoinSessionId] = useState(
+    String(searchParams.get("sessionId") || "").trim(),
+  );
 
   const joinedSession = useMemo(
     () =>
@@ -142,6 +146,13 @@ export default function StudentAttendancePage() {
       toast.error(error.message || "Unable to fetch face profile status.");
     }
   };
+
+  useEffect(() => {
+    const requestedSessionId = String(
+      searchParams.get("sessionId") || "",
+    ).trim();
+    setPendingAutoJoinSessionId(requestedSessionId);
+  }, [searchParams]);
 
   useEffect(() => {
     const init = async () => {
@@ -245,24 +256,89 @@ export default function StudentAttendancePage() {
       return;
     }
 
-    socket.emit("join_attendance_session", joinedSessionId);
-  }, [socket, joinedSessionId]);
+    let disposed = false;
 
-  const handleJoinSession = (sessionId) => {
-    setJoinedSessionId(sessionId);
-    const storedPasskey = getOneTimePasskey();
-    if (storedPasskey?.assertionId) {
-      setBiometricReady(true);
-      setBiometricAssertionId(storedPasskey.assertionId);
+    const emitJoin = async () => {
+      let latestLocation = studentLocation;
+
+      if (!latestLocation) {
+        try {
+          latestLocation = await getLocation();
+          if (!disposed) {
+            setStudentLocation(latestLocation);
+          }
+        } catch {
+          latestLocation = null;
+        }
+      }
+
+      if (!disposed) {
+        socket.emit("join_attendance_session", {
+          sessionId: joinedSessionId,
+          studentLocation: latestLocation || undefined,
+        });
+      }
+    };
+
+    emitJoin();
+
+    return () => {
+      disposed = true;
+    };
+  }, [socket, joinedSessionId, studentLocation]);
+
+  const handleJoinSession = useCallback(
+    (sessionId) => {
+      const normalizedSessionId = String(sessionId || "").trim();
+      if (!normalizedSessionId) {
+        return;
+      }
+
+      setJoinedSessionId(normalizedSessionId);
+      setPendingAutoJoinSessionId("");
+
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete("sessionId");
+      setSearchParams(nextParams, { replace: true });
+
+      const storedPasskey = getOneTimePasskey();
+      if (storedPasskey?.assertionId) {
+        setBiometricReady(true);
+        setBiometricAssertionId(storedPasskey.assertionId);
+        return;
+      }
+
+      setBiometricReady(false);
+      setBiometricAssertionId("");
+      setFaceReady(false);
+      setFaceDescriptor([]);
+      setFaceLivenessPassed(false);
+    },
+    [searchParams, setSearchParams],
+  );
+
+  useEffect(() => {
+    if (!pendingAutoJoinSessionId || joinedSessionId) {
       return;
     }
 
-    setBiometricReady(false);
-    setBiometricAssertionId("");
-    setFaceReady(false);
-    setFaceDescriptor([]);
-    setFaceLivenessPassed(false);
-  };
+    const matchingSession = activeSessions.find(
+      (session) =>
+        String(session.sessionId || session.id || "") ===
+        pendingAutoJoinSessionId,
+    );
+
+    if (!matchingSession) {
+      return;
+    }
+
+    handleJoinSession(pendingAutoJoinSessionId);
+  }, [
+    activeSessions,
+    handleJoinSession,
+    joinedSessionId,
+    pendingAutoJoinSessionId,
+  ]);
 
   const handleMark = async () => {
     const sessionId = String(
@@ -318,7 +394,7 @@ export default function StudentAttendancePage() {
               biometricAssertionId,
             });
 
-      toast.success(result.message || "Attendance marked successfully.");
+      toast.success(finalResult.message || "Attendance marked successfully.");
       consumeOneTimePasskey(biometricAssertionId);
       setJoinedSessionId("");
       setBiometricReady(false);
@@ -483,7 +559,8 @@ export default function StudentAttendancePage() {
               <div className="space-y-4">
                 <div className="rounded-2xl border border-slate-200 bg-white p-4">
                   <p className="text-xs text-slate-500">
-                    Face profile status: {faceRegistered ? "Registered" : "Not Registered"}
+                    Face profile status:{" "}
+                    {faceRegistered ? "Registered" : "Not Registered"}
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
                     Face registration is required only once. After that, only

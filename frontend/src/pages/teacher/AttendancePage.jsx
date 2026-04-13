@@ -9,6 +9,7 @@ import AttendanceSessionDashboard from "../../components/teacher/AttendanceSessi
 import AttendanceAnalytics from "../../components/teacher/AttendanceAnalytics";
 import PastSessionDetailsModal from "../../components/teacher/PastSessionDetailsModal";
 import {
+  deleteAttendanceSession,
   endAttendanceSession,
   getActiveAttendanceSessions,
   getAttendanceAnalytics,
@@ -115,6 +116,16 @@ const toCsv = (session, records) => {
     .join("\n");
 };
 
+const formatMethod = (method) => {
+  const value = String(method || "")
+    .trim()
+    .toLowerCase();
+  if (value === "biometric") return "Fingerprint";
+  if (value === "face_recognition") return "Face";
+  if (value === "teacher_scan") return "Teacher QR";
+  return method || "-";
+};
+
 const downloadCsv = (fileName, content) => {
   const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
@@ -208,6 +219,172 @@ const exportSubjectAttendancePdf = (subjectName, rows) => {
   printWindow.print();
 };
 
+const exportSessionAttendancePdf = (session, records) => {
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) {
+    return;
+  }
+
+  const safeRecords = Array.isArray(records) ? records : [];
+  const tableRows = safeRecords
+    .map(
+      (record) => `
+        <tr>
+          <td>${record.prn || "-"}</td>
+          <td>${record.studentName || "-"}</td>
+          <td>${record.studentId || "-"}</td>
+          <td>${formatMethod(record.method)}</td>
+          <td>${formatDateTime(record.timestamp)}</td>
+        </tr>`,
+    )
+    .join("");
+
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>${session.subjectName || "Subject"} Attendance Session Report</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 16px; color: #0f172a; }
+          h1 { font-size: 18px; margin-bottom: 4px; }
+          p { margin: 2px 0 10px 0; font-size: 12px; color: #475569; }
+          table { width: 100%; border-collapse: collapse; font-size: 12px; }
+          th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; }
+          th { background: #e2e8f0; }
+        </style>
+      </head>
+      <body>
+        <h1>${session.subjectName || "Subject"} - Attendance Session</h1>
+        <p>Date: ${session.date || "-"} | Session: ${String(session.sessionId || session.id || "-")}</p>
+        <p>Lecture: ${session.day || "-"} | ${session.lectureStartTime || "--:--"} - ${session.lectureEndTime || "--:--"}</p>
+        <p>Present: ${Number(session.presentCount || 0)} / ${Number(session.enrolledStudentsCount || 0)}</p>
+        <table>
+          <thead>
+            <tr>
+              <th>PRN</th>
+              <th>Student Name</th>
+              <th>Student ID</th>
+              <th>Method</th>
+              <th>Marked At</th>
+            </tr>
+          </thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+      </body>
+    </html>
+  `);
+
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
+};
+
+const normalizeHeatmapPoint = (value) => {
+  const lat = Number(value?.lat ?? value?.latitude);
+  const lng = Number(value?.lng ?? value?.longitude);
+
+  if (Number.isNaN(lat) || Number.isNaN(lng)) {
+    return null;
+  }
+
+  return {
+    lat,
+    lng,
+    studentId: String(value?.studentId || "").trim(),
+  };
+};
+
+const normalizeJoinedStudent = (value) => {
+  const point = normalizeHeatmapPoint(value?.studentLocation || value);
+
+  return {
+    studentId: String(value?.studentId || "").trim(),
+    studentName: value?.studentName || "Student",
+    prn: value?.prn || "",
+    joinTimestamp: value?.joinTimestamp || null,
+    lat: point?.lat ?? null,
+    lng: point?.lng ?? null,
+  };
+};
+
+const mergeJoinedStudentLists = (currentList, incomingList) => {
+  const mergedMap = new Map();
+
+  (Array.isArray(currentList) ? currentList : []).forEach((entry) => {
+    const normalized = normalizeJoinedStudent(entry);
+    if (!normalized.studentId) {
+      return;
+    }
+    mergedMap.set(normalized.studentId, normalized);
+  });
+
+  (Array.isArray(incomingList) ? incomingList : []).forEach((entry) => {
+    const normalized = normalizeJoinedStudent(entry);
+    if (!normalized.studentId) {
+      return;
+    }
+
+    const existing = mergedMap.get(normalized.studentId);
+    if (!existing) {
+      mergedMap.set(normalized.studentId, normalized);
+      return;
+    }
+
+    mergedMap.set(normalized.studentId, {
+      ...existing,
+      studentName: normalized.studentName || existing.studentName,
+      prn: normalized.prn || existing.prn,
+      joinTimestamp: normalized.joinTimestamp || existing.joinTimestamp,
+      lat: normalized.lat ?? existing.lat ?? null,
+      lng: normalized.lng ?? existing.lng ?? null,
+    });
+  });
+
+  return Array.from(mergedMap.values()).sort((a, b) => {
+    const aMs = toDateValue(a.joinTimestamp)?.getTime() || 0;
+    const bMs = toDateValue(b.joinTimestamp)?.getTime() || 0;
+    return bMs - aMs;
+  });
+};
+
+const buildHeatmapPoints = (recordsList, joinedList) => {
+  const points = [];
+
+  (Array.isArray(recordsList) ? recordsList : []).forEach((record) => {
+    const point = normalizeHeatmapPoint(record);
+    if (point) {
+      points.push(point);
+    }
+  });
+
+  (Array.isArray(joinedList) ? joinedList : []).forEach((student) => {
+    const point = normalizeHeatmapPoint(student?.studentLocation || student);
+    if (point) {
+      points.push({
+        ...point,
+        studentId: point.studentId || String(student?.studentId || "").trim(),
+      });
+    }
+  });
+
+  const uniquePoints = [];
+  const seen = new Set();
+
+  points.forEach((point) => {
+    const key = point.studentId
+      ? `student_${point.studentId}`
+      : `${point.lat.toFixed(6)}_${point.lng.toFixed(6)}`;
+
+    if (seen.has(key)) {
+      return;
+    }
+
+    seen.add(key);
+    uniquePoints.push(point);
+  });
+
+  return uniquePoints.slice(0, 300);
+};
+
 export default function AttendancePage() {
   const navigate = useNavigate();
   const { socket } = useSocket();
@@ -230,6 +407,8 @@ export default function AttendancePage() {
   const [selectedSession, setSelectedSession] = useState(null);
   const [selectedSessionRecords, setSelectedSessionRecords] = useState([]);
   const [exportingSessionId, setExportingSessionId] = useState("");
+  const [exportingSessionPdfId, setExportingSessionPdfId] = useState("");
+  const [deletingSessionId, setDeletingSessionId] = useState("");
   const [selectedSubjectId, setSelectedSubjectId] = useState("");
   const [selectedSubjectName, setSelectedSubjectName] = useState("");
   const [subjectStudents, setSubjectStudents] = useState([]);
@@ -237,6 +416,7 @@ export default function AttendancePage() {
   const [subjectLoading, setSubjectLoading] = useState(false);
   const [subjectSearch, setSubjectSearch] = useState("");
   const [subjectFilter, setSubjectFilter] = useState("all");
+  const [refreshingSessionData, setRefreshingSessionData] = useState(false);
 
   const refreshSessionHistory = async () => {
     setHistoryLoading(true);
@@ -249,6 +429,53 @@ export default function AttendancePage() {
       toast.error(error.message || "Failed to load past attendance sessions.");
     } finally {
       setHistoryLoading(false);
+    }
+  };
+
+  const refreshActiveSessionData = async (
+    sessionCandidate = activeSession,
+    { notifyOnError = true, notifyOnSuccess = false } = {},
+  ) => {
+    const sessionId = String(
+      sessionCandidate?.sessionId || sessionCandidate?.id || "",
+    ).trim();
+
+    if (!sessionId) {
+      return;
+    }
+
+    setRefreshingSessionData(true);
+    try {
+      const result = await getAttendanceSessionRecords(sessionId);
+      const recordsList = Array.isArray(result.records) ? result.records : [];
+      const joinedStudentsList = Array.isArray(result?.session?.joinedStudents)
+        ? result.session.joinedStudents.map((entry) =>
+            normalizeJoinedStudent(entry),
+          )
+        : [];
+      const presentStudents = Array.isArray(result?.session?.presentStudents)
+        ? result.session.presentStudents.map((entry) =>
+            normalizeJoinedStudent(entry),
+          )
+        : [];
+      const nextJoinedStudents = mergeJoinedStudentLists(
+        joinedStudentsList,
+        presentStudents,
+      );
+
+      setRecords(recordsList);
+      setJoinedStudents(nextJoinedStudents);
+      setHeatmapPoints(buildHeatmapPoints(recordsList, nextJoinedStudents));
+
+      if (notifyOnSuccess) {
+        toast.success("Session data refreshed.");
+      }
+    } catch (error) {
+      if (notifyOnError) {
+        toast.error(error.message || "Failed to refresh session data.");
+      }
+    } finally {
+      setRefreshingSessionData(false);
     }
   };
 
@@ -327,22 +554,37 @@ export default function AttendancePage() {
             try {
               const recordsResult =
                 await getAttendanceSessionRecords(restoredSessionId);
-              setRecords(
-                Array.isArray(recordsResult.records)
-                  ? recordsResult.records
-                  : [],
+              const restoredRecords = Array.isArray(recordsResult.records)
+                ? recordsResult.records
+                : [];
+              const restoredJoinedSnapshot = Array.isArray(
+                recordsResult?.session?.joinedStudents,
+              )
+                ? recordsResult.session.joinedStudents.map((entry) =>
+                    normalizeJoinedStudent(entry),
+                  )
+                : [];
+              const restoredJoinedStudents = Array.isArray(
+                recordsResult?.session?.presentStudents,
+              )
+                ? recordsResult.session.presentStudents.map((entry) =>
+                    normalizeJoinedStudent(entry),
+                  )
+                : [];
+              const resolvedJoinedStudents = mergeJoinedStudentLists(
+                restoredJoinedSnapshot,
+                restoredJoinedStudents,
               );
-              setJoinedStudents(
-                Array.isArray(recordsResult?.session?.presentStudents)
-                  ? recordsResult.session.presentStudents.map((entry) => ({
-                      ...entry,
-                      joinTimestamp: entry.joinTimestamp || null,
-                    }))
-                  : [],
+
+              setRecords(restoredRecords);
+              setJoinedStudents(resolvedJoinedStudents);
+              setHeatmapPoints(
+                buildHeatmapPoints(restoredRecords, resolvedJoinedStudents),
               );
             } catch {
               setRecords([]);
               setJoinedStudents([]);
+              setHeatmapPoints([]);
             }
           }
         }
@@ -361,11 +603,13 @@ export default function AttendancePage() {
   }, [navigate]);
 
   useEffect(() => {
-    if (!socket || !activeSession?.sessionId) {
+    const roomSessionId = String(
+      activeSession?.sessionId || activeSession?.id || "",
+    ).trim();
+    if (!socket || !roomSessionId) {
       return;
     }
 
-    const roomSessionId = activeSession.sessionId;
     socket.emit("join_attendance_session", roomSessionId);
 
     const mergeJoinedStudent = (payload) => {
@@ -375,24 +619,34 @@ export default function AttendancePage() {
       }
 
       setJoinedStudents((prev) => {
-        if (
-          prev.some(
-            (entry) => String(entry.studentId || "") === incomingStudentId,
-          )
-        ) {
-          return prev;
-        }
-
-        return [
+        return mergeJoinedStudentLists(prev, [
           {
             studentId: incomingStudentId,
             studentName: payload.studentName || "Student",
             prn: payload.prn || "",
             joinTimestamp: payload.joinTimestamp || new Date().toISOString(),
+            lat: payload.lat,
+            lng: payload.lng,
+            studentLocation: payload.studentLocation,
           },
-          ...prev,
-        ];
+        ]);
       });
+
+      const point = normalizeHeatmapPoint(payload?.studentLocation || payload);
+      if (point) {
+        setHeatmapPoints((prev) =>
+          buildHeatmapPoints(
+            [],
+            [
+              {
+                ...point,
+                studentId: point.studentId || incomingStudentId,
+              },
+              ...prev,
+            ],
+          ),
+        );
+      }
     };
 
     const onRecorded = (payload) => {
@@ -407,11 +661,20 @@ export default function AttendancePage() {
         return [payload, ...prev];
       });
 
+      const recordPoint = normalizeHeatmapPoint(payload);
+      if (recordPoint) {
+        setHeatmapPoints((prev) =>
+          buildHeatmapPoints([], [recordPoint, ...prev]),
+        );
+      }
+
       mergeJoinedStudent({
         studentId: payload.studentId,
         studentName: payload.studentName,
         prn: payload.prn,
         joinTimestamp: payload.timestamp,
+        latitude: payload.latitude,
+        longitude: payload.longitude,
       });
     };
 
@@ -428,18 +691,23 @@ export default function AttendancePage() {
       }
 
       const students = Array.isArray(payload.students) ? payload.students : [];
-      setJoinedStudents(
-        students.map((entry) => ({
-          studentId: entry.studentId,
-          studentName: entry.studentName || "Student",
-          prn: entry.prn || "",
-          joinTimestamp: entry.joinTimestamp || null,
-        })),
+      const normalizedStudents = students.map((entry) =>
+        normalizeJoinedStudent(entry),
+      );
+      setJoinedStudents(normalizedStudents);
+      setHeatmapPoints((prev) =>
+        buildHeatmapPoints([], [...normalizedStudents, ...prev]),
       );
     };
 
     const onHeatmap = (point) => {
-      setHeatmapPoints((prev) => [point, ...prev].slice(0, 300));
+      const normalizedPoint = normalizeHeatmapPoint(point);
+      if (!normalizedPoint) {
+        return;
+      }
+      setHeatmapPoints((prev) =>
+        buildHeatmapPoints([], [normalizedPoint, ...prev]),
+      );
     };
 
     const onEnded = (payload) => {
@@ -449,7 +717,9 @@ export default function AttendancePage() {
       toast.info("Attendance session ended.");
       setEndedSessionSummary(payload);
       setActiveSession(null);
+      setRecords([]);
       setJoinedStudents([]);
+      setHeatmapPoints([]);
     };
 
     socket.on("attendance-recorded", onRecorded);
@@ -466,28 +736,6 @@ export default function AttendancePage() {
       socket.off("attendance-session-ended", onEnded);
     };
   }, [socket, activeSession]);
-
-  useEffect(() => {
-    if (!activeSession?.sessionId) {
-      return;
-    }
-
-    const sessionId = String(activeSession.sessionId || activeSession.id || "");
-    if (!sessionId) {
-      return;
-    }
-
-    const timer = setInterval(async () => {
-      try {
-        const result = await getAttendanceSessionRecords(sessionId);
-        setRecords(Array.isArray(result.records) ? result.records : []);
-      } catch {
-        // no-op; websocket remains primary source of truth
-      }
-    }, 8000);
-
-    return () => clearInterval(timer);
-  }, [activeSession]);
 
   const availableLectures = useMemo(() => teacherLectures, [teacherLectures]);
 
@@ -643,6 +891,72 @@ export default function AttendancePage() {
     }
   };
 
+  const handleExportSessionPdf = async (session, existingRecords) => {
+    const sessionId = String(session?.sessionId || session?.id || "");
+    if (!sessionId) {
+      toast.error("Invalid session selected.");
+      return;
+    }
+
+    setExportingSessionPdfId(sessionId);
+    try {
+      let recordsList = Array.isArray(existingRecords) ? existingRecords : [];
+      if (recordsList.length === 0) {
+        const result = await getAttendanceSessionRecords(sessionId);
+        recordsList = Array.isArray(result.records) ? result.records : [];
+      }
+
+      exportSessionAttendancePdf(session, recordsList);
+      toast.success("Session report PDF opened for download/print.");
+    } catch (error) {
+      toast.error(error.message || "Failed to export session PDF report.");
+    } finally {
+      setExportingSessionPdfId("");
+    }
+  };
+
+  const handleDeleteSession = async (session) => {
+    const sessionId = String(session?.sessionId || session?.id || "").trim();
+    if (!sessionId) {
+      toast.error("Invalid session selected.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Delete this attendance session and its records? This action cannot be undone.",
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingSessionId(sessionId);
+    try {
+      const result = await deleteAttendanceSession(sessionId);
+      toast.success(result.message || "Attendance session deleted.");
+
+      setSessionHistory((prev) =>
+        prev.filter(
+          (entry) => String(entry.sessionId || entry.id || "") !== sessionId,
+        ),
+      );
+
+      if (
+        String(selectedSession?.sessionId || selectedSession?.id || "") ===
+        sessionId
+      ) {
+        setDetailsOpen(false);
+        setSelectedSession(null);
+        setSelectedSessionRecords([]);
+      }
+
+      await refreshSessionHistory();
+    } catch (error) {
+      toast.error(error.message || "Failed to delete session.");
+    } finally {
+      setDeletingSessionId("");
+    }
+  };
+
   const handleStart = async (payload) => {
     setStarting(true);
     try {
@@ -672,11 +986,14 @@ export default function AttendancePage() {
   };
 
   const handleScan = async (qrPayload) => {
-    if (!activeSession?.sessionId) return;
+    const sessionId = String(
+      activeSession?.sessionId || activeSession?.id || "",
+    ).trim();
+    if (!sessionId) return;
 
     try {
       const result = await markAttendanceByTeacher({
-        sessionId: activeSession.sessionId,
+        sessionId,
         studentId: qrPayload.studentId,
         prn: qrPayload.prn,
       });
@@ -687,20 +1004,25 @@ export default function AttendancePage() {
   };
 
   const handleEnd = async () => {
-    if (!activeSession?.sessionId) return;
+    const sessionId = String(
+      activeSession?.sessionId || activeSession?.id || "",
+    ).trim();
+    if (!sessionId) return;
 
     const sessionToEnd = activeSession;
     setEnding(true);
     setActiveSession(null);
 
     try {
-      const result = await endAttendanceSession(sessionToEnd.sessionId);
+      const result = await endAttendanceSession(sessionId);
       toast.success(result.message || "Attendance session ended.");
       setEndedSessionSummary(result.session || null);
       if (sessionToEnd.subjectId) {
         setAnalyticsSubjectId(sessionToEnd.subjectId);
       }
+      setRecords([]);
       setJoinedStudents([]);
+      setHeatmapPoints([]);
       await refreshSessionHistory();
     } catch (error) {
       setActiveSession(sessionToEnd);
@@ -804,6 +1126,13 @@ export default function AttendancePage() {
             joinedStudents={joinedStudents}
             heatmapPoints={heatmapPoints}
             onScanStudent={handleScan}
+            onRefresh={() =>
+              refreshActiveSessionData(activeSession, {
+                notifyOnError: true,
+                notifyOnSuccess: true,
+              })
+            }
+            refreshing={refreshingSessionData}
             onEndSession={handleEnd}
             ending={ending}
           />
@@ -1071,6 +1400,11 @@ export default function AttendancePage() {
                           {session.subjectName || "Subject"}
                         </p>
                         <p className="text-xs text-slate-600">
+                          Lecture: {session.day || "-"} |{" "}
+                          {session.lectureStartTime || "--:--"} -{" "}
+                          {session.lectureEndTime || "--:--"}
+                        </p>
+                        <p className="text-xs text-slate-600">
                           Session: {sessionId || "-"}
                         </p>
                         <p className="text-xs text-slate-600">
@@ -1112,6 +1446,33 @@ export default function AttendancePage() {
                           ? "Exporting..."
                           : "Export CSV"}
                       </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleExportSessionPdf(
+                            session,
+                            Array.isArray(session.records)
+                              ? session.records
+                              : [],
+                          )
+                        }
+                        disabled={exportingSessionPdfId === sessionId}
+                        className="rounded-md bg-slate-700 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
+                      >
+                        {exportingSessionPdfId === sessionId
+                          ? "Exporting..."
+                          : "Export PDF"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSession(session)}
+                        disabled={deletingSessionId === sessionId}
+                        className="rounded-md bg-rose-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
+                      >
+                        {deletingSessionId === sessionId
+                          ? "Deleting..."
+                          : "Delete"}
+                      </button>
                     </div>
                   </div>
                 );
@@ -1131,7 +1492,13 @@ export default function AttendancePage() {
         session={selectedSession}
         records={selectedSessionRecords}
         loading={detailsLoading}
-        onExport={handleExportSessionCsv}
+        onExportCsv={handleExportSessionCsv}
+        onExportPdf={handleExportSessionPdf}
+        onDelete={handleDeleteSession}
+        deleting={
+          deletingSessionId ===
+          String(selectedSession?.sessionId || selectedSession?.id || "")
+        }
       />
 
       <StartAttendanceModal

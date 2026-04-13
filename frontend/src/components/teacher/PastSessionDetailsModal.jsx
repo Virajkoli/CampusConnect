@@ -23,7 +23,10 @@ export default function PastSessionDetailsModal({
   session,
   records,
   loading,
-  onExport,
+  onExportCsv,
+  onExportPdf,
+  onDelete,
+  deleting = false,
 }) {
   if (!isOpen || !session) {
     return null;
@@ -53,11 +56,27 @@ export default function PastSessionDetailsModal({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => onExport(session, recordsList)}
+              onClick={() => onExportCsv?.(session, recordsList)}
               className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white"
               disabled={loading}
             >
               Export CSV
+            </button>
+            <button
+              type="button"
+              onClick={() => onExportPdf?.(session, recordsList)}
+              className="rounded-md bg-slate-700 px-3 py-1.5 text-xs font-medium text-white"
+              disabled={loading}
+            >
+              Export PDF
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete?.(session)}
+              className="rounded-md bg-rose-600 px-3 py-1.5 text-xs font-medium text-white"
+              disabled={loading || deleting}
+            >
+              {deleting ? "Deleting..." : "Delete"}
             </button>
             <button
               type="button"

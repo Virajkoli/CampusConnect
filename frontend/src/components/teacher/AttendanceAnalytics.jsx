@@ -90,44 +90,6 @@ export default function AttendanceAnalytics({ analytics }) {
           </div>
         </div>
       </div>
-
-      <div className="rounded-xl border border-slate-200 p-3">
-        <h4 className="mb-2 text-sm font-semibold text-slate-700">
-          Students Below 75%
-        </h4>
-        {atRiskStudents.length === 0 ? (
-          <p className="text-sm text-slate-500">
-            No at-risk students for this subject.
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-slate-50 text-left text-slate-600">
-                  <th className="px-3 py-2">Student ID</th>
-                  <th className="px-3 py-2">Attendance %</th>
-                  <th className="px-3 py-2">Attended</th>
-                  <th className="px-3 py-2">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {atRiskStudents.map((student) => (
-                  <tr key={student.id} className="border-t border-slate-100">
-                    <td className="px-3 py-2">{student.studentId}</td>
-                    <td className="px-3 py-2">
-                      {Number(student.percentage || 0).toFixed(1)}%
-                    </td>
-                    <td className="px-3 py-2">
-                      {student.attendedClasses || 0}
-                    </td>
-                    <td className="px-3 py-2">{student.totalClasses || 0}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
     </section>
   );
 }

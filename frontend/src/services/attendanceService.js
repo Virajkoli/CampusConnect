@@ -252,6 +252,18 @@ export const getAttendanceSessionRecords = async (sessionId) => {
   return parseResponse(response);
 };
 
+export const deleteAttendanceSession = async (sessionId) => {
+  const response = await fetchWithNetworkHint(
+    `${API_BASE}/attendance/session/${encodeURIComponent(sessionId)}`,
+    {
+      method: "DELETE",
+      headers: await authHeaders(),
+    },
+  );
+
+  return parseResponse(response);
+};
+
 export const getTeacherAttendanceSessionHistory = async (limit = 30) => {
   const response = await fetchWithNetworkHint(
     `${API_BASE}/attendance/teacher/sessions/history?limit=${encodeURIComponent(String(limit))}`,
