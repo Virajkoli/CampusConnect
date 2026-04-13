@@ -14,14 +14,14 @@ const StudentNavbar = () => {
 
     const q = query(
       collection(firestore, "announcements"),
-      where("active", "==", true)
+      where("active", "==", true),
     );
 
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
         const unreadCount = snapshot.docs.filter(
-          (doc) => !doc.data().readBy?.includes(auth.currentUser.uid)
+          (doc) => !doc.data().readBy?.includes(auth.currentUser.uid),
         ).length;
 
         setNotificationCount(unreadCount);
@@ -29,7 +29,7 @@ const StudentNavbar = () => {
       (error) => {
         console.error("Error fetching notification count:", error);
         setNotificationCount(0);
-      }
+      },
     );
 
     return () => unsubscribe();
@@ -43,7 +43,7 @@ const StudentNavbar = () => {
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           onClick={() => setShowNotifications(true)}
-          className="relative p-2 bg-indigo-100 rounded-full hover:bg-indigo-100 transition-colors duration-200"
+          className="relative p-2 bg-slate-200 rounded-full hover:bg-slate-300 transition-colors duration-200"
           aria-label="Notifications"
         >
           <FiBell
@@ -66,9 +66,9 @@ const StudentNavbar = () => {
           <motion.div
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
-            className="flex items-center space-x-2 p-1.5 rounded-full hover:bg-indigo-100 transition-colors duration-200"
+            className="flex items-center space-x-2 p-1.5 rounded-full"
           >
-            <div className="w-6 h-6 rounded-full bg-gradient-to-r from-blue-400 to-indigo-500 flex items-center justify-center text-white shadow-sm">
+            <div className="w-8 h-8 rounded-full bg-slate-500 flex items-center justify-center text-white shadow-sm">
               <FiUser className="h-4 w-4" />
             </div>
           </motion.div>

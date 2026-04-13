@@ -6,6 +6,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import StudentNavbar from "../student/StudentNavbar"; // Import StudentNavbar
 import { FiChevronDown } from "react-icons/fi";
+import campusLogo from "../../assets/logo2.png";
 
 function Navbar() {
   const navigate = useNavigate();
@@ -129,7 +130,7 @@ function Navbar() {
       ? "bg-white shadow-md text-gray-800"
       : scrolled
         ? "bg-white shadow-md text-gray-800"
-        : "bg-indigo-600 text-white"
+        : "bg-black text-white"
   }`;
 
   return (
@@ -157,13 +158,17 @@ function Navbar() {
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
           >
-            <div className="w-10 h-10 mr-2 bg-gradient-to-r from-indigo-500 to-blue-500 rounded-md flex items-center justify-center text-white shadow-md">
-              <span className="text-lg font-bold">CC</span>
+            <div className="w-10 h-10 mr-2 rounded-md overflow-hidden bg-white/90">
+              <img
+                src={campusLogo}
+                alt="CampusConnect logo"
+                className="w-full h-full object-cover"
+              />
             </div>
             <h1
               className={`text-lg sm:text-xl font-bold ${
                 scrolled || isAuthPage
-                  ? "bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent"
+                  ? "bg-clip-text text-black"
                   : "text-white"
               }`}
             >
@@ -234,7 +239,7 @@ function Navbar() {
                         className={`absolute right-0 mt-2 w-56 rounded-md shadow-lg z-50 ${
                           scrolled || isAuthPage
                             ? "bg-white text-gray-800"
-                            : "bg-indigo-800 text-white"
+                            : "bg-black text-white"
                         }`}
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
