@@ -22,6 +22,7 @@ import {
 
 function Discussions() {
   const [user] = useAuthState(auth);
+  const [userRole, setUserRole] = useState("student");
   const [branches] = useState([
     "Computer Engineering",
     "Electronics And TeleCommunication Engineering",
@@ -69,15 +70,29 @@ function Discussions() {
     const checkUserRole = async () => {
       if (user) {
         const token = await user.getIdTokenResult();
+        if (token.claims.admin) {
+          setUserRole("admin");
+          return;
+        }
         if (token.claims.teacher) {
+          setUserRole("teacher");
           // If user is a teacher, redirect to chat page directly
           navigate("/chat");
+        } else {
+          setUserRole("student");
         }
       }
     };
 
     checkUserRole();
   }, [user, navigate]);
+
+  const dashboardPath =
+    userRole === "teacher"
+      ? "/teacher-dashboard"
+      : userRole === "admin"
+        ? "/admin-dashboard"
+        : "/student-dashboard";
 
   const fetchTeachersByBranch = async (branch) => {
     setLoading(true);
@@ -122,91 +137,65 @@ function Discussions() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 relative overflow-hidden">
-      {/* Animated Background Elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 w-72 h-72 bg-blue-300 rounded-full filter blur-3xl opacity-20 animate-pulse"></div>
-        <div
-          className="absolute bottom-20 right-10 w-96 h-96 bg-purple-300 rounded-full filter blur-3xl opacity-20 animate-pulse"
-          style={{ animationDelay: "1s" }}
-        ></div>
-        <div
-          className="absolute top-1/2 left-1/2 w-80 h-80 bg-pink-300 rounded-full filter blur-3xl opacity-10 animate-pulse"
-          style={{ animationDelay: "2s" }}
-        ></div>
-      </div>
-
-      <div className="relative z-10 px-3 sm:px-6 py-6 max-w-7xl mx-auto">
-        {/* Back Button */}
+    <div className="min-h-screen bg-[#eef2f6]">
+      <div className="mx-auto max-w-6xl px-3 py-5 sm:px-5 sm:py-7 lg:px-8">
         <motion.button
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           whileHover={{ x: -5 }}
           whileTap={{ scale: 0.95 }}
-          onClick={() => navigate("/student-dashboard")}
-          className="flex items-center gap-2 mb-6 px-6 py-3 bg-white text-gray-700 rounded-full shadow-lg hover:shadow-xl transition-all backdrop-blur-sm border border-gray-100 group"
+          onClick={() => navigate(dashboardPath)}
+          className="mb-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:text-[#2f87d9] sm:px-4 sm:py-2 sm:text-sm"
         >
-          <FiArrowLeft className="group-hover:-translate-x-1 transition-transform" />
+          <FiArrowLeft className="h-4 w-4" />
           <span className="font-medium">Back to Dashboard</span>
         </motion.button>
 
-        {/* Header Section */}
         <motion.div
           initial="hidden"
           animate="visible"
           variants={fadeInUp}
-          className="text-center mb-12"
+          className="mb-6 text-center sm:mb-7"
         >
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: "spring", duration: 0.8 }}
-            className="inline-block mb-4"
-          >
-            <div className="w-20 h-20 mx-auto bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl flex items-center justify-center shadow-2xl">
-              <FaChalkboardTeacher className="text-white text-4xl" />
-            </div>
-          </motion.div>
+          <div className="mb-3 inline-flex h-14 w-14 items-center justify-center rounded-xl bg-[#e9f2ff] sm:h-16 sm:w-16">
+            <FaChalkboardTeacher className="text-2xl text-[#2f87d9] sm:text-3xl" />
+          </div>
 
-          <h1 className="text-5xl md:text-6xl font-bold mb-4">
-            <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-              Connect with Teachers
-            </span>
+          <h1 className="mb-2 text-2xl font-semibold text-slate-800 sm:text-3xl">
+            Connect with Teachers
           </h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+          <p className="mx-auto max-w-2xl text-sm text-slate-600 sm:text-base">
             Find and chat with faculty members from your department
           </p>
         </motion.div>
 
-        {/* Main Content Card */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white/80 backdrop-blur-xl p-4 sm:p-8 rounded-3xl shadow-2xl border border-gray-100 max-w-5xl mx-auto"
+          className="mx-auto max-w-5xl rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-6"
         >
-          {/* Department Selection */}
-          <div className="mb-8">
-            <label className="flex items-center gap-2 text-gray-700 font-semibold mb-3 text-lg">
-              <FiFilter className="text-purple-600" />
+          <div className="mb-5">
+            <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-700 sm:text-base">
+              <FiFilter className="text-[#2f87d9]" />
               Select Your Department
             </label>
             <div className="relative">
               <select
                 value={selectedBranch}
                 onChange={handleBranchChange}
-                className="w-full appearance-none border-2 border-gray-200 px-6 py-4 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white shadow-sm text-gray-700 font-medium cursor-pointer transition-all hover:border-purple-300"
+                className="w-full appearance-none rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:border-[#2f87d9] focus:border-[#2f87d9] focus:outline-none focus:ring-2 focus:ring-[#cfe5ff]"
               >
-                <option value="">🎓 Choose your department...</option>
+                <option value="">Choose your department...</option>
                 {branches.map((branch) => (
                   <option key={branch} value={branch}>
                     {branch}
                   </option>
                 ))}
               </select>
-              <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
+              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
                 <svg
-                  className="w-5 h-5 text-gray-400"
+                  className="h-4 w-4 text-slate-400"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -222,23 +211,22 @@ function Discussions() {
             </div>
           </div>
 
-          {/* Search Bar (shown when teachers are loaded) */}
           <AnimatePresence>
             {teachers.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
-                className="mb-6"
+                className="mb-4"
               >
                 <div className="relative">
-                  <FiSearch className="absolute left-5 top-1/2 transform -translate-y-1/2 text-gray-400 text-xl" />
+                  <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
                     placeholder="Search teachers by name or email..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-14 pr-6 py-4 rounded-2xl border-2 border-gray-200 focus:border-blue-400 focus:outline-none transition-colors bg-gray-50 focus:bg-white shadow-sm"
+                    className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 pl-9 pr-3 text-sm text-slate-700 focus:border-[#2f87d9] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#cfe5ff]"
                   />
                 </div>
               </motion.div>
@@ -249,14 +237,14 @@ function Discussions() {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="flex flex-col items-center justify-center py-20"
+              className="flex flex-col items-center justify-center py-14"
             >
               <motion.div
                 animate={{ rotate: 360 }}
                 transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full mb-6"
+                className="mb-4 h-12 w-12 rounded-full border-4 border-[#2f87d9] border-t-transparent"
               />
-              <p className="text-gray-600 text-lg font-medium">
+              <p className="text-sm font-medium text-slate-600 sm:text-base">
                 Finding amazing teachers...
               </p>
             </motion.div>
@@ -267,64 +255,59 @@ function Discussions() {
                   initial="hidden"
                   animate="visible"
                   variants={staggerContainer}
-                  className="space-y-4"
+                  className="space-y-3"
                 >
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
-                      <FiUsers className="text-purple-600" />
+                  <div className="mb-3 flex items-center justify-between">
+                    <h2 className="flex items-center gap-2 text-base font-semibold text-slate-700">
+                      <FiUsers className="text-[#2f87d9]" />
                       Available Teachers ({filteredTeachers.length})
                     </h2>
                   </div>
 
-                  <div className="grid gap-4">
+                  <div className="grid gap-3">
                     {filteredTeachers.map((teacher, index) => (
                       <motion.div
                         key={teacher.id}
                         variants={scaleIn}
-                        whileHover={{ scale: 1.02, y: -5 }}
-                        className="group relative bg-gradient-to-br from-white to-gray-50 p-6 rounded-2xl border-2 border-gray-100 hover:border-purple-300 transition-all shadow-md hover:shadow-xl overflow-hidden"
+                        whileHover={{ y: -3 }}
+                        className="group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-3 transition hover:border-[#bfdbfe] hover:bg-white sm:p-4"
                       >
-                        {/* Gradient Overlay on Hover */}
-                        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-
-                        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
-                          {/* Avatar */}
+                        <div className="relative z-10 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                           <motion.div
-                            whileHover={{ rotate: 360, scale: 1.1 }}
-                            transition={{ duration: 0.5 }}
+                            whileHover={{ scale: 1.04 }}
                             className="relative"
                           >
-                            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center text-white text-3xl font-bold shadow-xl">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#2f87d9] text-lg font-semibold text-white shadow-sm sm:h-14 sm:w-14 sm:text-xl">
                               {teacher.name.charAt(0).toUpperCase()}
                             </div>
-                            <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-400 border-2 border-white rounded-full"></div>
+                            <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-white bg-emerald-400"></div>
                           </motion.div>
 
-                          {/* Teacher Info */}
                           <div className="flex-1 min-w-0">
-                            <h3 className="text-xl font-bold text-gray-800 mb-1 group-hover:text-purple-600 transition-colors">
+                            <h3 className="mb-1 text-base font-semibold text-slate-800 transition-colors group-hover:text-[#2f87d9]">
                               {teacher.name}
                             </h3>
-                            <div className="flex items-center gap-2 text-gray-600 mb-2">
-                              <FiMail className="text-sm" />
-                              <p className="text-sm break-all">
+                            <div className="mb-1 flex items-center gap-2 text-slate-600">
+                              <FiMail className="text-xs" />
+                              <p className="text-xs break-all sm:text-sm">
                                 {teacher.email}
                               </p>
                             </div>
-                            <div className="flex items-center gap-2 text-gray-500">
-                              <FiBookOpen className="text-sm" />
-                              <p className="text-sm">{selectedBranch}</p>
+                            <div className="flex items-center gap-2 text-slate-500">
+                              <FiBookOpen className="text-xs" />
+                              <p className="text-xs sm:text-sm">
+                                {selectedBranch}
+                              </p>
                             </div>
                           </div>
 
-                          {/* Action Button */}
                           <motion.button
-                            whileHover={{ scale: 1.05 }}
+                            whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => handleChatInitiation(teacher)}
-                            className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3 group-hover:from-purple-600 group-hover:to-pink-600"
+                            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#2f87d9] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#1f6fb7] sm:w-auto sm:text-sm"
                           >
-                            <FiMessageCircle className="text-xl" />
+                            <FiMessageCircle className="text-base" />
                             <span>Start Chat</span>
                           </motion.button>
                         </div>
@@ -337,20 +320,20 @@ function Discussions() {
                   <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="text-center py-20"
+                    className="py-14 text-center"
                   >
-                    <div className="text-7xl mb-6">🔍</div>
-                    <h3 className="text-2xl font-bold text-gray-700 mb-2">
+                    <div className="mb-4 text-5xl">🔍</div>
+                    <h3 className="mb-2 text-xl font-semibold text-slate-700">
                       No Results Found
                     </h3>
-                    <p className="text-gray-500 mb-6">
+                    <p className="mb-5 text-sm text-slate-500">
                       No teachers match "{searchTerm}"
                     </p>
                     <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => setSearchTerm("")}
-                      className="px-6 py-3 bg-purple-600 text-white rounded-full font-semibold shadow-lg hover:bg-purple-700 transition-colors"
+                      className="rounded-xl bg-[#2f87d9] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1f6fb7]"
                     >
                       Clear Search
                     </motion.button>
@@ -359,13 +342,13 @@ function Discussions() {
                   <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="text-center py-20"
+                    className="py-14 text-center"
                   >
-                    <div className="text-7xl mb-6">👨‍🏫</div>
-                    <h3 className="text-2xl font-bold text-gray-700 mb-2">
+                    <div className="mb-4 text-5xl">👨‍🏫</div>
+                    <h3 className="mb-2 text-xl font-semibold text-slate-700">
                       No Teachers Available
                     </h3>
-                    <p className="text-gray-500">
+                    <p className="text-sm text-slate-500">
                       No teachers found in {selectedBranch}
                     </p>
                   </motion.div>
@@ -374,39 +357,38 @@ function Discussions() {
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="text-center py-20"
+                  className="py-14 text-center"
                 >
                   <motion.div
                     animate={{ y: [0, -10, 0] }}
                     transition={{ duration: 2, repeat: Infinity }}
-                    className="text-8xl mb-6"
+                    className="mb-4 text-6xl"
                   >
                     🎓
                   </motion.div>
-                  <h3 className="text-2xl font-bold text-gray-700 mb-2">
+                  <h3 className="mb-2 text-xl font-semibold text-slate-700">
                     Choose Your Department
                   </h3>
-                  <p className="text-gray-500 mb-8">
+                  <p className="mb-6 text-sm text-slate-500">
                     Select a department above to discover amazing teachers
                   </p>
 
-                  {/* Quick Stats */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto mt-8">
-                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-2xl">
-                      <FaComments className="text-3xl text-blue-600 mx-auto mb-2" />
-                      <p className="text-sm font-semibold text-blue-800">
+                  <div className="mx-auto mt-6 grid max-w-2xl grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div className="rounded-xl bg-[#f4f8ff] p-3">
+                      <FaComments className="mx-auto mb-2 text-2xl text-[#2f87d9]" />
+                      <p className="text-xs font-semibold text-[#1f6fb7] sm:text-sm">
                         Direct Chat
                       </p>
                     </div>
-                    <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-2xl">
-                      <FaRocket className="text-3xl text-purple-600 mx-auto mb-2" />
-                      <p className="text-sm font-semibold text-purple-800">
+                    <div className="rounded-xl bg-[#f4f8ff] p-3">
+                      <FaRocket className="mx-auto mb-2 text-2xl text-[#2f87d9]" />
+                      <p className="text-xs font-semibold text-[#1f6fb7] sm:text-sm">
                         Instant Connect
                       </p>
                     </div>
-                    <div className="bg-gradient-to-br from-pink-50 to-pink-100 p-4 rounded-2xl">
-                      <FaGraduationCap className="text-3xl text-pink-600 mx-auto mb-2" />
-                      <p className="text-sm font-semibold text-pink-800">
+                    <div className="rounded-xl bg-[#f4f8ff] p-3">
+                      <FaGraduationCap className="mx-auto mb-2 text-2xl text-[#2f87d9]" />
+                      <p className="text-xs font-semibold text-[#1f6fb7] sm:text-sm">
                         Expert Guidance
                       </p>
                     </div>

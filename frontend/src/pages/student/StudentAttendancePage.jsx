@@ -19,6 +19,10 @@ import {
   markAttendanceByFace,
   registerStudentDevice,
 } from "../../services/attendanceService";
+import {
+  consumeOneTimePasskey,
+  getOneTimePasskey,
+} from "../../utils/biometricPasskey";
 
 const getBrowserLocation = () =>
   new Promise((resolve, reject) => {
@@ -179,6 +183,13 @@ export default function StudentAttendancePage() {
         setDeviceId(persistedDevice);
         await registerStudentDevice(persistedDevice);
 
+        const storedPasskey = getOneTimePasskey();
+        if (storedPasskey?.assertionId) {
+          setBiometricReady(true);
+          setBiometricAssertionId(storedPasskey.assertionId);
+          toast.info("One-time passkey loaded from profile.");
+        }
+
         await Promise.all([
           refreshAttendanceSummary(user.uid),
           refreshSessions(),
@@ -239,6 +250,13 @@ export default function StudentAttendancePage() {
 
   const handleJoinSession = (sessionId) => {
     setJoinedSessionId(sessionId);
+    const storedPasskey = getOneTimePasskey();
+    if (storedPasskey?.assertionId) {
+      setBiometricReady(true);
+      setBiometricAssertionId(storedPasskey.assertionId);
+      return;
+    }
+
     setBiometricReady(false);
     setBiometricAssertionId("");
     setFaceReady(false);
@@ -300,7 +318,8 @@ export default function StudentAttendancePage() {
               biometricAssertionId,
             });
 
-      toast.success(finalResult.message || "Attendance marked successfully.");
+      toast.success(result.message || "Attendance marked successfully.");
+      consumeOneTimePasskey(biometricAssertionId);
       setJoinedSessionId("");
       setBiometricReady(false);
       setBiometricAssertionId("");

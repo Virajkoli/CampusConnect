@@ -38,6 +38,7 @@ const formatMethod = (method) => {
 export default function AttendanceSessionDashboard({
   session,
   records,
+  joinedStudents,
   heatmapPoints,
   onScanStudent,
   onEndSession,
@@ -45,8 +46,12 @@ export default function AttendanceSessionDashboard({
 }) {
   const [showScanner, setShowScanner] = useState(false);
   const safeRecords = Array.isArray(records) ? records : [];
+  const safeJoinedStudents = Array.isArray(joinedStudents)
+    ? joinedStudents
+    : [];
   const enrolled = Number(session?.enrolledStudentsCount || 0);
   const present = safeRecords.length;
+  const joined = safeJoinedStudents.length;
   const pending = Math.max(enrolled - present, 0);
 
   const sortedRecords = useMemo(() => {
@@ -95,11 +100,15 @@ export default function AttendanceSessionDashboard({
           <p className="text-xs uppercase text-emerald-700">Present</p>
           <p className="text-3xl font-bold text-emerald-700">{present}</p>
         </div>
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+          <p className="text-xs uppercase text-blue-700">Joined</p>
+          <p className="text-3xl font-bold text-blue-700">{joined}</p>
+        </div>
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
           <p className="text-xs uppercase text-amber-700">Pending</p>
           <p className="text-3xl font-bold text-amber-700">{pending}</p>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 md:col-span-3">
           <p className="text-xs uppercase text-slate-600">Subject</p>
           <p className="text-lg font-semibold text-slate-800">
             {session.subjectName}
@@ -142,6 +151,53 @@ export default function AttendanceSessionDashboard({
         teacherLocation={session.teacherLocation}
         points={heatmapPoints}
       />
+
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700">
+          Students Joined Session
+        </div>
+        <div className="max-h-64 overflow-y-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="sticky top-0 bg-white text-slate-500">
+              <tr>
+                <th className="px-4 py-2">Student</th>
+                <th className="px-4 py-2">Roll Number / ID</th>
+                <th className="px-4 py-2">Joined At</th>
+              </tr>
+            </thead>
+            <tbody>
+              {safeJoinedStudents.map((student) => (
+                <tr
+                  key={`${student.studentId || student.prn || "student"}_joined`}
+                  className="border-t border-slate-100"
+                >
+                  <td className="px-4 py-2">
+                    {student.studentName || "Student"}
+                  </td>
+                  <td className="px-4 py-2">
+                    {student.prn || student.studentId || "-"}
+                  </td>
+                  <td className="px-4 py-2">
+                    {student.joinTimestamp
+                      ? new Date(student.joinTimestamp).toLocaleTimeString()
+                      : "-"}
+                  </td>
+                </tr>
+              ))}
+              {safeJoinedStudents.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={3}
+                    className="px-4 py-8 text-center text-slate-500"
+                  >
+                    No students have joined the session yet.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700">

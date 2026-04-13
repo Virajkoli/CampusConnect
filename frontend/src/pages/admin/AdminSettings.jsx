@@ -42,13 +42,13 @@ const AdminSettings = () => {
   ];
 
   return (
-    <div className="bg-gray-50 min-h-screen p-4 sm:p-6">
+    <div className="min-h-screen bg-[#eef2f6] p-4 sm:p-6">
       <button
         onClick={() => navigate("/admin-dashboard")}
-        className="flex items-center my-4 text-red-600 hover:text-green-800 transition-colors"
+        className="mb-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:text-[#2f87d9] sm:px-4 sm:py-2 sm:text-sm"
       >
-        <FiArrowLeft className="mr-2" />
-        Go Back
+        <FiArrowLeft className="h-4 w-4" />
+        Back to Dashboard
       </button>
       <motion.div
         initial={{ opacity: 0 }}
@@ -59,10 +59,10 @@ const AdminSettings = () => {
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-800 flex items-center mb-2">
-              <FiSettings className="mr-2 text-indigo-600" /> Admin Settings
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-800 flex items-center mb-2">
+              <FiSettings className="mr-2 text-[#2f87d9]" /> Admin Settings
             </h1>
-            <p className="text-gray-600">
+            <p className="text-slate-600">
               Configure your administrative settings and preferences
             </p>
           </div>
@@ -75,7 +75,7 @@ const AdminSettings = () => {
             initial={{ x: -20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ duration: 0.4 }}
-            className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4 h-fit"
+            className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-3 sm:p-4 h-fit"
           >
             <nav className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 gap-2 md:gap-0">
               {tabs.map((tab) => (
@@ -84,8 +84,8 @@ const AdminSettings = () => {
                   onClick={() => setActiveTab(tab.id)}
                   className={`w-full flex items-center p-3 mb-2 rounded-md transition-all duration-200 ${
                     activeTab === tab.id
-                      ? "bg-indigo-50 text-indigo-600 font-medium"
-                      : "hover:bg-gray-50 text-gray-700"
+                      ? "bg-indigo-50 text-[#2f87d9] font-medium"
+                      : "hover:bg-slate-50 text-slate-700"
                   }`}
                 >
                   <span className="mr-3">{tab.icon}</span>
@@ -100,7 +100,7 @@ const AdminSettings = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 col-span-1 md:col-span-3"
+            className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-4 sm:p-6 col-span-1 md:col-span-3"
           >
             {isLoading ? (
               <div className="flex justify-center py-10">
@@ -114,25 +114,25 @@ const AdminSettings = () => {
                       Profile Settings
                     </h2>
                     <div className="space-y-4">
-                      <div className="bg-gray-50 p-4 rounded-lg">
-                        <h3 className="font-medium text-gray-700 mb-2">
+                      <div className="bg-slate-50 p-4 rounded-lg">
+                        <h3 className="font-medium text-slate-700 mb-2">
                           Admin Information
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
-                            <p className="text-sm text-gray-500">Name</p>
+                            <p className="text-sm text-slate-500">Name</p>
                             <p className="font-medium">
                               {adminData.name || "Not set"}
                             </p>
                           </div>
                           <div>
-                            <p className="text-sm text-gray-500">Email</p>
+                            <p className="text-sm text-slate-500">Email</p>
                             <p className="font-medium">
                               {adminData.email || "Not set"}
                             </p>
                           </div>
                           <div>
-                            <p className="text-sm text-gray-500">Role</p>
+                            <p className="text-sm text-slate-500">Role</p>
                             <p className="font-medium">
                               {adminData.role || "Admin"}
                             </p>
@@ -148,12 +148,12 @@ const AdminSettings = () => {
                     <h2 className="text-xl font-semibold mb-4">
                       Security Settings
                     </h2>
-                    <p className="text-gray-600 mb-6">
+                    <p className="text-slate-600 mb-6">
                       Manage your account security settings and preferences
                     </p>
                     {/* Security settings content would go here */}
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <p className="text-sm text-gray-500">
+                    <div className="bg-slate-50 p-4 rounded-lg">
+                      <p className="text-sm text-slate-500">
                         Security settings will be implemented soon
                       </p>
                     </div>
@@ -165,12 +165,12 @@ const AdminSettings = () => {
                     <h2 className="text-xl font-semibold mb-4">
                       Notification Preferences
                     </h2>
-                    <p className="text-gray-600 mb-6">
+                    <p className="text-slate-600 mb-6">
                       Manage how you receive notifications from the system
                     </p>
                     {/* Notification settings content would go here */}
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <p className="text-sm text-gray-500">
+                    <div className="bg-slate-50 p-4 rounded-lg">
+                      <p className="text-sm text-slate-500">
                         Notification settings will be implemented soon
                       </p>
                     </div>
@@ -182,12 +182,12 @@ const AdminSettings = () => {
                     <h2 className="text-xl font-semibold mb-4">
                       System Settings
                     </h2>
-                    <p className="text-gray-600 mb-6">
+                    <p className="text-slate-600 mb-6">
                       Configure global system settings
                     </p>
                     {/* System settings content would go here */}
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <p className="text-sm text-gray-500">
+                    <div className="bg-slate-50 p-4 rounded-lg">
+                      <p className="text-sm text-slate-500">
                         System settings will be implemented soon
                       </p>
                     </div>

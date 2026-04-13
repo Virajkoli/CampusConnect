@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { auth, firestore } from "../../firebase";
 import { collection, getDocs } from "firebase/firestore";
 import { useNavigate, Link } from "react-router-dom";
@@ -34,6 +34,8 @@ import {
   FiUpload,
   FiLayers,
   FiEdit3,
+  FiChevronDown,
+  FiChevronRight,
 } from "react-icons/fi";
 import { FaEnvelope, FaPhoneAlt } from "react-icons/fa";
 import CalendarComponent from "../../components/common/CalendarComponent";
@@ -111,7 +113,7 @@ function SidebarItem({
           className={`w-full flex items-center py-3 px-2 rounded-lg ${
             active
               ? `${colorStyle.text} font-medium bg-opacity-80`
-              : `text-gray-600 ${colorStyle.hoverBg}`
+              : `text-slate-600 ${colorStyle.hoverBg}`
           } transition-all duration-200`}
           aria-label={label}
         >
@@ -139,7 +141,7 @@ function SidebarItem({
           className={`w-full flex items-center py-3 px-2 rounded-lg ${
             active
               ? `${colorStyle.text} font-medium bg-opacity-80`
-              : `text-gray-600 ${colorStyle.hoverBg}`
+              : `text-slate-600 ${colorStyle.hoverBg}`
           } transition-all duration-200`}
           aria-label={label}
         >
@@ -185,7 +187,7 @@ function StatCard({ title, value, change, icon, color, breakdown }) {
 
   return (
     <motion.div
-      className={`bg-white rounded-lg shadow-sm border border-gray-200 p-5 overflow-hidden relative`}
+      className={`bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 overflow-hidden relative`}
       variants={cardVariants}
       whileHover={{
         y: -5,
@@ -215,9 +217,9 @@ function StatCard({ title, value, change, icon, color, breakdown }) {
 
       <div className="flex justify-between items-center relative z-10">
         <div>
-          <p className="text-sm text-gray-500 mb-1">{title}</p>
+          <p className="text-sm text-slate-500 mb-1">{title}</p>
           <motion.h3
-            className="text-2xl font-bold text-gray-800"
+            className="text-2xl font-bold text-slate-800"
             initial={{ opacity: 0.8 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5 }}
@@ -236,7 +238,7 @@ function StatCard({ title, value, change, icon, color, breakdown }) {
             </motion.span>
           </div>
           {breakdown && (
-            <div className="mt-2 text-xs text-gray-500">
+            <div className="mt-2 text-xs text-slate-500">
               {Object.entries(breakdown)
                 .filter(([dept, count]) => count > 0)
                 .map(([dept, count]) => `${dept}: ${count}`)
@@ -266,7 +268,7 @@ function NavLink({
   active,
   icon,
   label,
-  bgColor = "from-indigo-500 to-indigo-600",
+  bgColor = "from-[#2f87d9] to-[#1f6fb7]",
 }) {
   return (
     <Link to={to}>
@@ -274,7 +276,7 @@ function NavLink({
         className={`px-3 py-2 rounded-lg flex items-center space-x-2 ${
           active
             ? `bg-gradient-to-r ${bgColor} text-white shadow-md`
-            : "text-white/70 hover:bg-white/10 hover:text-white"
+            : "text-slate-600 hover:bg-[#e9f2ff] hover:text-[#1f6fb7]"
         } transition-all duration-300`}
         whileHover={{ scale: 1.05, y: -2 }}
         whileTap={{ scale: 0.95 }}
@@ -394,13 +396,12 @@ function QuickAccessLink({ to, icon, label, color, delay = 0 }) {
 
 export default function AdminDashboard() {
   const [users, setUsers] = useState([]);
+  const [teachers, setTeachers] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
+  const [examTimetable, setExamTimetable] = useState([]);
   const [error, setError] = useState("");
-  const [isOpen, setIsOpen] = useState(true);
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [lastLoginTime, setLastLoginTime] = useState("");
-  const dropdownRef = useRef(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
   const navigate = useNavigate();
 
   const [studentStats, setStudentStats] = useState({ total: 0, byDept: {} });
@@ -439,14 +440,18 @@ export default function AdminDashboard() {
 
       // Fetch teachers
       const teachersSnapshot = await getDocs(collection(firestore, "teachers"));
-      const teachers = teachersSnapshot.docs.map((doc) => doc.data());
+      const teachersData = teachersSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setTeachers(teachersData);
       const teacherByDept = {};
-      teachers.forEach((t) => {
+      teachersData.forEach((t) => {
         const dept = (t.dept || "Other").trim();
         teacherByDept[dept] = (teacherByDept[dept] || 0) + 1;
       });
       setTeacherStats({
-        total: teachers.length,
+        total: teachersData.length,
         byDept: teacherByDept,
       });
     } catch (err) {
@@ -454,22 +459,46 @@ export default function AdminDashboard() {
     }
   }, []);
 
+  const fetchCenterPanelData = useCallback(async () => {
+    try {
+      const [announcementSnapshot, examSnapshot] = await Promise.all([
+        getDocs(collection(firestore, "announcements")),
+        getDocs(collection(firestore, "examTimetable")),
+      ]);
+
+      const announcementList = announcementSnapshot.docs
+        .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+        .sort((a, b) => {
+          const aSec = a?.createdAt?.seconds || 0;
+          const bSec = b?.createdAt?.seconds || 0;
+          return bSec - aSec;
+        });
+      setAnnouncements(announcementList);
+
+      const examList = examSnapshot.docs
+        .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+        .sort((a, b) =>
+          String(a.date || "").localeCompare(String(b.date || "")),
+        );
+      setExamTimetable(examList);
+    } catch (err) {
+      console.error("Failed to load center panel data:", err);
+    }
+  }, []);
+
+  const studentOnlyUsers = useMemo(
+    () =>
+      users.filter(
+        (u) =>
+          (u.role || "Student") === "Student" ||
+          (!u.role && (u.rollNo || u.rollNumber)),
+      ),
+    [users],
+  );
+
   useEffect(() => {
     // Local flag to prevent state updates after unmount
     let isMounted = true;
-
-    // Set current login time
-    const now = new Date();
-    const options = {
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    };
-    const formattedTime = now.toLocaleDateString("en-US", options);
-    setLastLoginTime(formattedTime);
 
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       // Only proceed if component is still mounted
@@ -489,6 +518,7 @@ export default function AdminDashboard() {
             // Only fetch users if still mounted
             fetchUsers();
             fetchStats();
+            fetchCenterPanelData();
           }
         } catch (error) {
           console.error("Token error:", error);
@@ -501,32 +531,15 @@ export default function AdminDashboard() {
       }
     });
 
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsDropdownOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-
     // Enhanced cleanup
     return () => {
       isMounted = false; // Mark as unmounted
       unsubscribe(); // Clean up auth listener
-      document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [navigate, fetchUsers, fetchStats]);
-
-  const toggleDropdown = () => {
-    setIsDropdownOpen(!isDropdownOpen);
-  };
+  }, [navigate, fetchUsers, fetchStats, fetchCenterPanelData]);
 
   // Simplified logout function to prevent errors
   const handleLogout = () => {
-    // First close dropdown to prevent UI errors
-    setIsDropdownOpen(false);
-
-    // Small delay to ensure state updates complete
     setTimeout(() => {
       try {
         // Sign out and navigate
@@ -536,48 +549,6 @@ export default function AdminDashboard() {
         console.error("Logout error:", err);
       }
     }, 10);
-  };
-
-  // Animation variants
-  const sidebarVariants = {
-    open: {
-      width: "256px",
-      transition: {
-        type: "spring",
-        stiffness: 300,
-        damping: 30,
-        duration: 0.3,
-      },
-    },
-    closed: {
-      width: "80px",
-      transition: {
-        type: "spring",
-        stiffness: 300,
-        damping: 30,
-        duration: 0.3,
-      },
-    },
-  };
-
-  const textVariants = {
-    open: {
-      opacity: 1,
-      x: 0,
-      display: "block",
-      transition: {
-        delay: 0.1,
-        duration: 0.2,
-      },
-    },
-    closed: {
-      opacity: 0,
-      x: -10,
-      display: "none",
-      transition: {
-        duration: 0.1,
-      },
-    },
   };
 
   const cardVariants = {
@@ -595,862 +566,733 @@ export default function AdminDashboard() {
     },
   };
 
-  return (
-    <>
-      <style>{styles}</style>
-      <div className="min-h-screen bg-gray-50 text-gray-800 flex">
-        {isMobileSidebarOpen && (
-          <div
-            className="lg:hidden fixed inset-0 z-40 bg-black/40"
-            onClick={() => setIsMobileSidebarOpen(false)}
-          >
-            <aside
-              className="fixed left-0 top-0 w-72 max-w-[85vw] h-full bg-white shadow-lg text-gray-800 border-r border-gray-200"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-                <h2 className="text-lg font-bold text-indigo-700">
-                  CampusConnect
-                </h2>
-                <button
-                  onClick={() => setIsMobileSidebarOpen(false)}
-                  className="p-2 rounded-md hover:bg-gray-100"
-                  aria-label="Close mobile sidebar"
-                >
-                  <FiX className="h-5 w-5" />
-                </button>
+  const navItems = [
+    { id: "overview", label: "Overview", icon: FiHome },
+    {
+      id: "students",
+      label: "Students",
+      icon: FiUsers,
+      route: "/admin/usermanagement",
+    },
+    {
+      id: "teachers",
+      label: "Teachers",
+      icon: FiUser,
+      route: "/admin/teachermanagement",
+    },
+    {
+      id: "subject-sets",
+      label: "Subject Sets",
+      icon: FiLayers,
+      route: "/admin/subject-sets",
+    },
+    {
+      id: "upload",
+      label: "Upload Students",
+      icon: FiUpload,
+      route: "/admin/upload-students",
+    },
+    {
+      id: "bulk-update",
+      label: "Bulk Academic Update",
+      icon: FiEdit3,
+      route: "/admin/bulk-academic-update",
+    },
+    {
+      id: "announcements",
+      label: "Announcements",
+      icon: FiBell,
+      route: "/admin/announcements",
+    },
+    {
+      id: "calendars",
+      label: "Calendars",
+      icon: FiCalendar,
+      route: "/calendars",
+    },
+    {
+      id: "exam-timetable",
+      label: "Exam Timetable",
+      icon: FiCreditCard,
+      route: "/admin/exam-timetable",
+    },
+    {
+      id: "settings",
+      label: "Settings",
+      icon: FiSettings,
+      route: "/admin/settings",
+    },
+  ];
+
+  const openNavItem = (item) => {
+    setActiveTab(item.id);
+  };
+
+  const adminName = auth.currentUser?.displayName || "Administrator";
+
+  const renderOverview = () => {
+    const topStats = [
+      {
+        title: "Total Students",
+        value: studentStats.total,
+        tint: "bg-[#eef4ff]",
+      },
+      {
+        title: "Total Teachers",
+        value: teacherStats.total,
+        tint: "bg-[#f2f7ef]",
+      },
+      {
+        title: "Announcements",
+        value: "5",
+        tint: "bg-[#fff6eb]",
+      },
+      {
+        title: "System",
+        value: "Live",
+        tint: "bg-[#f3f1ff]",
+      },
+    ];
+
+    return (
+      <div className="space-y-5">
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+          <div className="xl:col-span-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <p className="text-xs uppercase tracking-[0.25em] text-slate-500">
+              Admin Workspace
+            </p>
+            <h1 className="mt-2 text-4xl font-semibold text-slate-900">
+              {adminName}
+            </h1>
+            <p className="mt-2 text-lg text-slate-600">Campus Control Center</p>
+          </div>
+
+          <div className="xl:col-span-4 grid grid-cols-2 gap-4">
+            {topStats.map((stat) => (
+              <div
+                key={stat.title}
+                className={`${stat.tint} rounded-3xl border border-slate-200/80 p-5`}
+              >
+                <p className="text-xs uppercase tracking-wide text-slate-500">
+                  {stat.title}
+                </p>
+                <p className="mt-3 text-5xl font-semibold leading-none text-slate-900">
+                  {stat.value}
+                </p>
               </div>
-              <nav className="py-4">
-                <SidebarItem
-                  icon={<FiHome />}
-                  label="Dashboard"
-                  path="/admin/dashboard"
-                  isOpen={true}
-                  active={true}
-                  color="blue"
-                  itemOnClick={() => setIsMobileSidebarOpen(false)}
-                />
-                <SidebarItem
-                  icon={<FiUsers />}
-                  label="Students"
-                  path="/admin/usermanagement"
-                  isOpen={true}
-                  color="purple"
-                  itemOnClick={() => setIsMobileSidebarOpen(false)}
-                />
-                <SidebarItem
-                  icon={<FiUser />}
-                  label="Teachers"
-                  path="/admin/teachermanagement"
-                  isOpen={true}
-                  color="green"
-                  itemOnClick={() => setIsMobileSidebarOpen(false)}
-                />
-                <SidebarItem
-                  icon={<FiLayers />}
-                  label="Subject Sets"
-                  path="/admin/subject-sets"
-                  isOpen={true}
-                  color="blue"
-                  itemOnClick={() => setIsMobileSidebarOpen(false)}
-                />
-                <SidebarItem
-                  icon={<FiUpload />}
-                  label="Upload Students"
-                  path="/admin/upload-students"
-                  isOpen={true}
-                  color="amber"
-                  itemOnClick={() => setIsMobileSidebarOpen(false)}
-                />
-                <SidebarItem
-                  icon={<FiEdit3 />}
-                  label="Bulk Academic Update"
-                  path="/admin/bulk-academic-update"
-                  isOpen={true}
-                  color="blue"
-                  itemOnClick={() => setIsMobileSidebarOpen(false)}
-                />
-                <SidebarItem
-                  icon={<FiBell />}
-                  label="Notifications"
-                  path="/admin/announcements"
-                  isOpen={true}
-                  color="purple"
-                  itemOnClick={() => setIsMobileSidebarOpen(false)}
-                />
-                <SidebarItem
-                  icon={<FiCalendar />}
-                  label="Exam Timetable"
-                  path="/admin/exam-timetable"
-                  isOpen={true}
-                  color="green"
-                  itemOnClick={() => setIsMobileSidebarOpen(false)}
-                />
-                <SidebarItem
-                  icon={<FiSettings />}
-                  label="Settings"
-                  path="/admin/settings"
-                  isOpen={true}
-                  color="amber"
-                  itemOnClick={() => setIsMobileSidebarOpen(false)}
-                />
-                <SidebarItem
-                  icon={<FiLogOut />}
-                  label="Logout"
-                  isOpen={true}
-                  color="red"
-                  onClick={() => {
-                    setIsMobileSidebarOpen(false);
-                    handleLogout();
-                  }}
-                />
-              </nav>
-            </aside>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 px-6 py-5">
+            <h2 className="text-4xl font-semibold text-slate-900">
+              Quick Control
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2 xl:grid-cols-3">
+            {[
+              {
+                label: "Manage Students",
+                route: "/admin/usermanagement",
+                icon: FiUsers,
+              },
+              {
+                label: "Manage Teachers",
+                route: "/admin/teachermanagement",
+                icon: FiUser,
+              },
+              {
+                label: "Announcements",
+                route: "/admin/announcements",
+                icon: FiBell,
+              },
+              {
+                label: "Subject Sets",
+                route: "/admin/subject-sets",
+                icon: FiLayers,
+              },
+              {
+                label: "Bulk Update",
+                route: "/admin/bulk-academic-update",
+                icon: FiEdit3,
+              },
+              {
+                label: "Settings",
+                route: "/admin/settings",
+                icon: FiSettings,
+              },
+            ].map((action) => {
+              const Icon = action.icon;
+              return (
+                <button
+                  key={action.label}
+                  type="button"
+                  onClick={() => navigate(action.route)}
+                  className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-left text-slate-800 transition hover:border-[#b8d9ff] hover:bg-[#f4f8ff]"
+                >
+                  <span className="flex items-center gap-2 text-sm font-medium">
+                    <Icon className="h-4 w-4 text-[#2f87d9]" /> {action.label}
+                  </span>
+                  <FiChevronRight className="h-4 w-4 text-slate-500" />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderSectionPanel = ({
+    title,
+    description,
+    primaryLabel,
+    primaryRoute,
+    secondaryLabel,
+    secondaryRoute,
+  }) => (
+    <div className="space-y-5">
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <p className="text-xs uppercase tracking-[0.25em] text-slate-500">
+          Admin Workspace
+        </p>
+        <h2 className="mt-2 text-4xl font-semibold text-slate-900">{title}</h2>
+        <p className="mt-2 text-lg text-slate-600">{description}</p>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h3 className="text-xl font-semibold text-slate-800">Quick Actions</h3>
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => navigate(primaryRoute)}
+            className="flex items-center justify-between rounded-xl bg-[#2f87d9] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#1f6fb7]"
+          >
+            <span>{primaryLabel}</span>
+            <FiChevronRight className="h-4 w-4" />
+          </button>
+          {secondaryLabel && secondaryRoute ? (
+            <button
+              type="button"
+              onClick={() => navigate(secondaryRoute)}
+              className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-[#f4f8ff]"
+            >
+              <span>{secondaryLabel}</span>
+              <FiChevronRight className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderCalendarsPanel = () => (
+    <div className="space-y-5">
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <p className="text-xs uppercase tracking-[0.25em] text-slate-500">
+          Admin Workspace
+        </p>
+        <h2 className="mt-2 text-4xl font-semibold text-slate-900">
+          Calendars
+        </h2>
+        <p className="mt-2 text-lg text-slate-600">
+          Access events and academic calendars from one place.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <button
+          type="button"
+          onClick={() => navigate("/events-calendar")}
+          className="rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:border-[#b8d9ff] hover:bg-[#f4f8ff]"
+        >
+          <div className="mb-2 flex items-center gap-2 text-slate-800">
+            <FiCalendar className="h-5 w-5 text-[#2f87d9]" />
+            <span className="text-lg font-semibold">Events Calendar</span>
+          </div>
+          <p className="text-sm text-slate-600">
+            View and manage campus events.
+          </p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => navigate("/academic-calendar")}
+          className="rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:border-[#b8d9ff] hover:bg-[#f4f8ff]"
+        >
+          <div className="mb-2 flex items-center gap-2 text-slate-800">
+            <FiCreditCard className="h-5 w-5 text-[#2f87d9]" />
+            <span className="text-lg font-semibold">Academic Calendar</span>
+          </div>
+          <p className="text-sm text-slate-600">
+            Review semester schedule and exam windows.
+          </p>
+        </button>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+        <CalendarComponent />
+      </div>
+    </div>
+  );
+
+  const renderStudentsPanel = () => (
+    <div className="space-y-5">
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <p className="text-xs uppercase tracking-[0.25em] text-slate-500">
+          Admin Workspace
+        </p>
+        <h2 className="mt-2 text-4xl font-semibold text-slate-900">Students</h2>
+        <p className="mt-2 text-lg text-slate-600">
+          Recent students rendered directly in dashboard center.
+        </p>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-slate-800">
+            Student Records
+          </h3>
+          <button
+            type="button"
+            onClick={() => navigate("/admin/usermanagement")}
+            className="rounded-xl bg-[#2f87d9] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#1f6fb7]"
+          >
+            Open Full Management
+          </button>
+        </div>
+
+        {studentOnlyUsers.length === 0 ? (
+          <p className="text-sm text-slate-500">No student records found.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <table className="min-w-[720px] w-full text-sm">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-3 py-2 text-left font-semibold text-slate-600">
+                    Name
+                  </th>
+                  <th className="px-3 py-2 text-left font-semibold text-slate-600">
+                    Email
+                  </th>
+                  <th className="px-3 py-2 text-left font-semibold text-slate-600">
+                    Roll
+                  </th>
+                  <th className="px-3 py-2 text-left font-semibold text-slate-600">
+                    Department
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {studentOnlyUsers.slice(0, 12).map((student) => (
+                  <tr key={student.id} className="border-t border-slate-200">
+                    <td className="px-3 py-2 text-slate-800">
+                      {student.name || student.displayName || "-"}
+                    </td>
+                    <td className="px-3 py-2 text-slate-600">
+                      {student.email || "-"}
+                    </td>
+                    <td className="px-3 py-2 text-slate-600">
+                      {student.rollNo || student.rollNumber || "-"}
+                    </td>
+                    <td className="px-3 py-2 text-slate-600">
+                      {student.dept || student.department || "-"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
+      </div>
+    </div>
+  );
 
-        {/* Sidebar */}
-        <motion.aside
-          className="hidden lg:flex bg-white shadow-lg text-gray-800 flex-col h-screen sticky top-0 z-10 border-r border-gray-200"
-          variants={sidebarVariants}
-          animate={isOpen ? "open" : "closed"}
-        >
-          <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-            <motion.div
-              className="flex items-center"
-              variants={textVariants}
-              animate={isOpen ? "open" : "closed"}
-            >
-              <motion.div
-                whileHover={{ rotate: 5 }}
-                whileTap={{ scale: 0.95 }}
-                className="mr-2 bg-gradient-to-r from-indigo-600 to-purple-600 w-8 h-8 rounded-md flex items-center justify-center text-white shadow-md"
-              >
-                <span className="text-lg font-bold">CC</span>
-              </motion.div>
-              <motion.h2
-                className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3 }}
-              >
-                CampusConnect
-              </motion.h2>
-            </motion.div>
+  const renderTeachersPanel = () => (
+    <div className="space-y-5">
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <p className="text-xs uppercase tracking-[0.25em] text-slate-500">
+          Admin Workspace
+        </p>
+        <h2 className="mt-2 text-4xl font-semibold text-slate-900">Teachers</h2>
+        <p className="mt-2 text-lg text-slate-600">
+          Faculty overview rendered in dashboard center.
+        </p>
+      </div>
 
-            <button
-              onClick={() => setIsOpen(!isOpen)}
-              className="p-1.5 rounded-md hover:bg-indigo-100 hover:text-indigo-600 transition-all duration-300"
-              aria-label="Toggle sidebar"
-            >
-              <motion.svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6 text-gray-500"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9, rotate: isOpen ? -10 : 10 }}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d={
-                    isOpen
-                      ? "M11 19l-7-7 7-7m8 14l-7-7 7-7"
-                      : "M13 5l7 7-7 7M5 5l7 7-7 7"
-                  }
-                />
-              </motion.svg>
-            </button>
-          </div>
-
-          <nav className="flex-1 overflow-y-auto py-4 hide-scrollbar">
-            <SidebarItem
-              icon={<FiHome />}
-              label="Dashboard"
-              path="/admin/dashboard"
-              isOpen={isOpen}
-              active={true}
-              color="blue"
-            />
-            <SidebarItem
-              icon={<FiUsers />}
-              label="Students"
-              path="/admin/usermanagement"
-              isOpen={isOpen}
-              color="purple"
-            />
-            <SidebarItem
-              icon={<FiUser />}
-              label="Teachers"
-              path="/admin/teachermanagement"
-              isOpen={isOpen}
-              color="green"
-            />
-            <SidebarItem
-              icon={<FiLayers />}
-              label="Subject Sets"
-              path="/admin/subject-sets"
-              isOpen={isOpen}
-              color="blue"
-            />
-            <SidebarItem
-              icon={<FiUpload />}
-              label="Upload Students"
-              path="/admin/upload-students"
-              isOpen={isOpen}
-              color="amber"
-            />
-            <SidebarItem
-              icon={<FiEdit3 />}
-              label="Bulk Academic Update"
-              path="/admin/bulk-academic-update"
-              isOpen={isOpen}
-              color="blue"
-            />
-
-            <div className="px-3 my-3">
-              <div className="flex items-center">
-                <div className="flex-grow h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>
-                <motion.p
-                  className="mx-2 text-xs font-semibold text-gray-500 uppercase tracking-wider"
-                  variants={textVariants}
-                  animate={isOpen ? "open" : "closed"}
-                >
-                  Settings
-                </motion.p>
-                <div className="flex-grow h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>
-              </div>
-            </div>
-
-            <SidebarItem
-              icon={<FiBell />}
-              label="Notifications"
-              path="/admin/announcements"
-              isOpen={isOpen}
-              color="purple"
-            />
-            <SidebarItem
-              icon={<FiCalendar />}
-              label="Exam Timetable"
-              path="/admin/exam-timetable"
-              isOpen={isOpen}
-              color="green"
-            />
-            <SidebarItem
-              icon={<FiSettings />}
-              label="Settings"
-              path="/admin/settings"
-              isOpen={isOpen}
-              color="amber"
-            />
-            <SidebarItem
-              icon={<FiLogOut />}
-              label="Logout"
-              isOpen={isOpen}
-              color="red"
-              onClick={handleLogout}
-            />
-          </nav>
-        </motion.aside>
-
-        {/* Main Content */}
-        <main className="flex-1 min-h-screen">
-          {/* Top Navbar - Enhanced Design */}
-          <motion.div
-            className="bg-gradient-to-r from-indigo-700 via-purple-700 to-indigo-800 sticky top-0 z-20 shadow-xl"
-            initial={{ y: -100 }}
-            animate={{ y: 0 }}
-            transition={{ type: "spring", stiffness: 100, damping: 15 }}
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-slate-800">
+            Teacher Records
+          </h3>
+          <button
+            type="button"
+            onClick={() => navigate("/admin/teachermanagement")}
+            className="rounded-xl bg-[#2f87d9] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#1f6fb7]"
           >
-            <motion.div
-              className="container mx-auto px-4 py-4"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.2, duration: 0.5 }}
-            >
-              {/* Upper Navbar Section */}
-              <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                {/* Left Side - Logo & Title */}
-                <div className="flex items-center w-full md:w-auto justify-center md:justify-start">
-                  <button
-                    onClick={() => setIsMobileSidebarOpen(true)}
-                    className="lg:hidden mr-3 p-2 rounded-lg bg-white/20 text-white"
-                    aria-label="Open mobile sidebar"
-                  >
-                    <FiMenu className="h-5 w-5" />
-                  </button>
-                  <motion.div
-                    className="bg-white/20 backdrop-blur-sm p-2 rounded-lg mr-3 text-white"
-                    whileHover={{ rotate: 5, scale: 1.1 }}
-                    transition={{ type: "spring", stiffness: 300 }}
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-8 w-8"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                      />
-                    </svg>
-                  </motion.div>
+            Open Full Management
+          </button>
+        </div>
 
-                  <div>
-                    <motion.h1
-                      className="text-xl md:text-2xl font-bold text-white text-center md:text-left"
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.5 }}
-                    >
-                      Admin Dashboard
-                    </motion.h1>
-                    <motion.p
-                      className="text-indigo-200 text-xs hidden md:block"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.3 }}
-                    >
-                      Manage your campus efficiently
-                    </motion.p>
-                  </div>
-                </div>
-
-                {/* Right Side - Search, Notifications & Profile */}
-                <div className="flex items-center space-x-3 w-full md:w-auto">
-                  {/* Search Bar with Animation */}
-                  <motion.div
-                    className="relative flex-grow md:w-56 lg:w-64"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.5, delay: 0.2 }}
-                  >
-                    <input
-                      type="text"
-                      placeholder="Search anything..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      aria-label="Search"
-                      className="w-full px-4 py-2 pl-10 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-transparent text-white placeholder-white/60 text-sm"
-                    />
-                    <FiSearch className="absolute top-2.5 left-3 text-white/70" />
-                  </motion.div>
-
-                  {/* Notification Icon with Badge and Animation */}
-
-                  {/* Admin Avatar with dropdown */}
-                  <div className="relative flex-shrink-0" ref={dropdownRef}>
-                    <motion.div
-                      whileHover={{ scale: 1.05, rotate: 3 }}
-                      whileTap={{ scale: 0.95 }}
-                      className="cursor-pointer flex items-center bg-white/10 backdrop-blur-sm rounded-xl px-2 py-1.5 hover:bg-white/20 transition-colors"
-                      onClick={toggleDropdown}
-                    >
-                      <img
-                        src="https://i.pravatar.cc/100?img=12"
-                        alt="Admin"
-                        className="w-8 h-8 rounded-full border-2 border-white/50 mr-2"
-                      />
-                      <span className="text-white text-sm font-medium hidden md:block">
-                        Admin
-                      </span>
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-4 w-4 text-white/70 ml-1 hidden md:block"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 9l-7 7-7-7"
-                        />
-                      </svg>
-                    </motion.div>
-
-                    {/* Profile Dropdown with Animation */}
-                    <AnimatePresence>
-                      {isDropdownOpen && (
-                        <motion.div
-                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                          transition={{
-                            duration: 0.2,
-                            type: "spring",
-                            stiffness: 300,
-                          }}
-                          className="absolute right-0 mt-3 w-60 bg-white rounded-xl shadow-2xl py-2 z-50 border border-gray-100 overflow-hidden"
-                        >
-                          <div className="px-4 py-3 border-b border-gray-100">
-                            <p className="text-sm font-semibold text-gray-800">
-                              Admin User
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              admin@campusconnect.com
-                            </p>
-                          </div>
-
-                          <div className="py-1">
-                            <Link
-                              to="/profile"
-                              className="block px-4 py-2 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
-                            >
-                              <div className="flex items-center">
-                                <FiUser className="mr-2 text-indigo-500" />{" "}
-                                Profile Settings
-                              </div>
-                            </Link>
-                            <Link
-                              to="/admin/settings"
-                              className="block px-4 py-2 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
-                            >
-                              <div className="flex items-center">
-                                <FiSettings className="mr-2 text-indigo-500" />{" "}
-                                Admin Settings
-                              </div>
-                            </Link>
-                          </div>
-
-                          <div className="py-1 border-t border-gray-100 mt-1">
-                            <button
-                              onClick={handleLogout}
-                              className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 transition-colors"
-                            >
-                              <div className="flex items-center">
-                                <FiLogOut className="mr-2" /> Sign Out
-                              </div>
-                            </button>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </div>
+        {teachers.length === 0 ? (
+          <p className="text-sm text-slate-500">No teacher records found.</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {teachers.slice(0, 12).map((teacher) => (
+              <div
+                key={teacher.id}
+                className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+              >
+                <p className="text-sm font-semibold text-slate-800">
+                  {teacher.name || teacher.displayName || "Unnamed Teacher"}
+                </p>
+                <p className="mt-1 text-xs text-slate-600">
+                  {teacher.email || "-"}
+                </p>
+                <p className="mt-1 text-xs text-slate-600">
+                  {teacher.department || teacher.dept || "Department not set"}
+                </p>
               </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
-              {/* Lower Navbar - Navigation Links */}
-              <div className="hidden lg:flex flex-col md:flex-row justify-between gap-2 md:items-center mt-4 pt-2 border-t border-white/10">
-                <div className="w-full overflow-x-auto scrollbar-hide">
-                  <nav className="flex space-x-2 pb-1 min-w-max">
-                    <NavLink
-                      to="/admin/dashboard"
-                      active={true}
-                      icon={<FiHome />}
-                      label="Overview"
-                      bgColor="from-blue-500 to-blue-600"
-                    />
-                    <NavLink
-                      to="/admin/usermanagement"
-                      active={false}
-                      icon={<FiUsers />}
-                      label="Students"
-                      bgColor="from-purple-500 to-purple-600"
-                    />
-                    <NavLink
-                      to="/admin/teachermanagement"
-                      active={false}
-                      icon={<FiUser />}
-                      label="Teachers"
-                      bgColor="from-green-500 to-green-600"
-                    />
-                    <NavLink
-                      to="/admin/announcements"
-                      active={false}
-                      icon={<FiBell />}
-                      label="Announcements"
-                      bgColor="from-pink-500 to-pink-600"
-                    />
-                    <NavLink
-                      to="/admin/bulk-academic-update"
-                      active={false}
-                      icon={<FiEdit3 />}
-                      label="Bulk Update"
-                      bgColor="from-cyan-500 to-cyan-600"
-                    />
-                  </nav>
-                </div>
+  const renderAnnouncementsPanel = () => (
+    <div className="space-y-5">
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <p className="text-xs uppercase tracking-[0.25em] text-slate-500">
+          Admin Workspace
+        </p>
+        <h2 className="mt-2 text-4xl font-semibold text-slate-900">
+          Announcements
+        </h2>
+        <p className="mt-2 text-lg text-slate-600">
+          Latest notices rendered here in dashboard center.
+        </p>
+      </div>
 
-                <div className="hidden md:flex text-white/70 text-sm items-center">
-                  <span className="mr-2">Last login:</span>
-                  <span className="bg-white/10 rounded-lg px-2 py-0.5">
-                    {lastLoginTime}
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-slate-800">
+            Recent Announcements
+          </h3>
+          <button
+            type="button"
+            onClick={() => navigate("/admin/announcements")}
+            className="rounded-xl bg-[#2f87d9] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#1f6fb7]"
+          >
+            Open Full Management
+          </button>
+        </div>
+
+        {announcements.length === 0 ? (
+          <p className="text-sm text-slate-500">No announcements available.</p>
+        ) : (
+          <div className="space-y-3">
+            {announcements.slice(0, 8).map((item) => (
+              <div
+                key={item.id}
+                className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">
+                      {item.title || "Untitled"}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-600 line-clamp-2">
+                      {item.message || "-"}
+                    </p>
+                  </div>
+                  <span
+                    className={`rounded-full px-2 py-1 text-[10px] font-semibold ${item.active ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}
+                  >
+                    {item.active ? "Active" : "Inactive"}
                   </span>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
-
-          {/* Dashboard Content */}
-          <div className="container mx-auto px-3 sm:px-4 py-6">
-            {/* Welcome Banner */}
-            <motion.div
-              className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-md p-6 mb-8 text-white overflow-hidden relative"
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{
-                duration: 0.5,
-                type: "spring",
-                stiffness: 150,
-                damping: 15,
-              }}
-            >
-              <motion.div
-                className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full filter blur-3xl"
-                animate={{
-                  x: [0, 30, 0],
-                  y: [0, 15, 0],
-                }}
-                transition={{
-                  repeat: Infinity,
-                  duration: 8,
-                  ease: "easeInOut",
-                }}
-              />
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 relative z-10">
-                <div>
-                  <h2 className="text-xl sm:text-2xl font-bold mb-2">
-                    Welcome to Admin Dashboard
-                  </h2>
-                  <p className="opacity-90">
-                    Here's what's happening with your campus today
-                  </p>
-                </div>
-                <img
-                  src="https://i.pravatar.cc/100?img=12"
-                  alt="Admin"
-                  className="h-16 w-16 rounded-full border-4 border-white/30 hidden md:block"
-                />
-              </div>
-            </motion.div>
-
-            {/* Stats Cards */}
-            <motion.div
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
-              initial="hidden"
-              animate="visible"
-              variants={{
-                hidden: {},
-                visible: {
-                  transition: {
-                    staggerChildren: 0.1,
-                    delayChildren: 0.2,
-                  },
-                },
-              }}
-            >
-              <StatCard
-                title="Total Students"
-                value={studentStats.total}
-                change={studentStats.total > 0 ? `+${studentStats.total}` : "0"}
-                icon={<FiUsers className="text-blue-500" />}
-                color="blue"
-                breakdown={studentStats.byDept}
-              />
-              <StatCard
-                title="Total Teachers"
-                value={teacherStats.total}
-                change={teacherStats.total > 0 ? `+${teacherStats.total}` : "0"}
-                icon={<FiUser className="text-green-500" />}
-                color="green"
-                breakdown={teacherStats.byDept}
-              />
-              <StatCard
-                title="Active Courses"
-                value="42"
-                change="+7%"
-                icon={<FiCreditCard className="text-purple-500" />}
-                color="purple"
-              />
-              <StatCard
-                title="System Status"
-                value="Healthy"
-                change="99.9%"
-                icon={<FiActivity className="text-indigo-500" />}
-                color="indigo"
-              />
-            </motion.div>
-
-            {/* Main Dashboard Content */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left Column */}
-              <motion.div
-                className="lg:col-span-2 space-y-6"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{
-                  duration: 0.5,
-                  delay: 0.3,
-                  type: "spring",
-                  stiffness: 150,
-                  damping: 15,
-                }}
-              >
-                {/* Campus News Card */}
-                <motion.div
-                  className="relative overflow-hidden rounded-lg shadow-md border border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-blue-50 p-6 transition-all duration-300 hover:shadow-lg"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{
-                    duration: 0.5,
-                    delay: 0.2,
-                    type: "spring",
-                    stiffness: 150,
-                  }}
-                >
-                  {/* Decorative animated blob */}
-                  <motion.div
-                    className="absolute -top-8 -left-8 w-32 h-32 bg-indigo-100 rounded-full filter blur-2xl opacity-40 z-0"
-                    animate={{
-                      scale: [1, 1.15, 1],
-                      opacity: [0.4, 0.6, 0.4],
-                      x: [0, 10, 0],
-                      y: [0, 10, 0],
-                    }}
-                    transition={{
-                      duration: 8,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                    }}
-                  />
-                  <div className="relative z-10">
-                    <h2 className="text-lg font-semibold text-indigo-800 mb-3 flex items-center gap-2">
-                      <motion.span
-                        whileHover={{ rotate: 15 }}
-                        whileTap={{ scale: 0.9 }}
-                        transition={{
-                          type: "spring",
-                          stiffness: 300,
-                        }}
-                        className="inline-flex items-center justify-center bg-indigo-100 text-indigo-600 rounded-full w-9 h-9 shadow"
-                      >
-                        <FiBell className="text-xl" />
-                      </motion.span>
-                      Campus News
-                    </h2>
-                    <ul className="space-y-2 mt-2">
-                      <li className="flex items-start gap-2">
-                        <span className="mt-1 w-2 h-2 rounded-full bg-indigo-400"></span>
-                        <span className="text-gray-700 text-sm font-medium">
-                          <span className="font-semibold">
-                            Exam Schedule Update:
-                          </span>{" "}
-                          Summer exams will start from{" "}
-                          <span className="text-indigo-600 font-semibold">
-                            27th May 2025
-                          </span>
-                          . Check the notice board for detailed timetable.
-                        </span>
-                      </li>
-                    </ul>
-                  </div>
-                </motion.div>
-
-                {/* Upcoming Events Card - Redesigned */}
-                <div className="relative overflow-hidden rounded-lg shadow-md border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-6 transition-all duration-300 hover:shadow-lg">
-                  {/* Decorative animated blob */}
-                  <motion.div
-                    className="absolute -top-8 -right-8 w-32 h-32 bg-blue-100 rounded-full filter blur-2xl opacity-40 z-0"
-                    animate={{
-                      scale: [1, 1.15, 1],
-                      opacity: [0.4, 0.6, 0.4],
-                      x: [0, 10, 0],
-                      y: [0, 10, 0],
-                    }}
-                    transition={{
-                      duration: 8,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                    }}
-                  />
-                  <div className="relative z-10">
-                    <h2 className="text-lg font-semibold text-blue-800 mb-3 flex items-center gap-2">
-                      <motion.span
-                        whileHover={{ rotate: 15 }}
-                        whileTap={{ scale: 0.9 }}
-                        transition={{ type: "spring", stiffness: 300 }}
-                        className="inline-flex items-center justify-center bg-blue-100 text-blue-600 rounded-full w-9 h-9 shadow"
-                      >
-                        <FiCalendar className="text-xl" />
-                      </motion.span>
-                      Upcoming Events
-                    </h2>
-                    <ul className="space-y-2 mt-2">
-                      <li className="flex items-start gap-2">
-                        <span className="mt-1 w-2 h-2 rounded-full bg-blue-400"></span>
-                        <span className="text-gray-700 text-sm font-medium">
-                          Workshop: AI in Education{" "}
-                          <span className="text-xs text-blue-500 ml-2 font-normal">
-                            20th May 2025
-                          </span>
-                        </span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="mt-1 w-2 h-2 rounded-full bg-indigo-400"></span>
-                        <span className="text-gray-700 text-sm font-medium">
-                          Parent-Teacher Meeting{" "}
-                          <span className="text-xs text-indigo-500 ml-2 font-normal">
-                            28th May 2025
-                          </span>
-                        </span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="mt-1 w-2 h-2 rounded-full bg-purple-400"></span>
-                        <span className="text-gray-700 text-sm font-medium">
-                          Annual Fest{" "}
-                          <span className="text-xs text-purple-500 ml-2 font-normal">
-                            10th June 2025
-                          </span>
-                        </span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="mt-1 w-2 h-2 rounded-full bg-green-400"></span>
-                        <span className="text-gray-700 text-sm font-medium">
-                          Library Orientation{" "}
-                          <span className="text-xs text-green-500 ml-2 font-normal">
-                            15th June 2025
-                          </span>
-                        </span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="mt-1 w-2 h-2 rounded-full bg-amber-400"></span>
-                        <span className="text-gray-700 text-sm font-medium">
-                          Sports Day{" "}
-                          <span className="text-xs text-amber-500 ml-2 font-normal">
-                            25th June 2025
-                          </span>
-                        </span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </motion.div>
-              {/* Right Column */}
-              <motion.div
-                className="space-y-6"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{
-                  duration: 0.5,
-                  delay: 0.4,
-                  type: "spring",
-                  stiffness: 150,
-                  damping: 15,
-                }}
-              >
-                {/* Enhanced Calendar */}
-                <motion.div
-                  className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden"
-                  whileHover={{ scale: 1.01 }}
-                  transition={{ type: "spring", stiffness: 200 }}
-                >
-                  <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-indigo-50 via-white to-indigo-50">
-                    <h2 className="text-lg font-semibold text-gray-800 flex items-center">
-                      <motion.div
-                        whileHover={{ rotate: 15 }}
-                        whileTap={{ scale: 0.9 }}
-                        transition={{ type: "spring", stiffness: 300 }}
-                      >
-                        <FiCalendar className="mr-2 text-indigo-600" />
-                      </motion.div>
-                      Calendar
-                    </h2>
-                  </div>
-                  <div className="p-3 relative">
-                    {/* Animated blob decoration */}
-                    <motion.div
-                      className="absolute -left-10 -bottom-10 w-40 h-40 bg-indigo-50 rounded-full filter blur-2xl opacity-50 z-0"
-                      animate={{
-                        scale: [1, 1.2, 1],
-                        opacity: [0.3, 0.5, 0.3],
-                      }}
-                      transition={{
-                        duration: 8,
-                        repeat: Infinity,
-                        ease: "easeInOut",
-                      }}
-                    />
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.4 }}
-                      className="relative z-10"
-                    >
-                      <CalendarComponent />+
-                    </motion.div>
-                  </div>
-                </motion.div>
-
-                {/* Enhanced Quick Access */}
-                <motion.div
-                  className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden"
-                  whileHover={{ scale: 1.01 }}
-                  transition={{ type: "spring", stiffness: 200 }}
-                >
-                  <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-indigo-50 via-white to-indigo-50">
-                    <h2 className="text-lg font-semibold text-gray-800 flex items-center">
-                      <motion.div
-                        whileHover={{ rotate: 15 }}
-                        whileTap={{ scale: 0.9 }}
-                        transition={{ type: "spring", stiffness: 300 }}
-                      >
-                        <FiCreditCard className="mr-2 text-indigo-600" />
-                      </motion.div>
-                      Quick Access
-                    </h2>
-                  </div>
-                  <div className="p-4 grid grid-cols-2 gap-3">
-                    <QuickAccessLink
-                      to="/admin/announcements"
-                      icon={<FiBell />}
-                      label="Announcements"
-                      color="blue"
-                      delay={0.1}
-                    />
-                    <QuickAccessLink
-                      to="/admin/teachermanagement"
-                      icon={<FiUser />}
-                      label="Teachers"
-                      color="green"
-                      delay={0.2}
-                    />
-                    <QuickAccessLink
-                      to="/admin/settings"
-                      icon={<FiSettings />}
-                      label="Settings"
-                      color="purple"
-                      delay={0.3}
-                    />
-                    <QuickAccessLink
-                      to="/admin/subject-sets"
-                      icon={<FiLayers />}
-                      label="Subject Sets"
-                      color="orange"
-                      delay={0.4}
-                    />
-                    <QuickAccessLink
-                      to="/admin/upload-students"
-                      icon={<FiUpload />}
-                      label="Upload Students"
-                      color="blue"
-                      delay={0.5}
-                    />
-                  </div>
-                </motion.div>
-              </motion.div>
-            </div>
+            ))}
           </div>
-        </main>
+        )}
       </div>
-    </>
+    </div>
+  );
+
+  const renderExamPanel = () => (
+    <div className="space-y-5">
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <p className="text-xs uppercase tracking-[0.25em] text-slate-500">
+          Admin Workspace
+        </p>
+        <h2 className="mt-2 text-4xl font-semibold text-slate-900">
+          Exam Timetable
+        </h2>
+        <p className="mt-2 text-lg text-slate-600">
+          Upcoming exam entries rendered in center panel.
+        </p>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-slate-800">
+            Upcoming Exams
+          </h3>
+          <button
+            type="button"
+            onClick={() => navigate("/admin/exam-timetable")}
+            className="rounded-xl bg-[#2f87d9] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#1f6fb7]"
+          >
+            Open Full Management
+          </button>
+        </div>
+
+        {examTimetable.length === 0 ? (
+          <p className="text-sm text-slate-500">
+            No exam timetable data available.
+          </p>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <table className="min-w-[760px] w-full text-sm">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-3 py-2 text-left font-semibold text-slate-600">
+                    Date
+                  </th>
+                  <th className="px-3 py-2 text-left font-semibold text-slate-600">
+                    Course
+                  </th>
+                  <th className="px-3 py-2 text-left font-semibold text-slate-600">
+                    Year
+                  </th>
+                  <th className="px-3 py-2 text-left font-semibold text-slate-600">
+                    Branch
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {examTimetable.slice(0, 12).map((exam) => (
+                  <tr key={exam.id} className="border-t border-slate-200">
+                    <td className="px-3 py-2 text-slate-700">
+                      {exam.date || "-"}
+                    </td>
+                    <td className="px-3 py-2 text-slate-700">
+                      {exam.courseName || exam.subject || "-"}
+                    </td>
+                    <td className="px-3 py-2 text-slate-600">
+                      {exam.year || "-"}
+                    </td>
+                    <td className="px-3 py-2 text-slate-600">
+                      {exam.branch || "-"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderActivePanel = () => {
+    if (activeTab === "overview") return renderOverview();
+    if (activeTab === "students") return renderStudentsPanel();
+    if (activeTab === "teachers") return renderTeachersPanel();
+    if (activeTab === "announcements") return renderAnnouncementsPanel();
+    if (activeTab === "calendars") return renderCalendarsPanel();
+    if (activeTab === "exam-timetable") return renderExamPanel();
+
+    const panelMap = {
+      students: {
+        title: "Students",
+        description: "Manage student records, edits, and enrollment updates.",
+        primaryLabel: "Open Student Management",
+        primaryRoute: "/admin/usermanagement",
+        secondaryLabel: "Open Bulk Academic Update",
+        secondaryRoute: "/admin/bulk-academic-update",
+      },
+      teachers: {
+        title: "Teachers",
+        description: "Manage faculty profiles and assignment mappings.",
+        primaryLabel: "Open Teacher Management",
+        primaryRoute: "/admin/teachermanagement",
+      },
+      "subject-sets": {
+        title: "Subject Sets",
+        description: "Maintain branch-year-semester subject matrices.",
+        primaryLabel: "Open Subject Set Management",
+        primaryRoute: "/admin/subject-sets",
+      },
+      upload: {
+        title: "Bulk Onboarding",
+        description:
+          "Parse admission data and create student accounts in bulk.",
+        primaryLabel: "Open Bulk Student Onboarding",
+        primaryRoute: "/admin/upload-students",
+      },
+      "bulk-update": {
+        title: "Bulk Academic Update",
+        description: "Apply branch/year/semester updates to many students.",
+        primaryLabel: "Open Bulk Academic Update",
+        primaryRoute: "/admin/bulk-academic-update",
+      },
+      announcements: {
+        title: "Announcements",
+        description: "Create and manage notices for all users.",
+        primaryLabel: "Open Announcement Management",
+        primaryRoute: "/admin/announcements",
+      },
+      "exam-timetable": {
+        title: "Exam Timetable",
+        description: "Upload and manage exam timetables for all branches.",
+        primaryLabel: "Open Exam Timetable Management",
+        primaryRoute: "/admin/exam-timetable",
+      },
+      settings: {
+        title: "Settings",
+        description: "Configure admin-level platform preferences.",
+        primaryLabel: "Open Admin Settings",
+        primaryRoute: "/admin/settings",
+      },
+    };
+
+    const panel = panelMap[activeTab];
+    if (!panel) return renderOverview();
+    return renderSectionPanel(panel);
+  };
+
+  return (
+    <div className="min-h-screen bg-[#eef2f6] pb-6 pt-4 sm:pb-10 sm:pt-7">
+      <style>{styles}</style>
+      <div className="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8">
+        {error ? (
+          <div className="mb-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        ) : null}
+
+        <div className="mb-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm lg:hidden">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen((prev) => !prev)}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-left text-slate-800"
+          >
+            <FiChevronDown
+              className={`h-4 w-4 transition-transform ${sidebarOpen ? "rotate-180" : "rotate-0"}`}
+            />
+            <span>
+              <span className="block text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                Admin Dashboard
+              </span>
+              <span className="block text-xs font-semibold text-slate-800">
+                {navItems.find((item) => item.id === activeTab)?.label ||
+                  "Control Center"}
+              </span>
+            </span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+          <aside className="lg:col-span-3">
+            <AnimatePresence initial={false}>
+              {sidebarOpen ? (
+                <motion.div
+                  initial={{ opacity: 0, y: -12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -12 }}
+                  className="mb-3 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:hidden"
+                >
+                  <div className="p-2.5">
+                    {navItems.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = activeTab === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => {
+                            openNavItem(item);
+                            setSidebarOpen(false);
+                          }}
+                          className={`mb-1 flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-left text-xs font-medium transition ${
+                            isActive
+                              ? "bg-[#e9f2ff] text-[#1f6fb7]"
+                              : "text-slate-700 hover:bg-slate-100"
+                          }`}
+                        >
+                          <span className="flex items-center gap-2">
+                            <Icon className="h-4 w-4" /> {item.label}
+                          </span>
+                          <FiChevronRight className="h-4 w-4" />
+                        </button>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="mb-1 mt-2 flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-left text-xs font-medium text-red-600 transition hover:bg-red-50"
+                    >
+                      <span className="flex items-center gap-2">
+                        <FiLogOut className="h-4 w-4" /> Logout
+                      </span>
+                      <FiChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+
+            <div className="hidden overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm lg:block">
+              <div className="border-b border-slate-200 bg-[#f8fafc] px-4 py-4">
+                <p className="text-xs uppercase tracking-wide text-slate-500">
+                  Admin Menu
+                </p>
+                <p className="text-lg font-semibold text-slate-800">
+                  Dashboard
+                </p>
+              </div>
+              <div className="p-3">
+                {navItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => openNavItem(item)}
+                      className={`mb-1 flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium transition ${
+                        isActive
+                          ? "bg-[#e9f2ff] text-[#1f6fb7]"
+                          : "text-slate-700 hover:bg-slate-100"
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <Icon className="h-4 w-4" /> {item.label}
+                      </span>
+                      <FiChevronRight className="h-4 w-4" />
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="mb-1 mt-2 flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium text-red-600 transition hover:bg-red-50"
+                >
+                  <span className="flex items-center gap-2">
+                    <FiLogOut className="h-4 w-4" /> Logout
+                  </span>
+                  <FiChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </aside>
+
+          <main className="lg:col-span-9">{renderActivePanel()}</main>
+        </div>
+      </div>
+    </div>
   );
 }

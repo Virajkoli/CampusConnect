@@ -115,20 +115,20 @@ export default function SubjectSetManagement() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 px-4 sm:px-6 py-6 sm:py-8">
+    <div className="min-h-screen bg-[#eef2f6] px-4 sm:px-6 py-6 sm:py-8">
       <div className="max-w-6xl mx-auto space-y-6">
         <button
           onClick={() => navigate("/admin-dashboard")}
-          className="flex items-center text-red-600 hover:text-green-900 transition-colors"
+          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:text-[#2f87d9] sm:px-4 sm:py-2 sm:text-sm"
         >
-          <FiArrowLeft className="mr-2" /> Go Back
+          <FiArrowLeft className="h-4 w-4" /> Back to Dashboard
         </button>
 
-        <div className="bg-white rounded-xl shadow-md border border-indigo-100 p-5 sm:p-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-indigo-700 mb-2 flex items-center">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 sm:p-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-2 flex items-center">
             <FiBookOpen className="mr-3" /> Subject Set Management
           </h1>
-          <p className="text-gray-600">
+          <p className="text-slate-600">
             Manage centralized subjects for each branch and year. These sets are
             used for both student onboarding and teacher course assignment
             consistency.
@@ -146,10 +146,10 @@ export default function SubjectSetManagement() {
           </div>
         )}
 
-        <div className="bg-white rounded-xl shadow-md border border-indigo-100 p-5 sm:p-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 sm:p-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
                 Branch
               </label>
               <select
@@ -165,7 +165,7 @@ export default function SubjectSetManagement() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
                 Year
               </label>
               <select
@@ -181,7 +181,7 @@ export default function SubjectSetManagement() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
                 Semester
               </label>
               <select
@@ -200,7 +200,7 @@ export default function SubjectSetManagement() {
               <button
                 onClick={fetchSubjectSets}
                 disabled={loading}
-                className="flex items-center bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg"
+                className="flex items-center bg-slate-100 hover:bg-gray-200 text-slate-700 px-4 py-2 rounded-lg"
               >
                 <FiRefreshCw className="mr-2" />{" "}
                 {loading ? "Refreshing..." : "Refresh"}
@@ -208,14 +208,14 @@ export default function SubjectSetManagement() {
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg"
+                className="flex items-center bg-[#2f87d9] hover:bg-[#1f6fb7] text-white px-4 py-2 rounded-lg"
               >
                 <FiSave className="mr-2" /> {saving ? "Saving..." : "Save Set"}
               </button>
             </div>
           </div>
 
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-slate-700 mb-2">
             Subjects for {selectedBranch} - {selectedYear} Year - Semester{" "}
             {selectedSemester} (one per line)
           </label>
@@ -227,13 +227,13 @@ export default function SubjectSetManagement() {
           />
         </div>
 
-        <div className="bg-white rounded-xl shadow-md border border-indigo-100 p-5 sm:p-6">
-          <h2 className="text-lg font-semibold text-indigo-700 mb-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 sm:p-6">
+          <h2 className="text-lg font-semibold text-slate-800 mb-4">
             Current Subject Matrix
           </h2>
           <div className="overflow-x-auto">
-            <table className="min-w-[1200px] w-full text-sm border border-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-[1200px] w-full text-sm border border-slate-200">
+              <thead className="bg-slate-50">
                 <tr>
                   <th className="text-left p-3 border-b">Branch</th>
                   <th className="text-left p-3 border-b">1st - Sem 1</th>
@@ -255,7 +255,7 @@ export default function SubjectSetManagement() {
                         {SEMESTERS.map((semester) => (
                           <td
                             key={`${branch}-${year}-${semester}`}
-                            className="p-3 border-b text-xs text-gray-600"
+                            className="p-3 border-b text-xs text-slate-600"
                           >
                             {(
                               subjectSets?.[branch]?.[year]?.[semester] || []

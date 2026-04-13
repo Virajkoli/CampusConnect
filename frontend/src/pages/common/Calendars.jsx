@@ -1,36 +1,47 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { FiArrowLeft, FiCalendar, FiBook } from "react-icons/fi";
 import { FaCalendarAlt, FaGraduationCap } from "react-icons/fa";
-import { auth, firestore } from "../../firebase";
+import { auth } from "../../firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
-import { collection, query, where, getDocs } from "firebase/firestore";
 
 function Calendars() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [user] = useAuthState(auth);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isTeacher, setIsTeacher] = useState(false);
 
+  const isStudentUser = Boolean(user) && !isAdmin && !isTeacher;
+
+  const handleBack = () => {
+    if (isAdmin) {
+      navigate("/admin-dashboard");
+      return;
+    }
+    if (isTeacher) {
+      navigate("/teacher-dashboard");
+      return;
+    }
+    if (location.state?.fromStudentDashboard || isStudentUser) {
+      navigate("/student-dashboard");
+      return;
+    }
+    navigate(-1);
+  };
+
   useEffect(() => {
     const checkUserRole = async () => {
       if (user) {
-        // Check admin
-        const adminQuery = query(
-          collection(firestore, "admins"),
-          where("uid", "==", user.uid),
-        );
-        const adminSnapshot = await getDocs(adminQuery);
-        setIsAdmin(!adminSnapshot.empty);
-
-        // Check teacher
-        const teacherQuery = query(
-          collection(firestore, "teachers"),
-          where("uid", "==", user.uid),
-        );
-        const teacherSnapshot = await getDocs(teacherQuery);
-        setIsTeacher(!teacherSnapshot.empty);
+        try {
+          const tokenResult = await user.getIdTokenResult(true);
+          setIsAdmin(Boolean(tokenResult?.claims?.admin));
+          setIsTeacher(Boolean(tokenResult?.claims?.teacher));
+        } catch (error) {
+          setIsAdmin(false);
+          setIsTeacher(false);
+        }
       }
     };
     checkUserRole();
@@ -67,14 +78,14 @@ function Calendars() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 pt-10 pb-10">
+    <div className="min-h-screen bg-[#eef2f6] pt-10 pb-10">
       {/* Back Button */}
       <button
-        onClick={() => navigate(-1)}
-        className="flex items-center mx-4 sm:mx-8 my-4 text-indigo-600 hover:text-indigo-800 transition-colors"
+        onClick={handleBack}
+        className="mx-4 my-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:text-[#2f87d9] sm:mx-8 sm:px-4 sm:py-2 sm:text-sm"
       >
-        <FiArrowLeft className="mr-2" />
-        Go Back
+        <FiArrowLeft className="h-4 w-4" />
+        Back to Dashboard
       </button>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -84,13 +95,11 @@ function Calendars() {
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-12"
         >
-          <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl">
+          <div className="w-20 h-20 bg-[#2f87d9] rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-sm">
             <FiCalendar className="w-10 h-10 text-white" />
           </div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-3">
-            Calendars
-          </h1>
-          <p className="text-gray-600 text-lg">
+          <h1 className="text-4xl font-bold text-slate-800 mb-3">Calendars</h1>
+          <p className="text-slate-600 text-lg">
             Choose a calendar to view schedules and events
           </p>
         </motion.div>
@@ -139,7 +148,7 @@ function Calendars() {
                       {option.canEdit ? "✏️ " : "👁️ "}
                       {option.editLabel}
                     </span>
-                    <span className="text-indigo-600 font-medium flex items-center gap-1">
+                    <span className="text-[#2f87d9] font-medium flex items-center gap-1">
                       View →
                     </span>
                   </div>
@@ -154,13 +163,13 @@ function Calendars() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3 }}
-          className="mt-10 bg-white rounded-2xl p-6 shadow-md border border-gray-100"
+          className="mt-10 bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80"
         >
-          <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-            <FiBook className="text-indigo-600" />
+          <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
+            <FiBook className="text-[#2f87d9]" />
             About Calendars
           </h3>
-          <div className="text-gray-600 space-y-2 text-sm">
+          <div className="text-slate-600 space-y-2 text-sm">
             <p>
               <strong>Events Calendar:</strong> Contains college events,
               workshops, seminars, cultural activities, and important dates.

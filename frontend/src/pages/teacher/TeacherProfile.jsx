@@ -31,79 +31,72 @@ const TeacherProfile = ({ userData }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 py-8 sm:py-12 px-4">
+    <div className="min-h-screen bg-[#eef2f6] px-3 py-5 sm:px-5 sm:py-7 lg:px-8">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-5xl mx-auto"
+        className="mx-auto max-w-6xl"
       >
-        {/* Back Button */}
         <motion.button
           whileHover={{ x: -5 }}
           onClick={() => navigate("/teacher-dashboard")}
-          className="flex items-center mb-6 text-gray-700 hover:text-green-600 transition-colors font-medium group"
+          className="mb-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:text-[#2f87d9] sm:px-4 sm:py-2 sm:text-sm"
         >
-          <FiArrowLeft className="mr-2 group-hover:animate-pulse" />
+          <FiArrowLeft className="h-4 w-4" />
           Back to Dashboard
         </motion.button>
 
-        {/* Profile Header Card */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-white rounded-3xl shadow-xl overflow-hidden mb-6"
+          className="mb-5 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm sm:rounded-3xl"
         >
-          {/* Cover with Gradient */}
-          <div className="h-32 bg-gradient-to-r from-green-500 via-blue-500 to-purple-500 relative">
-            <div className="absolute inset-0 bg-black opacity-10"></div>
-          </div>
+          <div className="h-20 bg-white sm:h-24" />
 
-          {/* Profile Info */}
-          <div className="px-4 sm:px-8 pb-6 sm:pb-8 -mt-16 relative">
-            <div className="flex flex-col md:flex-row items-center md:items-end gap-6">
-              {/* Avatar with Ring */}
-              <motion.div whileHover={{ scale: 1.05 }} className="relative">
-                <div className="w-32 h-32 rounded-full ring-4 ring-white shadow-xl overflow-hidden bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center">
+          <div className="relative -mt-10 px-3 pb-4 sm:-mt-12 sm:px-5 sm:pb-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                className="relative self-center md:self-auto"
+              >
+                <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-[#2f87d9] shadow-lg sm:h-24 sm:w-24">
                   {userData?.photoURL ? (
                     <img
                       src={userData.photoURL}
                       alt="Profile"
-                      className="w-full h-full object-cover"
+                      className="h-full w-full object-cover"
                     />
                   ) : (
-                    <FiUser className="w-16 h-16 text-white" />
+                    <FiUser className="h-10 w-10 text-white" />
                   )}
                 </div>
-                <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-gradient-to-br from-green-500 to-blue-600 rounded-full flex items-center justify-center text-white text-xl shadow-lg">
-                  👨‍🏫
-                </div>
+                <div className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full border-2 border-white bg-emerald-500 shadow"></div>
               </motion.div>
 
-              {/* Name and Email */}
-              <div className="flex-1 text-center md:text-left mb-4 md:mb-0">
-                <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">
+              <div className="flex-1 text-center md:text-left">
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                  Teacher Profile
+                </p>
+                <h1 className="mt-1 text-2xl font-semibold text-slate-800 sm:text-3xl">
                   {userData?.displayName || userData?.name || "Teacher"}
                 </h1>
-                <div className="flex items-center justify-center md:justify-start gap-2 text-gray-600">
-                  <FiMail className="w-4 h-4" />
+                <div className="mt-1.5 flex items-center justify-center gap-2 text-xs text-slate-600 sm:text-sm md:justify-start">
+                  <FiMail className="h-4 w-4" />
                   <span>{userData?.email}</span>
                 </div>
-                <div className="mt-3 inline-block px-4 py-1 bg-gradient-to-r from-green-100 to-blue-100 rounded-full">
-                  <span className="text-green-700 font-semibold text-sm">
-                    Teacher Account
-                  </span>
+                <div className="mt-3 inline-flex rounded-full bg-[#e9f2ff] px-3 py-1 text-xs font-semibold text-[#1f6fb7]">
+                  <span>Teacher Account</span>
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex w-full md:w-auto gap-3">
+              <div className="flex w-full md:w-auto">
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => navigate("/edit-profile")}
-                  className="w-full md:w-auto px-6 py-3 bg-gradient-to-r from-green-500 to-blue-600 text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#2f87d9] px-4 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-[#1f6fb7] sm:px-5 sm:py-2.5 sm:text-sm md:w-auto"
                 >
-                  <FiEdit className="w-4 h-4" />
+                  <FiEdit className="h-4 w-4" />
                   Edit Profile
                 </motion.button>
               </div>
@@ -111,96 +104,104 @@ const TeacherProfile = ({ userData }) => {
           </div>
         </motion.div>
 
-        {/* Info Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          {/* Professional Info Card */}
+        <div className="mb-5 grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition-shadow"
+            className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-5"
           >
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-blue-600 rounded-xl flex items-center justify-center">
-                <FiBriefcase className="w-6 h-6 text-white" />
+            <div className="mb-4 flex items-center gap-2.5 sm:mb-5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#e9f2ff] sm:h-10 sm:w-10">
+                <FiBriefcase className="h-5 w-5 text-[#2f87d9]" />
               </div>
-              <h2 className="text-xl font-bold text-gray-800">
+              <h2 className="text-lg font-semibold text-slate-800 sm:text-xl">
                 Professional Details
               </h2>
             </div>
 
             <div className="space-y-4">
-              <div className="flex justify-between items-center p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl">
-                <span className="text-gray-600 font-medium">Teacher ID</span>
-                <span className="text-gray-800 font-semibold">
+              <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3 sm:p-4">
+                <span className="text-sm font-medium text-slate-600">
+                  Teacher ID
+                </span>
+                <span className="font-semibold text-slate-800">
                   {userData?.teacherId ||
                     userData?.employeeId ||
                     "Not assigned"}
                 </span>
               </div>
 
-              <div className="flex justify-between items-center p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl">
-                <span className="text-gray-600 font-medium">Department</span>
-                <span className="text-gray-800 font-semibold">
+              <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3 sm:p-4">
+                <span className="text-sm font-medium text-slate-600">
+                  Department
+                </span>
+                <span className="font-semibold text-slate-800">
                   {userData?.department || userData?.dept || "Not assigned"}
                 </span>
               </div>
 
-              <div className="flex justify-between items-center p-4 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl">
-                <span className="text-gray-600 font-medium">Job Profile</span>
-                <span className="text-gray-800 font-semibold">
+              <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3 sm:p-4">
+                <span className="text-sm font-medium text-slate-600">
+                  Job Profile
+                </span>
+                <span className="font-semibold text-slate-800">
                   {userData?.jobProfile || "Not assigned"}
                 </span>
               </div>
 
-              <div className="p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-xl">
-                <div className="text-gray-600 text-sm mb-2">Total Courses</div>
-                <div className="text-3xl font-bold text-green-600">
+              <div className="rounded-xl bg-[#f4f8ff] p-3 text-center sm:p-4">
+                <div className="mb-1 text-xs text-slate-600 sm:text-sm">
+                  Total Courses
+                </div>
+                <div className="text-xl font-semibold text-slate-800 sm:text-2xl">
                   {assignments.length}
                 </div>
               </div>
             </div>
           </motion.div>
 
-          {/* Assigned Courses Card */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
-            className="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition-shadow"
+            className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-5"
           >
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-                <FiBook className="w-6 h-6 text-white" />
+            <div className="mb-4 flex items-center gap-2.5 sm:mb-5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#fff8ef] sm:h-10 sm:w-10">
+                <FiBook className="h-5 w-5 text-[#d97706]" />
               </div>
-              <h2 className="text-xl font-bold text-gray-800">
+              <h2 className="text-lg font-semibold text-slate-800 sm:text-xl">
                 Assigned Courses
               </h2>
             </div>
 
             {assignments.length > 0 ? (
-              <div className="space-y-4 max-h-80 overflow-y-auto custom-scrollbar">
+              <div className="custom-scrollbar max-h-80 space-y-3 overflow-y-auto">
                 {assignments.map((course, idx) => (
                   <motion.div
                     key={idx}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3 + idx * 0.05 }}
-                    className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl hover:shadow-md transition-all"
+                    className="rounded-xl border border-slate-200 bg-slate-50 p-3"
                   >
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold">
+                    <div className="mb-2 flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#2f87d9] text-sm font-semibold text-white">
                         {course.year}
                       </div>
-                      <h3 className="font-bold text-gray-800">
+                      <h3 className="font-semibold text-slate-800">
                         {course.branch || "Branch"} - Year {course.year}
                       </h3>
                     </div>
-                    <div className="space-y-2 pl-13">
+                    <div className="space-y-1.5 pl-12">
                       {course.subjects.map((subject, sidx) => (
-                        <div key={sidx} className="flex items-center gap-2">
-                          <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full"></div>
-                          <span className="text-gray-700">{subject}</span>
+                        <div
+                          key={sidx}
+                          className="flex items-center gap-2 text-sm text-slate-700"
+                        >
+                          <div className="h-2 w-2 rounded-full bg-[#2f87d9]"></div>
+                          <span>{subject}</span>
                         </div>
                       ))}
                     </div>
@@ -209,37 +210,38 @@ const TeacherProfile = ({ userData }) => {
               </div>
             ) : (
               <div className="text-center py-12">
-                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <FiBook className="w-10 h-10 text-gray-400" />
+                <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-slate-100">
+                  <FiBook className="h-10 w-10 text-slate-400" />
                 </div>
-                <p className="text-gray-500">No courses assigned yet</p>
+                <p className="text-slate-500">No courses assigned yet</p>
               </div>
             )}
           </motion.div>
         </div>
 
-        {/* Quick Actions */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-white rounded-2xl shadow-lg p-6"
+          className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-5"
         >
-          <h2 className="text-xl font-bold text-gray-800 mb-6">
+          <h2 className="mb-4 text-lg font-semibold text-slate-800 sm:mb-5 sm:text-xl">
             Quick Actions
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <motion.button
               whileHover={{ scale: 1.02, y: -2 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => navigate("/edit-profile")}
-              className="p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-xl hover:shadow-lg transition-all group"
+              className="group rounded-xl border border-slate-200 bg-slate-50 p-4 transition hover:bg-[#f4f8ff] sm:p-5"
             >
-              <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                <FiEdit className="w-6 h-6 text-white" />
+              <div className="mx-auto mb-2.5 flex h-10 w-10 items-center justify-center rounded-lg bg-[#2f87d9] transition-transform group-hover:scale-110 sm:mb-3 sm:h-11 sm:w-11">
+                <FiEdit className="h-5 w-5 text-white" />
               </div>
-              <div className="text-gray-800 font-semibold">Edit Profile</div>
-              <div className="text-gray-500 text-sm mt-1">
+              <div className="text-sm font-semibold text-slate-800">
+                Edit Profile
+              </div>
+              <div className="mt-1 text-xs text-slate-500 sm:text-sm">
                 Update your details
               </div>
             </motion.button>
@@ -248,13 +250,15 @@ const TeacherProfile = ({ userData }) => {
               whileHover={{ scale: 1.02, y: -2 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => navigate("/change-password")}
-              className="p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl hover:shadow-lg transition-all group"
+              className="group rounded-xl border border-slate-200 bg-slate-50 p-4 transition hover:bg-[#f4f8ff] sm:p-5"
             >
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                <FiLock className="w-6 h-6 text-white" />
+              <div className="mx-auto mb-2.5 flex h-10 w-10 items-center justify-center rounded-lg bg-[#2f87d9] transition-transform group-hover:scale-110 sm:mb-3 sm:h-11 sm:w-11">
+                <FiLock className="h-5 w-5 text-white" />
               </div>
-              <div className="text-gray-800 font-semibold">Change Password</div>
-              <div className="text-gray-500 text-sm mt-1">
+              <div className="text-sm font-semibold text-slate-800">
+                Change Password
+              </div>
+              <div className="mt-1 text-xs text-slate-500 sm:text-sm">
                 Secure your account
               </div>
             </motion.button>
@@ -263,28 +267,30 @@ const TeacherProfile = ({ userData }) => {
               whileHover={{ scale: 1.02, y: -2 }}
               whileTap={{ scale: 0.98 }}
               onClick={handleLogout}
-              className="p-6 bg-gradient-to-br from-red-50 to-red-100 rounded-xl hover:shadow-lg transition-all group"
+              className="group rounded-xl border border-red-100 bg-red-50 p-4 transition hover:bg-red-100 sm:p-5"
             >
-              <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-red-600 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                <FiLogOut className="w-6 h-6 text-white" />
+              <div className="mx-auto mb-2.5 flex h-10 w-10 items-center justify-center rounded-lg bg-red-500 transition-transform group-hover:scale-110 sm:mb-3 sm:h-11 sm:w-11">
+                <FiLogOut className="h-5 w-5 text-white" />
               </div>
-              <div className="text-gray-800 font-semibold">Logout</div>
-              <div className="text-gray-500 text-sm mt-1">Sign out safely</div>
+              <div className="text-sm font-semibold text-slate-800">Logout</div>
+              <div className="mt-1 text-xs text-slate-500 sm:text-sm">
+                Sign out safely
+              </div>
             </motion.button>
           </div>
         </motion.div>
       </motion.div>
 
-      <style jsx>{`
+      <style>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 6px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
-          background: #f1f1f1;
+          background: #e2e8f0;
           border-radius: 10px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: linear-gradient(to bottom, #3b82f6, #8b5cf6);
+          background: linear-gradient(to bottom, #60a5fa, #3b82f6);
           border-radius: 10px;
         }
       `}</style>
