@@ -2231,7 +2231,9 @@ app.post("/attendance/face/challenge", async (req, res) => {
       return res.status(404).json({ message: "Attendance session not found." });
     }
 
-    const challengeRef = firestore.collection("attendance_face_challenges").doc();
+    const challengeRef = firestore
+      .collection("attendance_face_challenges")
+      .doc();
     const nowMs = Date.now();
     const expiresAtMs = nowMs + FACE_CHALLENGE_TTL_MS;
 
@@ -2283,18 +2285,22 @@ app.post("/attendance/face/register", async (req, res) => {
       .doc(studentId)
       .get();
 
-    await firestore.collection("student_faces").doc(studentId).set(
-      {
-        studentId,
-        descriptor,
-        modelVersion,
-        registeredAt: existingDoc.exists
-          ? existingDoc.data()?.registeredAt || admin.firestore.FieldValue.serverTimestamp()
-          : admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      },
-      { merge: true },
-    );
+    await firestore
+      .collection("student_faces")
+      .doc(studentId)
+      .set(
+        {
+          studentId,
+          descriptor,
+          modelVersion,
+          registeredAt: existingDoc.exists
+            ? existingDoc.data()?.registeredAt ||
+              admin.firestore.FieldValue.serverTimestamp()
+            : admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
 
     return res.status(201).json({
       success: true,
@@ -2938,8 +2944,7 @@ app.post("/attendance/mark-face", async (req, res) => {
     const nowMs = Date.now();
     const maxWindowMs =
       (Number(sessionData.attendanceWindowSeconds) ||
-        ATTENDANCE_WINDOW_SECONDS) *
-      1000;
+        ATTENDANCE_WINDOW_SECONDS) * 1000;
 
     if (!startMs || nowMs - startMs > maxWindowMs) {
       return res
@@ -2980,7 +2985,9 @@ app.post("/attendance/mark-face", async (req, res) => {
       });
     }
 
-    const challengeData = challengeDoc.exists ? challengeDoc.data() || {} : null;
+    const challengeData = challengeDoc.exists
+      ? challengeDoc.data() || {}
+      : null;
     if (!challengeData) {
       return res.status(403).json({ message: "Invalid face challenge." });
     }
@@ -2988,10 +2995,14 @@ app.post("/attendance/mark-face", async (req, res) => {
       return res.status(403).json({ message: "Face challenge already used." });
     }
     if (String(challengeData.studentId || "") !== studentId) {
-      return res.status(403).json({ message: "Face challenge student mismatch." });
+      return res
+        .status(403)
+        .json({ message: "Face challenge student mismatch." });
     }
     if (String(challengeData.sessionId || "") !== sessionId) {
-      return res.status(403).json({ message: "Face challenge session mismatch." });
+      return res
+        .status(403)
+        .json({ message: "Face challenge session mismatch." });
     }
 
     const expiresAtMs = Number(challengeData.expiresAtMs || 0);
@@ -2999,7 +3010,9 @@ app.post("/attendance/mark-face", async (req, res) => {
       return res.status(403).json({ message: "Face challenge expired." });
     }
 
-    const storedDescriptor = normalizeFaceDescriptor(faceDoc.data()?.descriptor);
+    const storedDescriptor = normalizeFaceDescriptor(
+      faceDoc.data()?.descriptor,
+    );
     if (storedDescriptor.length !== FACE_DESCRIPTOR_LENGTH) {
       return res.status(500).json({
         message: "Registered face profile is invalid. Please register again.",
