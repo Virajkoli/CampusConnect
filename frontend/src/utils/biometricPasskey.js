@@ -100,5 +100,6 @@ export const consumeOneTimePasskey = (assertionId = "", ownerUid = "") => {
     return false;
   }
 
+  clearOneTimePasskey();
   return true;
 };

@@ -789,6 +789,43 @@ export default function AttendancePage() {
     });
   }, [subjectStudents, subjectSearch, subjectFilter]);
 
+  const loadSubjectStudents = async (
+    subjectId = selectedSubjectId,
+    subjectName = selectedSubjectName,
+    { notifyOnSuccess = false, notifyOnError = true } = {},
+  ) => {
+    if (!subjectId) {
+      setSubjectStudents([]);
+      setSubjectStudentsCount(0);
+      return;
+    }
+
+    setSubjectLoading(true);
+    try {
+      const result = await getTeacherSubjectAttendanceStudents(
+        subjectId,
+        subjectName,
+      );
+      const list = Array.isArray(result.students) ? result.students : [];
+      setSubjectStudents(list);
+      setSubjectStudentsCount(Number(result.totalStudents || list.length || 0));
+      if (result?.subject?.subjectName) {
+        setSelectedSubjectName(result.subject.subjectName);
+      }
+      if (notifyOnSuccess) {
+        toast.success("Subject attendance list refreshed.");
+      }
+    } catch (error) {
+      setSubjectStudents([]);
+      setSubjectStudentsCount(0);
+      if (notifyOnError) {
+        toast.error(error.message || "Failed to load subject attendance data.");
+      }
+    } finally {
+      setSubjectLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!selectedSubjectId) {
       setSubjectStudents([]);
@@ -796,31 +833,10 @@ export default function AttendancePage() {
       return;
     }
 
-    const loadSubjectStudents = async () => {
-      setSubjectLoading(true);
-      try {
-        const result = await getTeacherSubjectAttendanceStudents(
-          selectedSubjectId,
-          selectedSubjectName,
-        );
-        const list = Array.isArray(result.students) ? result.students : [];
-        setSubjectStudents(list);
-        setSubjectStudentsCount(
-          Number(result.totalStudents || list.length || 0),
-        );
-        if (result?.subject?.subjectName) {
-          setSelectedSubjectName(result.subject.subjectName);
-        }
-      } catch (error) {
-        setSubjectStudents([]);
-        setSubjectStudentsCount(0);
-        toast.error(error.message || "Failed to load subject attendance data.");
-      } finally {
-        setSubjectLoading(false);
-      }
-    };
-
-    loadSubjectStudents();
+    loadSubjectStudents(selectedSubjectId, selectedSubjectName, {
+      notifyOnSuccess: false,
+      notifyOnError: true,
+    });
   }, [selectedSubjectId, selectedSubjectName]);
 
   const openSessionDetails = async (session) => {
@@ -1262,6 +1278,19 @@ export default function AttendancePage() {
               Subject Attendance Management
             </h2>
             <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  loadSubjectStudents(selectedSubjectId, selectedSubjectName, {
+                    notifyOnSuccess: true,
+                    notifyOnError: true,
+                  })
+                }
+                disabled={subjectLoading || !selectedSubjectId}
+                className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-60"
+              >
+                {subjectLoading ? "Refreshing..." : "Refresh Students"}
+              </button>
               <button
                 type="button"
                 onClick={handleExportSubjectCsv}

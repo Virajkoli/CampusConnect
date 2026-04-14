@@ -24,6 +24,7 @@ export default function AttendanceSessionCard({
   session,
   studentLocation,
   onMark,
+  onLeave,
   marking,
   biometricReady,
   verificationReady,
@@ -97,14 +98,25 @@ export default function AttendanceSessionCard({
         </div>
       </div>
 
-      <button
-        type="button"
-        disabled={!isVerificationReady || marking}
-        onClick={onMark}
-        className="mt-4 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-      >
-        {marking ? "Marking..." : "Mark Attendance"}
-      </button>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={!isVerificationReady || marking}
+          onClick={onMark}
+          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+        >
+          {marking ? "Marking..." : "Mark Attendance"}
+        </button>
+        {onLeave ? (
+          <button
+            type="button"
+            onClick={onLeave}
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700"
+          >
+            Leave Session
+          </button>
+        ) : null}
+      </div>
 
       <p className="mt-2 text-xs text-slate-500">
         Distance is shown for reference and may vary by network/GPS accuracy.

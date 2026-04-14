@@ -85,6 +85,7 @@ export default function StudentAttendancePage() {
   const [deviceId, setDeviceId] = useState("");
   const [biometricReady, setBiometricReady] = useState(false);
   const [biometricAssertionId, setBiometricAssertionId] = useState("");
+  const [savedPasskey, setSavedPasskey] = useState(null);
   const [attendanceMethod, setAttendanceMethod] = useState("biometric");
   const [faceRegistered, setFaceRegistered] = useState(false);
   const [faceReady, setFaceReady] = useState(false);
@@ -104,6 +105,14 @@ export default function StudentAttendancePage() {
     [activeSessions, joinedSessionId],
   );
 
+  const resetAttendanceVerification = useCallback(() => {
+    setBiometricReady(false);
+    setBiometricAssertionId("");
+    setFaceReady(false);
+    setFaceDescriptor([]);
+    setFaceLivenessPassed(false);
+  }, []);
+
   const refreshSessions = async () => {
     try {
       const response = await getActiveAttendanceSessions();
@@ -119,8 +128,7 @@ export default function StudentAttendancePage() {
         )
       ) {
         setJoinedSessionId("");
-        setBiometricReady(false);
-        setBiometricAssertionId("");
+        resetAttendanceVerification();
       }
     } catch (error) {
       toast.error(error.message || "Unable to fetch active sessions.");
@@ -195,11 +203,7 @@ export default function StudentAttendancePage() {
         await registerStudentDevice(persistedDevice);
 
         const storedPasskey = getOneTimePasskey(user.uid);
-        if (storedPasskey?.assertionId) {
-          setBiometricReady(true);
-          setBiometricAssertionId(storedPasskey.assertionId);
-          toast.info("Saved attendance passkey loaded from profile.");
-        }
+        setSavedPasskey(storedPasskey || null);
 
         await Promise.all([
           refreshAttendanceSummary(user.uid),
@@ -233,11 +237,7 @@ export default function StudentAttendancePage() {
       if (endedSessionId && endedSessionId === joinedSessionId) {
         toast.info("The attendance session you joined has ended.");
         setJoinedSessionId("");
-        setBiometricReady(false);
-        setBiometricAssertionId("");
-        setFaceReady(false);
-        setFaceDescriptor([]);
-        setFaceLivenessPassed(false);
+        resetAttendanceVerification();
       }
       refreshSessions();
     };
@@ -249,7 +249,7 @@ export default function StudentAttendancePage() {
       socket.off("attendance-session-started", onSessionStarted);
       socket.off("attendance-session-ended", onSessionEnded);
     };
-  }, [socket, joinedSessionId]);
+  }, [socket, joinedSessionId, resetAttendanceVerification]);
 
   useEffect(() => {
     if (!socket || !joinedSessionId) {
@@ -294,6 +294,16 @@ export default function StudentAttendancePage() {
         return;
       }
 
+      if (
+        socket &&
+        joinedSessionId &&
+        joinedSessionId !== normalizedSessionId
+      ) {
+        socket.emit("leave_attendance_session", {
+          sessionId: joinedSessionId,
+        });
+      }
+
       setJoinedSessionId(normalizedSessionId);
       setPendingAutoJoinSessionId("");
 
@@ -302,19 +312,37 @@ export default function StudentAttendancePage() {
       setSearchParams(nextParams, { replace: true });
 
       const storedPasskey = getOneTimePasskey(student?.uid || "");
-      if (storedPasskey?.assertionId) {
-        setBiometricReady(true);
-        setBiometricAssertionId(storedPasskey.assertionId);
+      setSavedPasskey(storedPasskey || null);
+      resetAttendanceVerification();
+    },
+    [
+      searchParams,
+      setSearchParams,
+      student?.uid,
+      joinedSessionId,
+      socket,
+      resetAttendanceVerification,
+    ],
+  );
+
+  const handleLeaveSession = useCallback(
+    (sessionIdCandidate = joinedSessionId) => {
+      const normalizedSessionId = String(sessionIdCandidate || "").trim();
+      if (!normalizedSessionId) {
         return;
       }
 
-      setBiometricReady(false);
-      setBiometricAssertionId("");
-      setFaceReady(false);
-      setFaceDescriptor([]);
-      setFaceLivenessPassed(false);
+      if (socket) {
+        socket.emit("leave_attendance_session", {
+          sessionId: normalizedSessionId,
+        });
+      }
+
+      setJoinedSessionId("");
+      resetAttendanceVerification();
+      toast.info("You left the attendance session.");
     },
-    [searchParams, setSearchParams, student?.uid],
+    [joinedSessionId, socket, resetAttendanceVerification],
   );
 
   useEffect(() => {
@@ -395,13 +423,24 @@ export default function StudentAttendancePage() {
             });
 
       toast.success(finalResult.message || "Attendance marked successfully.");
-      consumeOneTimePasskey(biometricAssertionId, student.uid);
+
+      const usedSavedPasskey =
+        attendanceMethod === "biometric" &&
+        Boolean(savedPasskey?.assertionId) &&
+        savedPasskey.assertionId === biometricAssertionId;
+      if (usedSavedPasskey) {
+        consumeOneTimePasskey(biometricAssertionId, student.uid);
+        setSavedPasskey(getOneTimePasskey(student.uid));
+      }
+
+      if (socket && sessionId) {
+        socket.emit("leave_attendance_session", {
+          sessionId,
+        });
+      }
+
       setJoinedSessionId("");
-      setBiometricReady(false);
-      setBiometricAssertionId("");
-      setFaceReady(false);
-      setFaceDescriptor([]);
-      setFaceLivenessPassed(false);
+      resetAttendanceVerification();
 
       await Promise.all([
         refreshAttendanceSummary(student.uid),
@@ -525,13 +564,32 @@ export default function StudentAttendancePage() {
                               {session.lectureEndTime || "--:--"}
                             </p>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => handleJoinSession(sessionId)}
-                            className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-medium text-white"
-                          >
-                            {isJoined ? "Joined" : "Join Session"}
-                          </button>
+                          {isJoined ? (
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                disabled
+                                className="rounded-lg border border-emerald-300 bg-emerald-100 px-3 py-2 text-xs font-medium text-emerald-700"
+                              >
+                                Joined
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleLeaveSession(sessionId)}
+                                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700"
+                              >
+                                Leave Session
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleJoinSession(sessionId)}
+                              className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-medium text-white"
+                            >
+                              Join Session
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
@@ -545,16 +603,55 @@ export default function StudentAttendancePage() {
             </div>
 
             {attendanceMethod === "biometric" ? (
-              <FingerprintVerification
-                onVerified={(data) => {
-                  const verified = Boolean(data?.biometricVerified);
-                  setBiometricReady(verified);
-                  setBiometricAssertionId(
-                    verified ? String(data?.assertionId || "") : "",
-                  );
-                }}
-                disabled={!joinedSession}
-              />
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs text-slate-500">
+                    Saved one-time passkey:{" "}
+                    {savedPasskey?.assertionId ? "Available" : "Not available"}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={!joinedSession || !savedPasskey?.assertionId}
+                      onClick={() => {
+                        if (!savedPasskey?.assertionId) {
+                          return;
+                        }
+                        setBiometricReady(true);
+                        setBiometricAssertionId(savedPasskey.assertionId);
+                        toast.success(
+                          "Saved passkey selected. You can now mark attendance.",
+                        );
+                      }}
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 disabled:opacity-60"
+                    >
+                      Use Saved Passkey
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!joinedSession}
+                      onClick={() => {
+                        setBiometricReady(false);
+                        setBiometricAssertionId("");
+                      }}
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 disabled:opacity-60"
+                    >
+                      Require Fresh Fingerprint
+                    </button>
+                  </div>
+                </div>
+
+                <FingerprintVerification
+                  onVerified={(data) => {
+                    const verified = Boolean(data?.biometricVerified);
+                    setBiometricReady(verified);
+                    setBiometricAssertionId(
+                      verified ? String(data?.assertionId || "") : "",
+                    );
+                  }}
+                  disabled={!joinedSession}
+                />
+              </div>
             ) : (
               <div className="space-y-4">
                 <div className="rounded-2xl border border-slate-200 bg-white p-4">
@@ -592,6 +689,11 @@ export default function StudentAttendancePage() {
               session={joinedSession}
               studentLocation={studentLocation}
               onMark={handleMark}
+              onLeave={() =>
+                handleLeaveSession(
+                  joinedSession?.sessionId || joinedSession?.id,
+                )
+              }
               marking={marking}
               verificationReady={
                 attendanceMethod === "biometric" ? biometricReady : faceReady

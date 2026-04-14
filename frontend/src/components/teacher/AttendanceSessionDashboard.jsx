@@ -179,6 +179,8 @@ export default function AttendanceSessionDashboard({
       <ClassroomHeatmap
         teacherLocation={session.teacherLocation}
         points={heatmapPoints}
+        onRefresh={onRefresh}
+        refreshing={refreshing}
       />
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">

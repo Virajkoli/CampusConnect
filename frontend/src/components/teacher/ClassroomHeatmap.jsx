@@ -2,7 +2,12 @@ import React, { useEffect, useMemo, useRef } from "react";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
-export default function ClassroomHeatmap({ teacherLocation, points }) {
+export default function ClassroomHeatmap({
+  teacherLocation,
+  points,
+  onRefresh,
+  refreshing = false,
+}) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const teacherLayerRef = useRef(null);
@@ -128,8 +133,20 @@ export default function ClassroomHeatmap({ teacherLocation, points }) {
 
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200">
-      <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700">
-        Live Classroom Heatmap
+      <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-2">
+        <span className="text-sm font-medium text-slate-700">
+          Live Classroom Heatmap
+        </span>
+        {onRefresh ? (
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={refreshing}
+            className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 disabled:opacity-60"
+          >
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </button>
+        ) : null}
       </div>
       <div ref={mapRef} className="h-72" />
     </div>

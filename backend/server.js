@@ -1871,6 +1871,43 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("leave_attendance_session", (sessionPayload) => {
+    const normalizedSessionId = String(
+      typeof sessionPayload === "string"
+        ? sessionPayload
+        : sessionPayload?.sessionId || "",
+    ).trim();
+
+    if (!normalizedSessionId) {
+      return;
+    }
+
+    const roomId = `attendance_${normalizedSessionId}`;
+    socket.leave(roomId);
+
+    const connectedUserId = String(
+      socket.handshake?.query?.userId || "",
+    ).trim();
+    if (!connectedUserId) {
+      return;
+    }
+
+    const joinMap = getAttendanceSessionJoinMap(normalizedSessionId);
+    if (!joinMap) {
+      return;
+    }
+
+    const removed = joinMap.delete(connectedUserId);
+    if (!removed) {
+      return;
+    }
+
+    io.to(roomId).emit("attendance-joined-students-snapshot", {
+      sessionId: normalizedSessionId,
+      students: getAttendanceJoinedStudentsList(normalizedSessionId),
+    });
+  });
+
   // Handle message sending
   socket.on("send_message", async (messageData) => {
     try {

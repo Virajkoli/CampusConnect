@@ -14,9 +14,11 @@ import {
   FiClock,
 } from "react-icons/fi";
 import { motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import StudentQRDisplay from "../../components/student/StudentQRDisplay";
 import FingerprintVerification from "../../components/student/FingerprintVerification";
+import FaceRegistration from "../../components/student/FaceRegistration";
+import { getFaceProfileStatus } from "../../services/attendanceService";
 import {
   clearOneTimePasskey,
   createOneTimePasskey,
@@ -26,10 +28,25 @@ import {
 const StudentProfile = ({ userData }) => {
   const navigate = useNavigate();
   const [oneTimePasskey, setOneTimePasskey] = useState(null);
+  const [faceRegistered, setFaceRegistered] = useState(false);
+  const [faceStatusLoading, setFaceStatusLoading] = useState(true);
+
+  const refreshFaceStatus = useCallback(async () => {
+    try {
+      setFaceStatusLoading(true);
+      const result = await getFaceProfileStatus();
+      setFaceRegistered(Boolean(result?.registered));
+    } catch {
+      setFaceRegistered(false);
+    } finally {
+      setFaceStatusLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     setOneTimePasskey(getOneTimePasskey(auth.currentUser?.uid || ""));
-  }, []);
+    refreshFaceStatus();
+  }, [refreshFaceStatus]);
 
   const passkeyCreatedLabel = useMemo(() => {
     const createdAt = Number(oneTimePasskey?.createdAt || 0);
@@ -291,7 +308,10 @@ const StudentProfile = ({ userData }) => {
                     Created: {passkeyCreatedLabel}
                   </p>
                 ) : null}
-                <p className="mt-1">It remains active until you clear it.</p>
+                <p className="mt-1">
+                  This one-time passkey is consumed after one successful
+                  attendance mark.
+                </p>
                 <button
                   type="button"
                   onClick={() => {
@@ -311,6 +331,52 @@ const StudentProfile = ({ userData }) => {
               className="mt-4 w-full rounded-lg bg-[#2f87d9] px-4 py-2 text-xs font-medium text-white transition hover:bg-[#1f6fb7] sm:text-sm"
             >
               Continue to Attendance
+            </button>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.35 }}
+            className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-5"
+          >
+            <div className="mb-3 flex items-center gap-2.5 sm:mb-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#eef8ff] sm:h-10 sm:w-10">
+                <FiCheckCircle className="h-5 w-5 text-[#2f87d9]" />
+              </div>
+              <h2 className="text-lg font-semibold text-slate-800 sm:text-xl">
+                Face Registration
+              </h2>
+            </div>
+
+            <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+              Status:{" "}
+              {faceStatusLoading
+                ? "Checking..."
+                : faceRegistered
+                  ? "Registered"
+                  : "Not Registered"}
+            </div>
+
+            {!faceRegistered ? (
+              <FaceRegistration
+                studentId={auth.currentUser?.uid || userData?.uid || ""}
+                onRegistered={refreshFaceStatus}
+              />
+            ) : (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700">
+                Face profile is already registered. You can directly use face
+                verification during attendance sessions.
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={refreshFaceStatus}
+              disabled={faceStatusLoading}
+              className="mt-3 w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-700 disabled:opacity-60 sm:text-sm"
+            >
+              {faceStatusLoading ? "Refreshing..." : "Refresh Face Status"}
             </button>
           </motion.div>
         </div>
