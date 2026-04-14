@@ -134,6 +134,7 @@ function StudentDashboard() {
   const [activeSessionsRefreshing, setActiveSessionsRefreshing] =
     useState(false);
   const [examSchedule, setExamSchedule] = useState([]);
+  const [examTimetablePdf, setExamTimetablePdf] = useState(null);
   const [eventsCalendar, setEventsCalendar] = useState([]);
   const [academicCalendar, setAcademicCalendar] = useState([]);
   const [activeTab, setActiveTab] = useState("overview");
@@ -336,8 +337,6 @@ function StudentDashboard() {
           }
 
           refreshAttendanceSummary(user.uid, { silent: true });
-
-          fetchExamSchedule(resolvedDept, resolvedYear);
         }
       } catch (error) {
         console.error("Error fetching student data:", error);
@@ -445,37 +444,6 @@ function StudentDashboard() {
       }
     };
 
-    const fetchExamSchedule = async (resolvedDept, resolvedYear) => {
-      try {
-        const examSnapshot = await getDocs(
-          collection(firestore, "examTimetable"),
-        );
-        const studentYearToken = normalizeYearToken(resolvedYear);
-        const filtered = examSnapshot.docs
-          .map((item) => ({ id: item.id, ...item.data() }))
-          .filter((exam) => {
-            const yearMatch =
-              !studentYearToken ||
-              normalizeYearToken(exam.year || "") === studentYearToken;
-            const branchMatch = branchMatches(exam.branch || "", resolvedDept);
-            return yearMatch && branchMatch;
-          })
-          .sort((a, b) => {
-            const dateA = parseExamDate(a.date || "");
-            const dateB = parseExamDate(b.date || "");
-            if (!dateA && !dateB) return 0;
-            if (!dateA) return 1;
-            if (!dateB) return -1;
-            return dateA.getTime() - dateB.getTime();
-          });
-
-        setExamSchedule(filtered);
-      } catch (error) {
-        console.error("Error fetching exam schedule:", error);
-        setExamSchedule([]);
-      }
-    };
-
     const announcementsQuery = query(
       collection(firestore, "announcements"),
       where("active", "==", true),
@@ -564,6 +532,85 @@ function StudentDashboard() {
       unsubscribeAcademic();
     };
   }, [user, navigate, today]);
+
+  useEffect(() => {
+    if (!user || !department || !year) {
+      setExamSchedule([]);
+      setExamTimetablePdf(null);
+      return () => {};
+    }
+
+    const studentYearToken = normalizeYearToken(year);
+
+    const unsubscribeExams = onSnapshot(
+      collection(firestore, "examTimetable"),
+      (snapshot) => {
+        const filtered = snapshot.docs
+          .map((item) => ({ id: item.id, ...item.data() }))
+          .filter((exam) => {
+            if (exam?.isActive === false) {
+              return false;
+            }
+
+            const yearMatch =
+              !studentYearToken ||
+              normalizeYearToken(exam.year || "") === studentYearToken;
+            const branchMatch = branchMatches(exam.branch || "", department);
+            return yearMatch && branchMatch;
+          })
+          .sort((a, b) => {
+            const dateA = parseExamDate(a.date || "");
+            const dateB = parseExamDate(b.date || "");
+            if (!dateA && !dateB) return 0;
+            if (!dateA) return 1;
+            if (!dateB) return -1;
+
+            const dateDiff = dateA.getTime() - dateB.getTime();
+            if (dateDiff !== 0) return dateDiff;
+
+            return String(a.time || "").localeCompare(String(b.time || ""));
+          });
+
+        setExamSchedule(filtered);
+      },
+      (error) => {
+        console.error("Error subscribing exam schedule:", error);
+        setExamSchedule([]);
+      },
+    );
+
+    const unsubscribeExamPdf = onSnapshot(
+      collection(firestore, "exam_timetable_files"),
+      (snapshot) => {
+        const activeFiles = snapshot.docs
+          .map((item) => ({ id: item.id, ...item.data() }))
+          .filter((file) => {
+            if (file?.active === false) {
+              return false;
+            }
+            return normalizeYearToken(file.year || "") === studentYearToken;
+          })
+          .sort((a, b) => {
+            const aMs =
+              a.updatedAt?.toMillis?.() || a.createdAt?.toMillis?.() || 0;
+            const bMs =
+              b.updatedAt?.toMillis?.() || b.createdAt?.toMillis?.() || 0;
+            return bMs - aMs;
+          });
+
+        setExamTimetablePdf(activeFiles[0] || null);
+      },
+      (error) => {
+        console.error("Error subscribing timetable PDF:", error);
+        setExamTimetablePdf(null);
+      },
+    );
+
+    return () => {
+      unsubscribeExams();
+      unsubscribeExamPdf();
+    };
+  }, [user, department, year]);
 
   useEffect(() => {
     if (!user) return;
@@ -1194,10 +1241,37 @@ function StudentDashboard() {
 
   const renderExamSchedule = () => (
     <div className="rounded-3xl border border-slate-200/80 bg-white p-5 sm:p-6">
-      <div className="mb-4 flex items-center gap-2">
-        <FiFileText className="h-5 w-5 text-[#2f87d9]" />
-        <h2 className="text-xl font-semibold text-slate-800">Exam Schedule</h2>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <FiFileText className="h-5 w-5 text-[#2f87d9]" />
+          <h2 className="text-xl font-semibold text-slate-800">
+            Exam Schedule
+          </h2>
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate("/exam-timetable")}
+          className="inline-flex items-center gap-1 rounded-xl bg-[#2f87d9] px-3 py-1.5 text-xs font-medium text-white"
+        >
+          Open Full View <FiChevronRight className="h-4 w-4" />
+        </button>
       </div>
+
+      {examTimetablePdf ? (
+        <div className="mb-4 rounded-2xl border border-sky-200 bg-sky-50 p-3">
+          <p className="text-sm font-semibold text-slate-800">
+            Official Timetable PDF
+          </p>
+          <a
+            href={examTimetablePdf.fileURL}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 inline-flex items-center gap-1 rounded-lg bg-[#2f87d9] px-3 py-1.5 text-xs font-medium text-white"
+          >
+            Open {year || "Year"} PDF <FiChevronRight className="h-3.5 w-3.5" />
+          </a>
+        </div>
+      ) : null}
 
       {examSchedule.length > 0 ? (
         <div className="overflow-x-auto rounded-2xl border border-slate-200">

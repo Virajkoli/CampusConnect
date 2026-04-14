@@ -107,6 +107,9 @@ const parseExamDate = (dateStr = "") => {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
+const normalizeYearToken = (value = "") =>
+  String(value || "").replace(/[^0-9]/g, "");
+
 const branchMatches = (examBranch = "", targetBranch = "") => {
   const exam = String(examBranch || "")
     .trim()
@@ -174,6 +177,7 @@ function TeacherDashboard() {
   const [allStudents, setAllStudents] = useState([]);
   const [studyMaterials, setStudyMaterials] = useState([]);
   const [examSchedule, setExamSchedule] = useState([]);
+  const [examTimetableFiles, setExamTimetableFiles] = useState([]);
 
   const [announcements, setAnnouncements] = useState([]);
   const [eventsCalendar, setEventsCalendar] = useState([]);
@@ -303,38 +307,6 @@ function TeacherDashboard() {
           );
         setStudyMaterials(ownMaterials);
 
-        const examsSnapshot = await getDocs(
-          collection(firestore, "examTimetable"),
-        );
-        const filteredExams = examsSnapshot.docs
-          .map((entry) => ({ id: entry.id, ...entry.data() }))
-          .filter((exam) => {
-            if (!assignments.length) return true;
-            return assignments.some((assignment) => {
-              const sameYear =
-                String(exam.year || "")
-                  .trim()
-                  .toLowerCase() ===
-                String(assignment.year || "")
-                  .trim()
-                  .toLowerCase();
-              const sameBranch = branchMatches(
-                exam.branch || "",
-                assignment.branch || "",
-              );
-              return sameYear && sameBranch;
-            });
-          })
-          .sort((a, b) => {
-            const dateA = parseExamDate(a.date || "");
-            const dateB = parseExamDate(b.date || "");
-            if (!dateA && !dateB) return 0;
-            if (!dateA) return 1;
-            if (!dateB) return -1;
-            return dateA.getTime() - dateB.getTime();
-          });
-        setExamSchedule(filteredExams);
-
         const annQuery = query(
           collection(firestore, "announcements"),
           where("active", "==", true),
@@ -394,6 +366,114 @@ function TeacherDashboard() {
       unsubAcademic();
     };
   }, [user, navigate, todayName]);
+
+  useEffect(() => {
+    if (!user) {
+      return () => {};
+    }
+
+    const assignmentScopes = (teacherAssignments || []).map((assignment) => ({
+      yearToken: normalizeYearToken(assignment?.year || ""),
+      branch: assignment?.branch || "",
+    }));
+
+    const scopeYearTokens = new Set(
+      assignmentScopes
+        .map((scope) => scope.yearToken)
+        .filter((token) => token.length > 0),
+    );
+
+    const unsubscribeExams = onSnapshot(
+      collection(firestore, "examTimetable"),
+      (snapshot) => {
+        const filteredExams = snapshot.docs
+          .map((entry) => ({ id: entry.id, ...entry.data() }))
+          .filter((exam) => {
+            if (exam?.isActive === false) {
+              return false;
+            }
+
+            if (assignmentScopes.length > 0) {
+              return assignmentScopes.some((scope) => {
+                const sameYear =
+                  !scope.yearToken ||
+                  normalizeYearToken(exam.year || "") === scope.yearToken;
+                const sameBranch =
+                  !scope.branch ||
+                  branchMatches(exam.branch || "", scope.branch || "");
+                return sameYear && sameBranch;
+              });
+            }
+
+            if (department) {
+              return branchMatches(exam.branch || "", department);
+            }
+
+            return false;
+          })
+          .sort((a, b) => {
+            const dateA = parseExamDate(a.date || "");
+            const dateB = parseExamDate(b.date || "");
+            if (!dateA && !dateB) return 0;
+            if (!dateA) return 1;
+            if (!dateB) return -1;
+
+            const dateDiff = dateA.getTime() - dateB.getTime();
+            if (dateDiff !== 0) return dateDiff;
+
+            return String(a.time || "").localeCompare(String(b.time || ""));
+          });
+
+        setExamSchedule(filteredExams);
+      },
+      (error) => {
+        console.error("Failed to subscribe exam schedule:", error);
+        setExamSchedule([]);
+      },
+    );
+
+    const unsubscribeExamPdfs = onSnapshot(
+      collection(firestore, "exam_timetable_files"),
+      (snapshot) => {
+        const files = snapshot.docs
+          .map((entry) => ({ id: entry.id, ...entry.data() }))
+          .filter((file) => {
+            if (file?.active === false) {
+              return false;
+            }
+
+            if (assignmentScopes.length > 0 && scopeYearTokens.size > 0) {
+              const fileYearToken = normalizeYearToken(file.year || "");
+              return scopeYearTokens.has(fileYearToken);
+            }
+
+            if (assignmentScopes.length === 0) {
+              return false;
+            }
+
+            return true;
+          })
+          .sort((a, b) => {
+            const aMs =
+              a.updatedAt?.toMillis?.() || a.createdAt?.toMillis?.() || 0;
+            const bMs =
+              b.updatedAt?.toMillis?.() || b.createdAt?.toMillis?.() || 0;
+            return bMs - aMs;
+          });
+
+        setExamTimetableFiles(files);
+      },
+      (error) => {
+        console.error("Failed to subscribe timetable PDFs:", error);
+        setExamTimetableFiles([]);
+      },
+    );
+
+    return () => {
+      unsubscribeExams();
+      unsubscribeExamPdfs();
+    };
+  }, [user, teacherAssignments, department]);
 
   const unreadAnnouncements = announcements.length;
   const upcomingClasses = allTimetable.filter(
@@ -1177,6 +1257,28 @@ function TeacherDashboard() {
           Open Full View <FiChevronRight className="h-4 w-4" />
         </button>
       </div>
+
+      {examTimetableFiles.length > 0 ? (
+        <div className="mb-4 rounded-2xl border border-sky-200 bg-sky-50 p-3">
+          <p className="text-sm font-semibold text-slate-800">
+            Official Timetable PDF
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {examTimetableFiles.map((file) => (
+              <a
+                key={file.id}
+                href={file.fileURL}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 rounded-lg bg-[#2f87d9] px-3 py-1.5 text-xs font-medium text-white"
+              >
+                {(file.year || "Year").trim()} PDF
+                <FiDownload className="h-3.5 w-3.5" />
+              </a>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {examSchedule.length > 0 ? (
         <div className="overflow-x-auto rounded-2xl border border-slate-200">

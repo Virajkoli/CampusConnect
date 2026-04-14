@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FiUpload,
@@ -9,119 +9,362 @@ import {
   FiX,
   FiFileText,
   FiCalendar,
-  FiClock,
-  FiBook,
   FiAlertCircle,
   FiCheck,
   FiEye,
   FiArrowLeft,
+  FiRefreshCw,
 } from "react-icons/fi";
 import { getAuth } from "firebase/auth";
 import {
+  addDoc,
   collection,
-  getDocs,
-  query,
-  orderBy,
   deleteDoc,
   doc,
-  addDoc,
-  updateDoc,
+  getDocs,
   serverTimestamp,
+  updateDoc,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useNavigate } from "react-router-dom";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-const branches = [
-  "Computer Engineering",
-  "Electronics And TeleCommunication Engineering",
-  "Mechanical Engineering",
-  "Civil Engineering",
-  "Electrical Engineering",
+const YEARS = ["1st", "2nd", "3rd", "4th"];
+const BRANCH_OPTIONS = [
+  "Civil",
+  "Computer",
+  "Electrical",
+  "E&TC",
+  "Instrumentation",
+  "Mechanical",
   "Information Technology",
 ];
 
-const years = ["1st", "2nd", "3rd", "4th"];
+const DAY_PATTERN =
+  /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)/i;
+const DATE_PATTERN = /(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/;
+const TIME_PATTERN =
+  /(\d{1,2}:\d{2}\s*(?:am|pm)?\s*(?:to|-|–)\s*\d{1,2}:\d{2}\s*(?:am|pm)?)/i;
+const COURSE_PATTERN = /^([A-Z]{2,4}\s?\d{3,4}[A-Z]{0,2})\s*[-–—:]\s*(.+)$/i;
+const COURSE_SPLIT_PATTERN = /(?=[A-Z]{2,4}\s?\d{3,4}[A-Z]{0,2}\s*[-–—:])/g;
+const BRANCH_PREFIX_PATTERN =
+  /^(Civil|Computer|Electrical|E\s*&\s*T\s*&\s*C|E&TC|Instrumentation|Mechanical|Information\s+Technology|IT)\b\s*(.*)$/i;
 
-const ExamTimetableManagement = () => {
+const normalizeYearToken = (value = "") =>
+  String(value || "").replace(/[^0-9]/g, "");
+
+const parseExamDate = (dateStr = "") => {
+  const raw = String(dateStr || "").trim();
+  if (!raw) {
+    return null;
+  }
+
+  const dmy = raw.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
+  if (dmy) {
+    const day = Number(dmy[1]);
+    const month = Number(dmy[2]) - 1;
+    const year = Number(dmy[3]);
+    return new Date(year < 100 ? 2000 + year : year, month, day);
+  }
+
+  const iso = raw.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
+  if (iso) {
+    return new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+  }
+
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const normalizeDateString = (rawDate = "") => {
+  const parsed = parseExamDate(rawDate);
+  if (!parsed) {
+    return String(rawDate || "").trim();
+  }
+  const dd = String(parsed.getDate()).padStart(2, "0");
+  const mm = String(parsed.getMonth() + 1).padStart(2, "0");
+  const yyyy = String(parsed.getFullYear());
+  return `${dd}-${mm}-${yyyy}`;
+};
+
+const normalizeBranchName = (branchRaw = "") => {
+  const value = String(branchRaw || "")
+    .trim()
+    .toLowerCase();
+
+  if (!value) return "";
+  if (value === "it" || value.includes("information"))
+    return "Information Technology";
+  if (value.includes("civil")) return "Civil";
+  if (value.includes("computer")) return "Computer";
+  if (value.includes("electrical")) return "Electrical";
+  if (value.includes("instrument")) return "Instrumentation";
+  if (value.includes("mechanical")) return "Mechanical";
+  if (
+    value.includes("e&tc") ||
+    value.includes("entc") ||
+    value.includes("electronics")
+  ) {
+    return "E&TC";
+  }
+
+  return branchRaw;
+};
+
+const getWeekdayFromDate = (rawDate = "") => {
+  const parsed = parseExamDate(rawDate);
+  if (!parsed) {
+    return "";
+  }
+  return parsed.toLocaleDateString("en-US", { weekday: "long" });
+};
+
+const parseTimetableText = (text = "", selectedYear = "4th") => {
+  const lines = String(text || "")
+    .split(/\r?\n/)
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+
+  const exams = [];
+  let currentDay = "";
+  let currentDate = "";
+  let currentTime = "";
+  let currentBranch = "";
+
+  lines.forEach((line) => {
+    const dayMatch = line.match(DAY_PATTERN);
+    const dateMatch = line.match(DATE_PATTERN);
+    const timeMatch = line.match(TIME_PATTERN);
+
+    if (dayMatch || dateMatch || timeMatch) {
+      if (dayMatch) {
+        currentDay = dayMatch[1];
+      }
+      if (dateMatch) {
+        currentDate = normalizeDateString(dateMatch[1]);
+      }
+      if (timeMatch) {
+        currentTime = timeMatch[1].replace(/\s+/g, " ").trim();
+      }
+
+      if (dateMatch || timeMatch) {
+        currentBranch = "";
+      }
+
+      if (!line.match(/[A-Z]{2,4}\s?\d{3,4}[A-Z]{0,2}\s*[-–—:]/)) {
+        return;
+      }
+    }
+
+    let remaining = line;
+    const branchMatch = line.match(BRANCH_PREFIX_PATTERN);
+    if (branchMatch) {
+      currentBranch = normalizeBranchName(branchMatch[1]);
+      remaining = String(branchMatch[2] || "").trim();
+    }
+
+    if (
+      !remaining ||
+      !/[A-Z]{2,4}\s?\d{3,4}[A-Z]{0,2}\s*[-–—:]/.test(remaining)
+    ) {
+      return;
+    }
+
+    if (!currentDate || !currentTime) {
+      return;
+    }
+
+    const courseSegments = remaining
+      .split(COURSE_SPLIT_PATTERN)
+      .map((segment) => segment.trim())
+      .filter(Boolean);
+
+    courseSegments.forEach((segment) => {
+      const courseMatch = segment.match(COURSE_PATTERN);
+      if (!courseMatch) {
+        return;
+      }
+
+      const code = String(courseMatch[1] || "")
+        .replace(/\s+/g, "")
+        .toUpperCase();
+      const name = String(courseMatch[2] || "").trim();
+      if (!code || !name) {
+        return;
+      }
+
+      exams.push({
+        day: currentDay || getWeekdayFromDate(currentDate),
+        date: currentDate,
+        time: currentTime,
+        branch: currentBranch,
+        courseCode: code,
+        courseName: name,
+        duration: "3 hours",
+        year: selectedYear,
+      });
+    });
+  });
+
+  const deduped = [];
+  const seen = new Set();
+
+  exams.forEach((exam) => {
+    const key = [
+      String(exam.date || "").trim(),
+      String(exam.time || "").trim(),
+      String(exam.branch || "")
+        .trim()
+        .toLowerCase(),
+      String(exam.courseCode || "")
+        .trim()
+        .toUpperCase(),
+    ].join("|");
+
+    if (seen.has(key)) {
+      return;
+    }
+
+    seen.add(key);
+    deduped.push(exam);
+  });
+
+  return deduped;
+};
+
+export default function ExamTimetableManagement() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("upload"); // upload, manual, view
+
+  const [activeTab, setActiveTab] = useState("upload");
   const [selectedYear, setSelectedYear] = useState("4th");
-  const [selectedBranch, setSelectedBranch] = useState("Computer Engineering");
-  const [file, setFile] = useState(null);
-  const [uploading, setUploading] = useState(false);
+
+  const [ocrFile, setOcrFile] = useState(null);
+  const [ocrUploading, setOcrUploading] = useState(false);
   const [extractedText, setExtractedText] = useState("");
   const [parsedExams, setParsedExams] = useState([]);
+
   const [existingExams, setExistingExams] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState({ type: "", text: "" });
-  const [showConfirmClear, setShowConfirmClear] = useState(false);
+  const [loadingExams, setLoadingExams] = useState(false);
+  const [selectedExamIds, setSelectedExamIds] = useState([]);
+
   const [editingExam, setEditingExam] = useState(null);
+  const [showConfirmClear, setShowConfirmClear] = useState(false);
+
   const [manualExam, setManualExam] = useState({
+    day: "",
     date: "",
     time: "",
+    branch: "Computer",
     courseCode: "",
     courseName: "",
     duration: "3 hours",
   });
 
-  // Fetch existing exams on load
+  const [pdfFile, setPdfFile] = useState(null);
+  const [pdfUploading, setPdfUploading] = useState(false);
+  const [uploadedPdfs, setUploadedPdfs] = useState([]);
+
+  const [message, setMessage] = useState({ type: "", text: "" });
+
+  const activePdf = useMemo(
+    () =>
+      uploadedPdfs.find((item) => item.active !== false) ||
+      uploadedPdfs[0] ||
+      null,
+    [uploadedPdfs],
+  );
+
   useEffect(() => {
     fetchExistingExams();
-  }, [selectedYear, selectedBranch]);
+    fetchUploadedPdfs();
+  }, [selectedYear]);
 
   const fetchExistingExams = async () => {
-    setLoading(true);
+    setLoadingExams(true);
     try {
-      const examsRef = collection(db, "examTimetable");
-      const q = query(examsRef, orderBy("date", "asc"));
-      const snapshot = await getDocs(q);
+      const snapshot = await getDocs(collection(db, "examTimetable"));
+      const yearToken = normalizeYearToken(selectedYear);
 
-      const exams = snapshot.docs
-        .map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }))
-        .filter(
-          (exam) =>
-            exam.year === selectedYear && exam.branch === selectedBranch,
-        );
+      const rows = snapshot.docs
+        .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+        .filter((exam) => {
+          if (exam?.isActive === false) {
+            return false;
+          }
+          return normalizeYearToken(exam?.year) === yearToken;
+        })
+        .sort((a, b) => {
+          const dateA = parseExamDate(a.date || "");
+          const dateB = parseExamDate(b.date || "");
+          if (!dateA && !dateB) return 0;
+          if (!dateA) return 1;
+          if (!dateB) return -1;
 
-      setExistingExams(exams);
+          const dateDiff = dateA.getTime() - dateB.getTime();
+          if (dateDiff !== 0) return dateDiff;
+
+          return String(a.time || "").localeCompare(String(b.time || ""));
+        });
+
+      setExistingExams(rows);
+      setSelectedExamIds((prev) =>
+        prev.filter((selectedId) => rows.some((row) => row.id === selectedId)),
+      );
     } catch (error) {
-      console.error("Error fetching exams:", error);
-      setMessage({ type: "error", text: "Failed to fetch existing exams" });
-    }
-    setLoading(false);
-  };
-
-  const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-      setExtractedText("");
-      setParsedExams([]);
+      console.error("Error fetching exam timetable:", error);
+      setMessage({ type: "error", text: "Failed to fetch exam timetable." });
+    } finally {
+      setLoadingExams(false);
     }
   };
 
-  const handleUpload = async () => {
-    if (!file) {
-      setMessage({ type: "error", text: "Please select a file first" });
+  const fetchUploadedPdfs = async () => {
+    try {
+      const snapshot = await getDocs(collection(db, "exam_timetable_files"));
+      const yearToken = normalizeYearToken(selectedYear);
+
+      const rows = snapshot.docs
+        .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+        .filter((item) => normalizeYearToken(item.year) === yearToken)
+        .sort((a, b) => {
+          const aMs = Number(a.createdAt?.seconds || 0);
+          const bMs = Number(b.createdAt?.seconds || 0);
+          return bMs - aMs;
+        });
+
+      setUploadedPdfs(rows);
+    } catch (error) {
+      console.error("Error fetching uploaded timetable PDFs:", error);
+    }
+  };
+
+  const handleOcrFileChange = (event) => {
+    const selected = event.target.files?.[0] || null;
+    setOcrFile(selected);
+    setExtractedText("");
+    setParsedExams([]);
+  };
+
+  const handleUploadAndExtract = async () => {
+    if (!ocrFile) {
+      setMessage({
+        type: "error",
+        text: "Please choose a PDF/image file first.",
+      });
       return;
     }
 
-    setUploading(true);
+    setOcrUploading(true);
     setMessage({ type: "", text: "" });
 
     try {
       const auth = getAuth();
       const token = await auth.currentUser.getIdToken();
-
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", ocrFile);
       formData.append("year", selectedYear);
-      formData.append("branch", selectedBranch);
 
       const response = await fetch(`${API_URL}/api/upload-exam-timetable`, {
         method: "POST",
@@ -132,84 +375,121 @@ const ExamTimetableManagement = () => {
       });
 
       const data = await response.json();
-
-      if (response.ok) {
-        setExtractedText(data.extractedText);
-        setMessage({
-          type: "success",
-          text: "File uploaded and text extracted successfully!",
-        });
-        // Try to parse the extracted text
-        parseExtractedText(data.extractedText);
-      } else {
-        throw new Error(data.message || "Failed to upload file");
-      }
-    } catch (error) {
-      console.error("Upload error:", error);
-      setMessage({ type: "error", text: error.message });
-    }
-    setUploading(false);
-  };
-
-  const parseExtractedText = (text) => {
-    // This is a basic parser - you may need to adjust based on your timetable format
-    const lines = text.split("\n").filter((line) => line.trim());
-    const exams = [];
-
-    // Common date patterns
-    const datePattern =
-      /(\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}|\d{1,2}\s+\w+\s+\d{4})/;
-    const timePattern =
-      /(\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?(?:\s*-\s*\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?)?)/;
-
-    let currentDate = "";
-    let currentTime = "";
-
-    lines.forEach((line) => {
-      const dateMatch = line.match(datePattern);
-      const timeMatch = line.match(timePattern);
-
-      if (dateMatch) {
-        currentDate = dateMatch[1];
-      }
-      if (timeMatch) {
-        currentTime = timeMatch[1];
+      if (!response.ok) {
+        throw new Error(data.message || "OCR upload failed.");
       }
 
-      // Look for course codes (common formats: CS101, COMP-301, etc.)
-      const courseCodeMatch = line.match(/([A-Z]{2,4}[-\s]?\d{2,4})/);
-      if (courseCodeMatch && currentDate) {
-        const courseName = line
-          .replace(courseCodeMatch[0], "")
-          .replace(datePattern, "")
-          .replace(timePattern, "")
-          .trim();
+      const rawText = String(data.extractedText || "");
+      setExtractedText(rawText);
 
-        if (courseName) {
-          exams.push({
-            date: currentDate,
-            time: currentTime || "09:00 AM",
-            courseCode: courseCodeMatch[1],
-            courseName: courseName.substring(0, 100),
-            duration: "3 hours",
-            year: selectedYear,
-            branch: selectedBranch,
-          });
-        }
-      }
-    });
+      const rows = parseTimetableText(rawText, selectedYear);
+      setParsedExams(rows);
 
-    setParsedExams(exams);
-
-    if (exams.length === 0) {
       setMessage({
-        type: "warning",
-        text: "Could not automatically parse exams. Please add them manually.",
+        type: "success",
+        text:
+          rows.length > 0
+            ? `OCR complete. Parsed ${rows.length} exam rows.`
+            : "OCR complete. No structured rows parsed automatically; please edit/add rows manually.",
       });
+    } catch (error) {
+      console.error("OCR upload error:", error);
+      setMessage({
+        type: "error",
+        text: error.message || "OCR upload failed.",
+      });
+    } finally {
+      setOcrUploading(false);
     }
   };
 
-  const handleClearExams = async () => {
+  const updateParsedExam = (index, field, value) => {
+    setParsedExams((prev) => {
+      const clone = [...prev];
+      clone[index] = { ...clone[index], [field]: value };
+      return clone;
+    });
+  };
+
+  const removeParsedExam = (index) => {
+    setParsedExams((prev) => prev.filter((_, rowIndex) => rowIndex !== index));
+  };
+
+  const addEmptyParsedExam = () => {
+    setParsedExams((prev) => [
+      ...prev,
+      {
+        day: "",
+        date: "",
+        time: "",
+        branch: "Computer",
+        courseCode: "",
+        courseName: "",
+        duration: "3 hours",
+        year: selectedYear,
+      },
+    ]);
+  };
+
+  const handleSaveParsedExams = async () => {
+    if (parsedExams.length === 0) {
+      setMessage({ type: "error", text: "No parsed exams to save." });
+      return;
+    }
+
+    try {
+      const auth = getAuth();
+      const token = await auth.currentUser.getIdToken();
+
+      const payload = {
+        year: selectedYear,
+        replaceExisting: true,
+        exams: parsedExams.map((exam) => ({
+          day: String(exam.day || "").trim() || getWeekdayFromDate(exam.date),
+          date: normalizeDateString(exam.date || ""),
+          time: String(exam.time || "").trim(),
+          branch: normalizeBranchName(exam.branch || ""),
+          courseCode: String(exam.courseCode || "")
+            .replace(/\s+/g, "")
+            .toUpperCase(),
+          courseName: String(exam.courseName || "").trim(),
+          duration: String(exam.duration || "3 hours").trim(),
+          year: selectedYear,
+          sourceType: "ocr",
+        })),
+      };
+
+      const response = await fetch(`${API_URL}/api/save-exam-timetable`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to save OCR parsed timetable.");
+      }
+
+      setMessage({
+        type: "success",
+        text:
+          data.message ||
+          `Saved ${data.savedCount || 0} exam rows successfully.`,
+      });
+      setParsedExams([]);
+      setExtractedText("");
+      setOcrFile(null);
+      await fetchExistingExams();
+    } catch (error) {
+      console.error("Save OCR exams error:", error);
+      setMessage({ type: "error", text: error.message || "Save failed." });
+    }
+  };
+
+  const handleClearYearExams = async () => {
     try {
       const auth = getAuth();
       const token = await auth.currentUser.getIdToken();
@@ -220,26 +500,23 @@ const ExamTimetableManagement = () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          year: selectedYear,
-          branch: selectedBranch,
-        }),
+        body: JSON.stringify({ year: selectedYear }),
       });
 
       const data = await response.json();
-
-      if (response.ok) {
-        setMessage({
-          type: "success",
-          text: `Cleared ${data.deletedCount} exam entries`,
-        });
-        setExistingExams([]);
-        setShowConfirmClear(false);
-      } else {
-        throw new Error(data.message);
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to clear timetable.");
       }
+
+      setMessage({
+        type: "success",
+        text: data.message || `Cleared ${data.deletedCount || 0} records.`,
+      });
+      setShowConfirmClear(false);
+      await fetchExistingExams();
     } catch (error) {
-      setMessage({ type: "error", text: error.message });
+      console.error("Clear year timetable error:", error);
+      setMessage({ type: "error", text: error.message || "Clear failed." });
     }
   };
 
@@ -257,150 +534,265 @@ const ExamTimetableManagement = () => {
       });
 
       const data = await response.json();
-
-      if (response.ok) {
-        setMessage({
-          type: "success",
-          text: data.message,
-        });
-        fetchExistingExams();
-      } else {
-        throw new Error(data.message);
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to remove duplicates.");
       }
-    } catch (error) {
-      setMessage({ type: "error", text: error.message });
-    }
-  };
 
-  const handleSaveParsedExams = async () => {
-    if (parsedExams.length === 0) {
-      setMessage({ type: "error", text: "No exams to save" });
-      return;
-    }
-
-    try {
-      const auth = getAuth();
-      const token = await auth.currentUser.getIdToken();
-
-      const response = await fetch(`${API_URL}/api/save-exam-timetable`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          exams: parsedExams,
-          year: selectedYear,
-          branch: selectedBranch,
-        }),
+      setMessage({
+        type: "success",
+        text: data.message || "Duplicate cleanup complete.",
       });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setMessage({
-          type: "success",
-          text: `Saved ${data.savedCount} exam entries successfully!`,
-        });
-        setParsedExams([]);
-        setExtractedText("");
-        setFile(null);
-        fetchExistingExams();
-      } else {
-        throw new Error(data.message);
-      }
+      await fetchExistingExams();
     } catch (error) {
-      setMessage({ type: "error", text: error.message });
+      console.error("Remove duplicates error:", error);
+      setMessage({
+        type: "error",
+        text: error.message || "Duplicate cleanup failed.",
+      });
     }
   };
 
   const handleAddManualExam = async () => {
-    if (!manualExam.date || !manualExam.courseCode || !manualExam.courseName) {
-      setMessage({ type: "error", text: "Please fill all required fields" });
+    const required = [
+      manualExam.date,
+      manualExam.time,
+      manualExam.branch,
+      manualExam.courseCode,
+      manualExam.courseName,
+    ].every((field) => String(field || "").trim().length > 0);
+
+    if (!required) {
+      setMessage({
+        type: "error",
+        text: "Please fill all required manual fields.",
+      });
       return;
     }
 
     try {
       await addDoc(collection(db, "examTimetable"), {
-        ...manualExam,
+        day:
+          String(manualExam.day || "").trim() ||
+          getWeekdayFromDate(manualExam.date),
+        date: normalizeDateString(manualExam.date),
+        time: String(manualExam.time || "").trim(),
+        branch: normalizeBranchName(manualExam.branch),
+        courseCode: String(manualExam.courseCode || "")
+          .replace(/\s+/g, "")
+          .toUpperCase(),
+        courseName: String(manualExam.courseName || "").trim(),
+        duration: String(manualExam.duration || "3 hours").trim(),
         year: selectedYear,
-        branch: selectedBranch,
+        isActive: true,
+        sourceType: "manual",
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
 
-      setMessage({ type: "success", text: "Exam added successfully!" });
+      setMessage({
+        type: "success",
+        text: "Manual exam row added successfully.",
+      });
       setManualExam({
+        day: "",
         date: "",
         time: "",
+        branch: "Computer",
         courseCode: "",
         courseName: "",
         duration: "3 hours",
       });
-      fetchExistingExams();
+      await fetchExistingExams();
     } catch (error) {
-      setMessage({ type: "error", text: error.message });
+      console.error("Add manual exam error:", error);
+      setMessage({
+        type: "error",
+        text: error.message || "Failed to add manual exam.",
+      });
     }
   };
 
   const handleUpdateExam = async () => {
-    if (!editingExam) return;
+    if (!editingExam?.id) {
+      return;
+    }
 
     try {
-      const examRef = doc(db, "examTimetable", editingExam.id);
-      await updateDoc(examRef, {
-        ...editingExam,
+      const ref = doc(db, "examTimetable", editingExam.id);
+      await updateDoc(ref, {
+        day:
+          String(editingExam.day || "").trim() ||
+          getWeekdayFromDate(editingExam.date),
+        date: normalizeDateString(editingExam.date),
+        time: String(editingExam.time || "").trim(),
+        branch: normalizeBranchName(editingExam.branch || ""),
+        courseCode: String(editingExam.courseCode || "")
+          .replace(/\s+/g, "")
+          .toUpperCase(),
+        courseName: String(editingExam.courseName || "").trim(),
+        duration: String(editingExam.duration || "3 hours").trim(),
+        year: selectedYear,
+        isActive: editingExam.isActive === false ? false : true,
         updatedAt: serverTimestamp(),
       });
 
-      setMessage({ type: "success", text: "Exam updated successfully!" });
+      setMessage({ type: "success", text: "Exam row updated successfully." });
       setEditingExam(null);
-      fetchExistingExams();
+      await fetchExistingExams();
     } catch (error) {
-      setMessage({ type: "error", text: error.message });
+      console.error("Update exam error:", error);
+      setMessage({ type: "error", text: error.message || "Update failed." });
     }
   };
 
   const handleDeleteExam = async (examId) => {
-    if (!window.confirm("Are you sure you want to delete this exam?")) return;
+    if (!window.confirm("Delete this exam row permanently?")) {
+      return;
+    }
 
     try {
       await deleteDoc(doc(db, "examTimetable", examId));
-      setMessage({ type: "success", text: "Exam deleted successfully!" });
-      fetchExistingExams();
+      setSelectedExamIds((prev) =>
+        prev.filter((selectedId) => selectedId !== examId),
+      );
+      if (editingExam?.id === examId) {
+        setEditingExam(null);
+      }
+      setMessage({ type: "success", text: "Exam row deleted successfully." });
+      await fetchExistingExams();
     } catch (error) {
-      setMessage({ type: "error", text: error.message });
+      console.error("Delete exam error:", error);
+      setMessage({ type: "error", text: error.message || "Delete failed." });
     }
   };
 
-  const updateParsedExam = (index, field, value) => {
-    const updated = [...parsedExams];
-    updated[index] = { ...updated[index], [field]: value };
-    setParsedExams(updated);
+  const toggleExamSelection = (examId) => {
+    setSelectedExamIds((prev) =>
+      prev.includes(examId)
+        ? prev.filter((selectedId) => selectedId !== examId)
+        : [...prev, examId],
+    );
   };
 
-  const removeParsedExam = (index) => {
-    setParsedExams(parsedExams.filter((_, i) => i !== index));
+  const toggleSelectAllExams = () => {
+    const allIds = existingExams.map((exam) => exam.id);
+    const areAllSelected =
+      allIds.length > 0 &&
+      allIds.every((examId) => selectedExamIds.includes(examId));
+
+    if (areAllSelected) {
+      setSelectedExamIds([]);
+      return;
+    }
+
+    setSelectedExamIds(allIds);
   };
 
-  const addEmptyParsedExam = () => {
-    setParsedExams([
-      ...parsedExams,
-      {
-        date: "",
-        time: "09:00 AM",
-        courseCode: "",
-        courseName: "",
-        duration: "3 hours",
-        year: selectedYear,
-        branch: selectedBranch,
-      },
-    ]);
+  const handleDeleteSelectedExams = async () => {
+    if (selectedExamIds.length === 0) {
+      setMessage({
+        type: "error",
+        text: "Please select at least one exam row.",
+      });
+      return;
+    }
+
+    const label = selectedExamIds.length === 1 ? "entry" : "entries";
+    if (
+      !window.confirm(
+        `Delete ${selectedExamIds.length} selected exam ${label}?`,
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const batch = writeBatch(db);
+      selectedExamIds.forEach((examId) => {
+        batch.delete(doc(db, "examTimetable", examId));
+      });
+      await batch.commit();
+
+      if (editingExam?.id && selectedExamIds.includes(editingExam.id)) {
+        setEditingExam(null);
+      }
+      setSelectedExamIds([]);
+      setMessage({
+        type: "success",
+        text: `Deleted ${selectedExamIds.length} exam ${label} successfully.`,
+      });
+      await fetchExistingExams();
+    } catch (error) {
+      console.error("Bulk delete exams error:", error);
+      setMessage({
+        type: "error",
+        text: error.message || "Bulk delete failed.",
+      });
+    }
   };
+
+  const handlePdfFileChange = (event) => {
+    const selected = event.target.files?.[0] || null;
+    setPdfFile(selected);
+  };
+
+  const handleUploadPdf = async () => {
+    if (!pdfFile) {
+      setMessage({ type: "error", text: "Please select a PDF file first." });
+      return;
+    }
+
+    setPdfUploading(true);
+
+    try {
+      const auth = getAuth();
+      const token = await auth.currentUser.getIdToken();
+      const formData = new FormData();
+      formData.append("file", pdfFile);
+      formData.append("year", selectedYear);
+
+      const response = await fetch(`${API_URL}/api/upload-exam-timetable-pdf`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || "PDF upload failed.");
+      }
+
+      setMessage({
+        type: "success",
+        text: data.message || "Timetable PDF uploaded.",
+      });
+      setPdfFile(null);
+      await fetchUploadedPdfs();
+    } catch (error) {
+      console.error("Upload exam PDF error:", error);
+      setMessage({
+        type: "error",
+        text: error.message || "PDF upload failed.",
+      });
+    } finally {
+      setPdfUploading(false);
+    }
+  };
+
+  const selectedExamIdSet = useMemo(
+    () => new Set(selectedExamIds),
+    [selectedExamIds],
+  );
+
+  const allViewRowsSelected =
+    existingExams.length > 0 &&
+    existingExams.every((exam) => selectedExamIdSet.has(exam.id));
 
   return (
-    <div className="min-h-screen bg-[#eef2f6] py-6 sm:py-8 px-3 sm:px-4">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-[#eef2f6] px-3 py-6 sm:px-4 sm:py-8">
+      <div className="mx-auto max-w-7xl">
         <button
           onClick={() => navigate("/admin-dashboard")}
           className="mb-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:text-[#2f87d9] sm:px-4 sm:py-2 sm:text-sm"
@@ -409,250 +801,222 @@ const ExamTimetableManagement = () => {
           Back to Dashboard
         </button>
 
-        {/* Header */}
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
+          initial={{ opacity: 0, y: -16 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
+          className="mb-6 rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-8"
         >
-          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-4 sm:p-8">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-              <div className="w-16 h-16 bg-[#2f87d9] rounded-2xl flex items-center justify-center">
-                <FiCalendar className="w-8 h-8 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl sm:text-4xl font-bold text-slate-800">
-                  Exam Timetable Management
-                </h1>
-                <p className="text-slate-600 mt-1">
-                  Upload PDF/Image, use OCR, or manually add exam schedules
-                </p>
-              </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#2f87d9]">
+              <FiCalendar className="h-7 w-7 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-slate-800 sm:text-3xl">
+                Exam Timetable Management
+              </h1>
+              <p className="mt-1 text-sm text-slate-600">
+                Year-wise OCR import, manual rows, and official timetable PDF
+                upload
+              </p>
             </div>
           </div>
         </motion.div>
 
-        {/* Message Alert */}
         <AnimatePresence>
-          {message.text && (
+          {message.text ? (
             <motion.div
-              initial={{ opacity: 0, y: -10 }}
+              initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className={`mb-6 p-4 rounded-xl flex items-center gap-3 shadow-lg ${
+              exit={{ opacity: 0, y: -8 }}
+              className={`mb-5 flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${
                 message.type === "success"
-                  ? "bg-green-50 text-green-700 border border-green-200"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                   : message.type === "error"
-                    ? "bg-red-50 text-red-700 border border-red-200"
-                    : "bg-yellow-50 text-yellow-700 border border-yellow-200"
+                    ? "border-rose-200 bg-rose-50 text-rose-700"
+                    : "border-amber-200 bg-amber-50 text-amber-700"
               }`}
             >
               {message.type === "success" ? <FiCheck /> : <FiAlertCircle />}
-              {message.text}
+              <span>{message.text}</span>
               <button
                 onClick={() => setMessage({ type: "", text: "" })}
-                className="ml-auto hover:opacity-70"
+                className="ml-auto"
               >
                 <FiX />
               </button>
             </motion.div>
-          )}
+          ) : null}
         </AnimatePresence>
 
-        {/* Year and Branch Selection */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-slate-700 mb-2 text-sm font-semibold">
-                Select Year
-              </label>
-              <select
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                {years.map((year) => (
-                  <option key={year} value={year}>
-                    {year} Year
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-slate-700 mb-2 text-sm font-semibold">
-                Select Branch
-              </label>
-              <select
-                value={selectedBranch}
-                onChange={(e) => setSelectedBranch(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                {branches.map((branch) => (
-                  <option key={branch} value={branch}>
-                    {branch}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+        <div className="mb-5 rounded-2xl bg-white p-4 shadow-sm">
+          <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Select Academic Year Timetable
+          </label>
+          <select
+            value={selectedYear}
+            onChange={(event) => setSelectedYear(event.target.value)}
+            className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 sm:max-w-xs"
+          >
+            {YEARS.map((year) => (
+              <option key={year} value={year}>
+                {year} Year
+              </option>
+            ))}
+          </select>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-2 mb-6 bg-white p-2 rounded-xl shadow-lg w-full sm:w-fit overflow-x-auto">
+        <div className="mb-5 flex w-full gap-2 overflow-x-auto rounded-xl bg-white p-2 shadow-sm sm:w-fit">
           {[
             { id: "upload", label: "OCR Upload", icon: FiUpload },
             { id: "manual", label: "Manual Entry", icon: FiEdit2 },
             { id: "view", label: "View Exams", icon: FiEye },
+            { id: "pdf", label: "Upload PDF", icon: FiFileText },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all font-medium ${
+              className={`flex items-center gap-2 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition ${
                 activeTab === tab.id
-                  ? "bg-[#2f87d9] text-white shadow-lg"
-                  : "text-slate-600 hover:text-gray-900 hover:bg-slate-100"
+                  ? "bg-[#2f87d9] text-white"
+                  : "text-slate-700 hover:bg-slate-100"
               }`}
             >
-              <tab.icon size={18} />
+              <tab.icon className="h-4 w-4" />
               {tab.label}
             </button>
           ))}
         </div>
 
-        {/* Tab Content */}
         <AnimatePresence mode="wait">
-          {/* OCR Upload Tab */}
-          {activeTab === "upload" && (
+          {activeTab === "upload" ? (
             <motion.div
-              key="upload"
-              initial={{ opacity: 0, x: 20 }}
+              key="ocr-upload"
+              initial={{ opacity: 0, x: 14 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="space-y-6"
+              exit={{ opacity: 0, x: -14 }}
+              className="space-y-5"
             >
-              {/* Upload Section */}
-              <div className="bg-white rounded-2xl shadow-lg p-6">
-                <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-                  <FiUpload className="text-blue-500" />
-                  Upload Timetable (PDF/Image)
-                </h2>
+              <div className="rounded-2xl bg-white p-5 shadow-sm">
+                <div className="mb-3 flex items-center gap-2">
+                  <FiUpload className="h-5 w-5 text-[#2f87d9]" />
+                  <h2 className="text-lg font-semibold text-slate-800">
+                    OCR Upload (Year-Wise Timetable)
+                  </h2>
+                </div>
+                <p className="mb-4 text-sm text-slate-600">
+                  Upload the complete year timetable (PDF/image). Parser will
+                  split branch rows automatically.
+                </p>
 
-                <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-500 transition-colors bg-slate-50">
+                <div className="rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 p-6 text-center">
                   <input
                     type="file"
                     accept=".pdf,image/*"
-                    onChange={handleFileChange}
+                    onChange={handleOcrFileChange}
                     className="hidden"
-                    id="file-upload"
+                    id="exam-ocr-file"
                   />
-                  <label
-                    htmlFor="file-upload"
-                    className="cursor-pointer flex flex-col items-center"
-                  >
-                    <FiFileText className="text-4xl text-gray-400 mb-4" />
-                    {file ? (
-                      <div className="text-green-600">
-                        <p className="font-semibold">{file.name}</p>
-                        <p className="text-sm text-slate-500">
-                          {(file.size / 1024 / 1024).toFixed(2)} MB
-                        </p>
-                      </div>
-                    ) : (
-                      <div>
-                        <p className="text-slate-700 font-medium">
-                          Drop your file here or click to browse
-                        </p>
-                        <p className="text-slate-500 text-sm mt-1">
-                          Supports PDF and Image files
-                        </p>
-                      </div>
-                    )}
+                  <label htmlFor="exam-ocr-file" className="cursor-pointer">
+                    <p className="text-sm font-medium text-slate-700">
+                      {ocrFile ? ocrFile.name : "Click to select PDF/image"}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      OCR supports scanned timetable images and PDFs.
+                    </p>
                   </label>
                 </div>
 
-                <div className="flex gap-4 mt-6">
+                <div className="mt-4 flex flex-wrap gap-2">
                   <button
-                    onClick={handleUpload}
-                    disabled={!file || uploading}
-                    className="flex-1 bg-[#2f87d9] hover:bg-[#1f6fb7] disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed text-white py-3 px-6 rounded-xl font-medium flex items-center justify-center gap-2 transition-all shadow-lg"
+                    type="button"
+                    onClick={handleUploadAndExtract}
+                    disabled={!ocrFile || ocrUploading}
+                    className="rounded-lg bg-[#2f87d9] px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
                   >
-                    {uploading ? (
-                      <>
-                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <FiUpload />
-                        Upload & Extract Text
-                      </>
-                    )}
+                    {ocrUploading ? "Processing..." : "Upload & Extract"}
                   </button>
-
                   <button
+                    type="button"
                     onClick={() => setShowConfirmClear(true)}
-                    className="bg-red-50 hover:bg-red-100 text-red-600 py-3 px-6 rounded-xl font-medium flex items-center gap-2 transition-colors border border-red-200"
+                    className="rounded-lg border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-700"
                   >
-                    <FiTrash2 />
-                    Clear Existing
+                    Clear Year Data
                   </button>
                 </div>
               </div>
 
-              {/* Extracted Text Preview */}
-              {extractedText && (
-                <div className="bg-white rounded-2xl shadow-lg p-6">
-                  <h2 className="text-xl font-bold text-slate-800 mb-4">
-                    Extracted Text
-                  </h2>
-                  <pre className="bg-slate-50 p-4 rounded-xl text-slate-700 text-sm overflow-auto max-h-60 whitespace-pre-wrap border border-slate-200">
+              {extractedText ? (
+                <div className="rounded-2xl bg-white p-5 shadow-sm">
+                  <h3 className="mb-3 text-sm font-semibold uppercase text-slate-600">
+                    OCR Extracted Text Preview
+                  </h3>
+                  <pre className="max-h-64 overflow-auto rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700 whitespace-pre-wrap">
                     {extractedText}
                   </pre>
                 </div>
-              )}
+              ) : null}
 
-              {/* Parsed Exams Editor */}
-              {parsedExams.length > 0 && (
-                <div className="bg-white rounded-2xl shadow-lg p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-bold text-slate-800">
-                      Parsed Exams ({parsedExams.length})
-                    </h2>
+              {parsedExams.length > 0 ? (
+                <div className="rounded-2xl bg-white p-5 shadow-sm">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-lg font-semibold text-slate-800">
+                      Parsed Rows ({parsedExams.length})
+                    </h3>
                     <button
+                      type="button"
                       onClick={addEmptyParsedExam}
-                      className="text-blue-600 hover:text-blue-700 flex items-center gap-1 text-sm font-medium"
+                      className="rounded-md border border-slate-300 px-3 py-1 text-xs text-slate-700"
                     >
-                      <FiPlus /> Add Row
+                      <FiPlus className="mr-1 inline" /> Add Row
                     </button>
                   </div>
 
-                  <div className="space-y-4 max-h-96 overflow-y-auto">
+                  <div className="space-y-3 max-h-[460px] overflow-auto">
                     {parsedExams.map((exam, index) => (
                       <div
-                        key={index}
-                        className="bg-slate-50 rounded-xl p-4 grid grid-cols-1 md:grid-cols-6 gap-3 border border-slate-200"
+                        key={`${exam.courseCode || "row"}_${index}`}
+                        className="grid grid-cols-1 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 md:grid-cols-12"
                       >
                         <input
-                          type="text"
-                          value={exam.date}
+                          value={exam.day || ""}
+                          onChange={(e) =>
+                            updateParsedExam(index, "day", e.target.value)
+                          }
+                          placeholder="Day"
+                          className="rounded-md border border-slate-300 px-2 py-1.5 text-xs md:col-span-2"
+                        />
+                        <input
+                          value={exam.date || ""}
                           onChange={(e) =>
                             updateParsedExam(index, "date", e.target.value)
                           }
-                          placeholder="Date (e.g., 01/12/2025)"
-                          className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-700 text-sm focus:ring-2 focus:ring-blue-500"
+                          placeholder="DD-MM-YYYY"
+                          className="rounded-md border border-slate-300 px-2 py-1.5 text-xs md:col-span-2"
                         />
                         <input
-                          type="text"
-                          value={exam.time}
+                          value={exam.time || ""}
                           onChange={(e) =>
                             updateParsedExam(index, "time", e.target.value)
                           }
-                          placeholder="Time"
-                          className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-700 text-sm focus:ring-2 focus:ring-blue-500"
+                          placeholder="2:00 pm to 5:00 pm"
+                          className="rounded-md border border-slate-300 px-2 py-1.5 text-xs md:col-span-2"
                         />
+                        <select
+                          value={exam.branch || ""}
+                          onChange={(e) =>
+                            updateParsedExam(index, "branch", e.target.value)
+                          }
+                          className="rounded-md border border-slate-300 px-2 py-1.5 text-xs md:col-span-2"
+                        >
+                          <option value="">Select branch</option>
+                          {BRANCH_OPTIONS.map((branch) => (
+                            <option key={branch} value={branch}>
+                              {branch}
+                            </option>
+                          ))}
+                        </select>
                         <input
-                          type="text"
-                          value={exam.courseCode}
+                          value={exam.courseCode || ""}
                           onChange={(e) =>
                             updateParsedExam(
                               index,
@@ -661,11 +1025,10 @@ const ExamTimetableManagement = () => {
                             )
                           }
                           placeholder="Course Code"
-                          className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-700 text-sm focus:ring-2 focus:ring-blue-500"
+                          className="rounded-md border border-slate-300 px-2 py-1.5 text-xs md:col-span-1"
                         />
                         <input
-                          type="text"
-                          value={exam.courseName}
+                          value={exam.courseName || ""}
                           onChange={(e) =>
                             updateParsedExam(
                               index,
@@ -674,358 +1037,509 @@ const ExamTimetableManagement = () => {
                             )
                           }
                           placeholder="Course Name"
-                          className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-700 text-sm md:col-span-2 focus:ring-2 focus:ring-blue-500"
+                          className="rounded-md border border-slate-300 px-2 py-1.5 text-xs md:col-span-2"
                         />
                         <button
+                          type="button"
                           onClick={() => removeParsedExam(index)}
-                          className="bg-red-50 hover:bg-red-100 text-red-600 rounded-lg px-3 py-2 flex items-center justify-center border border-red-200"
+                          className="rounded-md border border-rose-300 bg-rose-50 px-2 py-1.5 text-xs text-rose-700 md:col-span-1"
                         >
-                          <FiX />
+                          <FiX className="mx-auto" />
                         </button>
                       </div>
                     ))}
                   </div>
 
                   <button
+                    type="button"
                     onClick={handleSaveParsedExams}
-                    className="w-full mt-4 bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700 text-white py-3 px-6 rounded-xl font-medium flex items-center justify-center gap-2 transition-all shadow-lg"
+                    className="mt-4 w-full rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white"
                   >
-                    <FiSave />
-                    Save All Exams
+                    <FiSave className="mr-2 inline" /> Save Parsed Year
+                    Timetable
                   </button>
                 </div>
-              )}
+              ) : null}
             </motion.div>
-          )}
+          ) : null}
 
-          {/* Manual Entry Tab */}
-          {activeTab === "manual" && (
+          {activeTab === "manual" ? (
             <motion.div
-              key="manual"
-              initial={{ opacity: 0, x: 20 }}
+              key="manual-entry"
+              initial={{ opacity: 0, x: 14 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="bg-white rounded-2xl shadow-lg p-6"
+              exit={{ opacity: 0, x: -14 }}
+              className="rounded-2xl bg-white p-5 shadow-sm"
             >
-              <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-                <FiEdit2 className="text-blue-500" />
-                Add Exam Manually
+              <h2 className="mb-4 text-lg font-semibold text-slate-800">
+                Manual Exam Row Entry ({selectedYear} Year)
               </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-slate-700 mb-2 text-sm font-medium">
-                    Date *
-                  </label>
-                  <input
-                    type="date"
-                    value={manualExam.date}
-                    onChange={(e) =>
-                      setManualExam({ ...manualExam, date: e.target.value })
-                    }
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-700 focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-700 mb-2 text-sm font-medium">
-                    Time
-                  </label>
-                  <input
-                    type="time"
-                    value={manualExam.time}
-                    onChange={(e) =>
-                      setManualExam({ ...manualExam, time: e.target.value })
-                    }
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-700 focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-700 mb-2 text-sm font-medium">
-                    Duration
-                  </label>
-                  <select
-                    value={manualExam.duration}
-                    onChange={(e) =>
-                      setManualExam({ ...manualExam, duration: e.target.value })
-                    }
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-700 focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="1 hour">1 hour</option>
-                    <option value="2 hours">2 hours</option>
-                    <option value="3 hours">3 hours</option>
-                    <option value="4 hours">4 hours</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-slate-700 mb-2 text-sm font-medium">
-                    Course Code *
-                  </label>
-                  <input
-                    type="text"
-                    value={manualExam.courseCode}
-                    onChange={(e) =>
-                      setManualExam({
-                        ...manualExam,
-                        courseCode: e.target.value,
-                      })
-                    }
-                    placeholder="e.g., CO401 or EE301"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-700 focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-slate-700 mb-2 text-sm font-medium">
-                    Course Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={manualExam.courseName}
-                    onChange={(e) =>
-                      setManualExam({
-                        ...manualExam,
-                        courseName: e.target.value,
-                      })
-                    }
-                    placeholder="e.g., Machine Learning"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-700 focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-
-              {/* Course Code Info */}
-              <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
-                <p className="text-sm text-blue-700 font-medium mb-2">
-                  📌 Course Code Prefixes:
-                </p>
-                <p className="text-xs text-blue-600">
-                  CO - Computer Engineering | EE - Electrical | ET - Electronics
-                  & Telecomm | ME - Mechanical | CE - Civil | IN -
-                  Instrumentation
-                </p>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <input
+                  type="text"
+                  placeholder="Day (optional)"
+                  value={manualExam.day}
+                  onChange={(e) =>
+                    setManualExam((prev) => ({ ...prev, day: e.target.value }))
+                  }
+                  className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-700"
+                />
+                <input
+                  type="date"
+                  value={manualExam.date}
+                  onChange={(e) =>
+                    setManualExam((prev) => ({ ...prev, date: e.target.value }))
+                  }
+                  className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-700"
+                />
+                <input
+                  type="text"
+                  placeholder="2:00 pm to 5:00 pm"
+                  value={manualExam.time}
+                  onChange={(e) =>
+                    setManualExam((prev) => ({ ...prev, time: e.target.value }))
+                  }
+                  className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-700"
+                />
+                <select
+                  value={manualExam.branch}
+                  onChange={(e) =>
+                    setManualExam((prev) => ({
+                      ...prev,
+                      branch: e.target.value,
+                    }))
+                  }
+                  className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-700"
+                >
+                  {BRANCH_OPTIONS.map((branch) => (
+                    <option key={branch} value={branch}>
+                      {branch}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  placeholder="Course Code"
+                  value={manualExam.courseCode}
+                  onChange={(e) =>
+                    setManualExam((prev) => ({
+                      ...prev,
+                      courseCode: e.target.value,
+                    }))
+                  }
+                  className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-700"
+                />
+                <input
+                  type="text"
+                  placeholder="Duration"
+                  value={manualExam.duration}
+                  onChange={(e) =>
+                    setManualExam((prev) => ({
+                      ...prev,
+                      duration: e.target.value,
+                    }))
+                  }
+                  className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-700"
+                />
+                <input
+                  type="text"
+                  placeholder="Course Name"
+                  value={manualExam.courseName}
+                  onChange={(e) =>
+                    setManualExam((prev) => ({
+                      ...prev,
+                      courseName: e.target.value,
+                    }))
+                  }
+                  className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 md:col-span-3"
+                />
               </div>
 
               <button
+                type="button"
                 onClick={handleAddManualExam}
-                className="mt-6 bg-[#2f87d9] hover:bg-[#1f6fb7] text-white py-3 px-6 rounded-xl font-medium flex items-center gap-2 transition-all shadow-lg"
+                className="mt-4 rounded-lg bg-[#2f87d9] px-4 py-2 text-sm font-medium text-white"
               >
-                <FiPlus />
-                Add Exam
+                <FiPlus className="mr-2 inline" /> Add Exam Row
               </button>
             </motion.div>
-          )}
+          ) : null}
 
-          {/* View Exams Tab */}
-          {activeTab === "view" && (
+          {activeTab === "view" ? (
             <motion.div
-              key="view"
-              initial={{ opacity: 0, x: 20 }}
+              key="view-exams"
+              initial={{ opacity: 0, x: 14 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="bg-white rounded-2xl shadow-lg p-6"
+              exit={{ opacity: 0, x: -14 }}
+              className="rounded-2xl bg-white p-5 shadow-sm"
             >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                  <FiEye className="text-blue-500" />
-                  Existing Exams for {selectedYear} Year - {selectedBranch}
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-lg font-semibold text-slate-800">
+                  View Exams ({selectedYear} Year)
                 </h2>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap gap-2">
                   <button
-                    onClick={handleRemoveDuplicates}
-                    className="text-orange-600 bg-orange-50 hover:bg-orange-100 px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-colors border border-orange-200"
+                    type="button"
+                    onClick={fetchExistingExams}
+                    className="rounded-md border border-slate-300 px-3 py-1 text-xs text-slate-700"
                   >
-                    <FiTrash2 />
+                    <FiRefreshCw className="mr-1 inline" /> Refresh
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRemoveDuplicates}
+                    className="rounded-md border border-amber-300 bg-amber-50 px-3 py-1 text-xs text-amber-700"
+                  >
                     Remove Duplicates
                   </button>
-                  <span className="text-slate-500 text-sm bg-slate-100 px-3 py-1 rounded-full">
-                    {existingExams.length} exams found
+                  <button
+                    type="button"
+                    onClick={toggleSelectAllExams}
+                    disabled={existingExams.length === 0}
+                    className="rounded-md border border-slate-300 bg-slate-50 px-3 py-1 text-xs text-slate-700 disabled:opacity-50"
+                  >
+                    {allViewRowsSelected ? "Unselect All" : "Select All"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeleteSelectedExams}
+                    disabled={selectedExamIds.length === 0}
+                    className="rounded-md border border-rose-300 bg-rose-50 px-3 py-1 text-xs text-rose-700 disabled:opacity-50"
+                  >
+                    <FiTrash2 className="mr-1 inline" /> Delete Selected (
+                    {selectedExamIds.length})
+                  </button>
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
+                    {existingExams.length} rows
                   </span>
                 </div>
               </div>
 
-              {loading ? (
-                <div className="flex justify-center py-12">
-                  <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent" />
+              {loadingExams ? (
+                <div className="py-12 text-center text-slate-500">
+                  Loading exam rows...
                 </div>
               ) : existingExams.length === 0 ? (
-                <div className="text-center py-12 text-gray-400">
-                  <FiCalendar className="text-5xl mx-auto mb-4 opacity-50" />
-                  <p className="text-slate-600">
-                    No exams found for this year and branch
-                  </p>
+                <div className="py-12 text-center text-slate-500">
+                  No exam rows found for this year.
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {existingExams.map((exam) => (
                     <div
                       key={exam.id}
-                      className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl p-4 flex items-center justify-between hover:shadow-md transition-all border border-slate-200/80"
+                      className={`rounded-xl border p-3 ${
+                        selectedExamIdSet.has(exam.id)
+                          ? "border-[#2f87d9]/40 bg-[#2f87d9]/5"
+                          : "border-slate-200 bg-slate-50"
+                      }`}
                     >
-                      {editingExam?.id === exam.id ? (
-                        <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-3">
+                      <div className="flex items-start gap-3">
+                        <div className="pt-1">
                           <input
-                            type="text"
-                            value={editingExam.date}
-                            onChange={(e) =>
-                              setEditingExam({
-                                ...editingExam,
-                                date: e.target.value,
-                              })
-                            }
-                            className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-700 text-sm"
+                            type="checkbox"
+                            checked={selectedExamIdSet.has(exam.id)}
+                            onChange={() => toggleExamSelection(exam.id)}
+                            className="h-4 w-4 accent-[#2f87d9]"
+                            aria-label={`Select exam ${exam.courseCode || exam.id}`}
                           />
-                          <input
-                            type="text"
-                            value={editingExam.time}
-                            onChange={(e) =>
-                              setEditingExam({
-                                ...editingExam,
-                                time: e.target.value,
-                              })
-                            }
-                            className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-700 text-sm"
-                          />
-                          <input
-                            type="text"
-                            value={editingExam.courseCode}
-                            onChange={(e) =>
-                              setEditingExam({
-                                ...editingExam,
-                                courseCode: e.target.value,
-                              })
-                            }
-                            className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-700 text-sm"
-                          />
-                          <input
-                            type="text"
-                            value={editingExam.courseName}
-                            onChange={(e) =>
-                              setEditingExam({
-                                ...editingExam,
-                                courseName: e.target.value,
-                              })
-                            }
-                            className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-700 text-sm"
-                          />
-                          <div className="flex gap-2">
-                            <button
-                              onClick={handleUpdateExam}
-                              className="bg-green-100 text-green-600 rounded-lg px-3 py-2 flex-1 hover:bg-green-200"
-                            >
-                              <FiCheck />
-                            </button>
-                            <button
-                              onClick={() => setEditingExam(null)}
-                              className="bg-red-100 text-red-600 rounded-lg px-3 py-2 flex-1 hover:bg-red-200"
-                            >
-                              <FiX />
-                            </button>
-                          </div>
                         </div>
-                      ) : (
-                        <>
-                          <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div>
-                              <p className="text-xs text-slate-500 uppercase font-medium">
-                                Date & Time
-                              </p>
-                              <p className="text-slate-800 font-semibold">
-                                {exam.date}
-                              </p>
-                              <p className="text-slate-500 text-sm">
-                                {exam.time || "Not specified"}
-                              </p>
+
+                        <div className="min-w-0 flex-1">
+                          {editingExam?.id === exam.id ? (
+                            <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
+                              <input
+                                value={editingExam.day || ""}
+                                onChange={(e) =>
+                                  setEditingExam((prev) => ({
+                                    ...prev,
+                                    day: e.target.value,
+                                  }))
+                                }
+                                className="rounded-md border border-slate-300 px-2 py-1.5 text-xs md:col-span-2"
+                                placeholder="Day"
+                              />
+                              <input
+                                value={editingExam.date || ""}
+                                onChange={(e) =>
+                                  setEditingExam((prev) => ({
+                                    ...prev,
+                                    date: e.target.value,
+                                  }))
+                                }
+                                className="rounded-md border border-slate-300 px-2 py-1.5 text-xs md:col-span-2"
+                                placeholder="Date"
+                              />
+                              <input
+                                value={editingExam.time || ""}
+                                onChange={(e) =>
+                                  setEditingExam((prev) => ({
+                                    ...prev,
+                                    time: e.target.value,
+                                  }))
+                                }
+                                className="rounded-md border border-slate-300 px-2 py-1.5 text-xs md:col-span-2"
+                                placeholder="Time"
+                              />
+                              <select
+                                value={editingExam.branch || ""}
+                                onChange={(e) =>
+                                  setEditingExam((prev) => ({
+                                    ...prev,
+                                    branch: e.target.value,
+                                  }))
+                                }
+                                className="rounded-md border border-slate-300 px-2 py-1.5 text-xs md:col-span-2"
+                              >
+                                <option value="">Select branch</option>
+                                {BRANCH_OPTIONS.map((branch) => (
+                                  <option key={branch} value={branch}>
+                                    {branch}
+                                  </option>
+                                ))}
+                              </select>
+                              <input
+                                value={editingExam.courseCode || ""}
+                                onChange={(e) =>
+                                  setEditingExam((prev) => ({
+                                    ...prev,
+                                    courseCode: e.target.value,
+                                  }))
+                                }
+                                className="rounded-md border border-slate-300 px-2 py-1.5 text-xs md:col-span-1"
+                                placeholder="Code"
+                              />
+                              <input
+                                value={editingExam.courseName || ""}
+                                onChange={(e) =>
+                                  setEditingExam((prev) => ({
+                                    ...prev,
+                                    courseName: e.target.value,
+                                  }))
+                                }
+                                className="rounded-md border border-slate-300 px-2 py-1.5 text-xs md:col-span-2"
+                                placeholder="Course Name"
+                              />
+                              <div className="flex gap-1 md:col-span-1">
+                                <button
+                                  type="button"
+                                  onClick={handleUpdateExam}
+                                  className="flex-1 rounded-md border border-emerald-300 bg-emerald-50 px-2 py-1.5 text-xs text-emerald-700"
+                                >
+                                  <FiCheck className="mx-auto" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingExam(null)}
+                                  className="flex-1 rounded-md border border-rose-300 bg-rose-50 px-2 py-1.5 text-xs text-rose-700"
+                                >
+                                  <FiX className="mx-auto" />
+                                </button>
+                              </div>
                             </div>
-                            <div>
-                              <p className="text-xs text-slate-500 uppercase font-medium">
-                                Course Code
-                              </p>
-                              <p className="text-blue-600 font-mono font-bold">
-                                {exam.courseCode}
-                              </p>
+                          ) : (
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 md:grid-cols-6">
+                                <p className="text-xs text-slate-700">
+                                  <span className="font-semibold">Day:</span>{" "}
+                                  {exam.day || "-"}
+                                </p>
+                                <p className="text-xs text-slate-700">
+                                  <span className="font-semibold">Date:</span>{" "}
+                                  {exam.date || "-"}
+                                </p>
+                                <p className="text-xs text-slate-700">
+                                  <span className="font-semibold">Time:</span>{" "}
+                                  {exam.time || "-"}
+                                </p>
+                                <p className="text-xs text-slate-700">
+                                  <span className="font-semibold">Branch:</span>{" "}
+                                  {exam.branch || "-"}
+                                </p>
+                                <p className="text-xs text-slate-700">
+                                  <span className="font-semibold">Code:</span>{" "}
+                                  {exam.courseCode || "-"}
+                                </p>
+                                <p className="text-xs text-slate-800 md:col-span-2">
+                                  <span className="font-semibold">Course:</span>{" "}
+                                  {exam.courseName || "-"}
+                                </p>
+                              </div>
+
+                              <div className="flex gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingExam(exam)}
+                                  className="rounded-md border border-sky-300 bg-sky-50 px-2 py-1.5 text-xs text-sky-700"
+                                >
+                                  <FiEdit2 />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteExam(exam.id)}
+                                  className="rounded-md border border-rose-300 bg-rose-50 px-2 py-1.5 text-xs text-rose-700"
+                                >
+                                  <FiTrash2 />
+                                </button>
+                              </div>
                             </div>
-                            <div className="md:col-span-2">
-                              <p className="text-xs text-slate-500 uppercase font-medium">
-                                Course Name
-                              </p>
-                              <p className="text-slate-700">{exam.courseName}</p>
-                            </div>
-                          </div>
-                          <div className="flex gap-2 ml-4">
-                            <button
-                              onClick={() => setEditingExam(exam)}
-                              className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
-                            >
-                              <FiEdit2 />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteExam(exam.id)}
-                              className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
-                            >
-                              <FiTrash2 />
-                            </button>
-                          </div>
-                        </>
-                      )}
+                          )}
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
             </motion.div>
-          )}
+          ) : null}
+
+          {activeTab === "pdf" ? (
+            <motion.div
+              key="upload-pdf"
+              initial={{ opacity: 0, x: 14 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -14 }}
+              className="space-y-5"
+            >
+              <div className="rounded-2xl bg-white p-5 shadow-sm">
+                <h2 className="mb-3 text-lg font-semibold text-slate-800">
+                  Upload Official Timetable PDF ({selectedYear} Year)
+                </h2>
+                <p className="mb-4 text-sm text-slate-600">
+                  This PDF will be visible to students and teachers in their
+                  exam sections for this year.
+                </p>
+
+                <div className="rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 p-6 text-center">
+                  <input
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    onChange={handlePdfFileChange}
+                    className="hidden"
+                    id="exam-pdf-file"
+                  />
+                  <label htmlFor="exam-pdf-file" className="cursor-pointer">
+                    <p className="text-sm font-medium text-slate-700">
+                      {pdfFile ? pdfFile.name : "Click to select timetable PDF"}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Only PDF format is accepted for this tab.
+                    </p>
+                  </label>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleUploadPdf}
+                  disabled={!pdfFile || pdfUploading}
+                  className="mt-4 rounded-lg bg-[#2f87d9] px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+                >
+                  {pdfUploading ? "Uploading PDF..." : "Upload PDF"}
+                </button>
+              </div>
+
+              <div className="rounded-2xl bg-white p-5 shadow-sm">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold uppercase text-slate-600">
+                    Uploaded PDFs ({selectedYear} Year)
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={fetchUploadedPdfs}
+                    className="rounded-md border border-slate-300 px-3 py-1 text-xs text-slate-700"
+                  >
+                    <FiRefreshCw className="mr-1 inline" /> Refresh
+                  </button>
+                </div>
+
+                {uploadedPdfs.length === 0 ? (
+                  <p className="text-sm text-slate-500">
+                    No timetable PDF uploaded yet.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {uploadedPdfs.map((pdf) => (
+                      <div
+                        key={pdf.id}
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-slate-800">
+                            {pdf.fileName || "exam-timetable.pdf"}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            Status:{" "}
+                            {pdf.active === false ? "Inactive" : "Active"}
+                          </p>
+                        </div>
+                        <a
+                          href={pdf.fileURL}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-md bg-[#2f87d9] px-3 py-1.5 text-xs font-medium text-white"
+                        >
+                          Open PDF
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {activePdf ? (
+                  <p className="mt-3 text-xs text-emerald-700">
+                    Active PDF is visible in student and teacher exam sections.
+                  </p>
+                ) : null}
+              </div>
+            </motion.div>
+          ) : null}
         </AnimatePresence>
 
-        {/* Confirm Clear Modal */}
         <AnimatePresence>
-          {showConfirmClear && (
+          {showConfirmClear ? (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50"
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
               onClick={() => setShowConfirmClear(false)}
             >
               <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.9, opacity: 0 }}
-                className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl"
-                onClick={(e) => e.stopPropagation()}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="mx-4 w-full max-w-md rounded-2xl bg-white p-6"
+                onClick={(event) => event.stopPropagation()}
               >
-                <h3 className="text-xl font-bold text-slate-800 mb-4">
-                  Clear Exam Timetable?
+                <h3 className="text-lg font-semibold text-slate-800">
+                  Clear Year Timetable?
                 </h3>
-                <p className="text-slate-600 mb-6">
-                  This will delete all exam entries for{" "}
-                  <span className="text-slate-800 font-semibold">
-                    {selectedYear} Year
-                  </span>{" "}
-                  -{" "}
-                  <span className="text-slate-800 font-semibold">
-                    {selectedBranch}
-                  </span>
-                  . This action cannot be undone.
+                <p className="mt-2 text-sm text-slate-600">
+                  This will remove all exam rows for {selectedYear} year.
                 </p>
-                <div className="flex gap-4">
+
+                <div className="mt-5 flex gap-2">
                   <button
+                    type="button"
                     onClick={() => setShowConfirmClear(false)}
-                    className="flex-1 bg-slate-100 hover:bg-gray-200 text-slate-700 py-2 px-4 rounded-xl transition-colors font-medium"
+                    className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700"
                   >
                     Cancel
                   </button>
                   <button
-                    onClick={handleClearExams}
-                    className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-xl transition-colors font-medium"
+                    type="button"
+                    onClick={handleClearYearExams}
+                    className="flex-1 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white"
                   >
-                    Clear All
+                    Clear
                   </button>
                 </div>
               </motion.div>
             </motion.div>
-          )}
+          ) : null}
         </AnimatePresence>
       </div>
     </div>
   );
-};
-
-export default ExamTimetableManagement;
+}

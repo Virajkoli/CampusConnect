@@ -5683,11 +5683,9 @@ app.post(
         return res.status(400).json({ message: "No file uploaded" });
       }
 
-      const { year, branch } = req.body;
-      if (!year || !branch) {
-        return res
-          .status(400)
-          .json({ message: "Year and branch are required" });
+      const { year } = req.body;
+      if (!year) {
+        return res.status(400).json({ message: "Year is required" });
       }
 
       // For PDF files, extract text using pdf-parse
@@ -5714,7 +5712,7 @@ app.post(
           {
             folder: "campus-connect/exam-timetables",
             resource_type: "auto",
-            public_id: `exam-timetable-${year}-${branch}-${Date.now()}`,
+            public_id: `exam-timetable-${String(year || "year").replace(/\s+/g, "-")}-${Date.now()}`,
           },
           (error, result) => {
             if (error) reject(error);
@@ -5728,6 +5726,8 @@ app.post(
         success: true,
         extractedText,
         fileURL: uploadResult.secure_url,
+        publicId: uploadResult.public_id,
+        fileName: req.file.originalname,
         message: "File uploaded and text extracted successfully",
       });
     } catch (error) {
@@ -5829,30 +5829,65 @@ app.post("/api/save-exam-timetable", async (req, res) => {
         .json({ message: "Only admins can save exam timetables" });
     }
 
-    const { exams, year, branch } = req.body;
+    const { exams, year, replaceExisting = false } = req.body;
 
     if (!exams || !Array.isArray(exams) || exams.length === 0) {
       return res.status(400).json({ message: "No exam data provided" });
     }
 
+    if (!year) {
+      return res.status(400).json({ message: "Year is required" });
+    }
+
     const firestore = admin.firestore();
+
+    if (replaceExisting) {
+      const sameYearSnapshot = await firestore
+        .collection("examTimetable")
+        .where("year", "==", year)
+        .get();
+
+      if (!sameYearSnapshot.empty) {
+        const deactivateBatch = firestore.batch();
+        sameYearSnapshot.docs.forEach((docSnap) => {
+          deactivateBatch.set(
+            docSnap.ref,
+            {
+              isActive: false,
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            },
+            { merge: true },
+          );
+        });
+        await deactivateBatch.commit();
+      }
+    }
 
     // Fetch existing exams to check for duplicates
     const existingSnapshot = await firestore.collection("examTimetable").get();
-    const existingExams = existingSnapshot.docs.map((doc) => doc.data());
+    const existingExams = existingSnapshot.docs
+      .map((docSnap) => docSnap.data() || {})
+      .filter((entry) => entry.isActive !== false);
 
     // Create a Set of existing exam keys for fast lookup
     const existingKeys = new Set(
       existingExams.map(
-        (e) => `${e.date}|${e.courseCode}|${e.year}|${e.branch}`,
+        (e) =>
+          `${String(e.date || "").trim()}|${String(e.courseCode || "")
+            .trim()
+            .toUpperCase()}|${String(e.year || "").trim()}|${String(e.branch || "").trim()}`,
       ),
     );
 
     // Filter out duplicates
     const newExams = exams.filter((exam) => {
       const examYear = exam.year || year;
-      const examBranch = exam.branch || branch;
-      const key = `${exam.date}|${exam.courseCode}|${examYear}|${examBranch}`;
+      const examBranch = exam.branch || "";
+      const key = `${String(exam.date || "").trim()}|${String(
+        exam.courseCode || "",
+      )
+        .trim()
+        .toUpperCase()}|${String(examYear || "").trim()}|${String(examBranch || "").trim()}`;
       return !existingKeys.has(key);
     });
 
@@ -5872,7 +5907,8 @@ app.post("/api/save-exam-timetable", async (req, res) => {
       batch.set(docRef, {
         ...exam,
         year: exam.year || year,
-        branch: exam.branch || branch,
+        branch: exam.branch || "",
+        isActive: true,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
@@ -5930,6 +5966,9 @@ app.delete("/api/remove-duplicate-exams", async (req, res) => {
     const examGroups = {};
     snapshot.docs.forEach((doc) => {
       const data = doc.data();
+      if (data.isActive === false) {
+        return;
+      }
       const key = `${data.date}|${data.courseCode}|${data.year}|${data.branch}`;
       if (!examGroups[key]) {
         examGroups[key] = [];
@@ -5980,6 +6019,121 @@ app.delete("/api/remove-duplicate-exams", async (req, res) => {
     });
   }
 });
+
+// Upload and persist official year-wise exam timetable PDF
+app.post(
+  "/api/upload-exam-timetable-pdf",
+  upload.single("file"),
+  async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res
+          .status(401)
+          .json({ message: "No authorization token provided" });
+      }
+
+      const token = authHeader.split("Bearer ")[1];
+      const decodedToken = await admin.auth().verifyIdToken(token);
+
+      const adminDoc = await admin
+        .firestore()
+        .collection("admins")
+        .doc(decodedToken.uid)
+        .get();
+      if (!adminDoc.exists) {
+        return res
+          .status(403)
+          .json({ message: "Only admins can upload exam timetable PDFs" });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      if (req.file.mimetype !== "application/pdf") {
+        return res
+          .status(400)
+          .json({ message: "Only PDF files are supported" });
+      }
+
+      const { year } = req.body;
+      if (!year) {
+        return res.status(400).json({ message: "Year is required" });
+      }
+
+      const uploadResult = await new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            folder: "campus-connect/exam-timetable-pdfs",
+            resource_type: "auto",
+            public_id: `exam-timetable-pdf-${String(year || "year").replace(/\s+/g, "-")}-${Date.now()}`,
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          },
+        );
+        uploadStream.end(req.file.buffer);
+      });
+
+      const firestore = admin.firestore();
+      const existingSnapshot = await firestore
+        .collection("exam_timetable_files")
+        .where("year", "==", year)
+        .where("active", "==", true)
+        .get();
+
+      if (!existingSnapshot.empty) {
+        const deactivateBatch = firestore.batch();
+        existingSnapshot.docs.forEach((docSnap) => {
+          deactivateBatch.set(
+            docSnap.ref,
+            {
+              active: false,
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            },
+            { merge: true },
+          );
+        });
+        await deactivateBatch.commit();
+      }
+
+      const fileRef = firestore.collection("exam_timetable_files").doc();
+      const payload = {
+        id: fileRef.id,
+        year,
+        fileName: req.file.originalname || "exam-timetable.pdf",
+        fileURL: uploadResult.secure_url,
+        publicId: uploadResult.public_id,
+        mimeType: req.file.mimetype,
+        sizeBytes: Number(req.file.size || 0),
+        active: true,
+        uploadedBy: decodedToken.uid,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      };
+
+      await fileRef.set(payload);
+
+      return res.status(201).json({
+        success: true,
+        message: "Exam timetable PDF uploaded successfully",
+        file: {
+          ...payload,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+      });
+    } catch (error) {
+      console.error("Exam timetable PDF upload error:", error);
+      return res.status(500).json({
+        message: "Failed to upload exam timetable PDF",
+        error: error.message,
+      });
+    }
+  },
+);
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, "0.0.0.0", () => {
