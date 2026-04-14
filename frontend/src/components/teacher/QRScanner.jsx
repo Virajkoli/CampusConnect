@@ -1,11 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 
+const QR_REPEAT_COOLDOWN_MS = 3000;
+
 export default function QRScanner({ onDetected }) {
   const regionIdRef = useRef(
     `qr-region-${Math.random().toString(36).slice(2)}`,
   );
   const scannerRef = useRef(null);
+  const lastScanRef = useRef({ raw: "", at: 0 });
   const [error, setError] = useState("");
   const [manualInput, setManualInput] = useState("");
 
@@ -53,9 +56,18 @@ export default function QRScanner({ onDetected }) {
           (decodedText) => {
             if (!mounted) return;
 
+            const now = Date.now();
+            if (
+              decodedText === lastScanRef.current.raw &&
+              now - lastScanRef.current.at < QR_REPEAT_COOLDOWN_MS
+            ) {
+              return;
+            }
+            lastScanRef.current = { raw: decodedText, at: now };
+
             try {
               const parsed = JSON.parse(decodedText);
-              if (!parsed.studentId) {
+              if (!parsed.studentId && !parsed.prn) {
                 throw new Error("Invalid student QR payload");
               }
               onDetected(parsed);

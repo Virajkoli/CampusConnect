@@ -22,17 +22,6 @@ export default function ClassroomHeatmap({ teacherLocation, points }) {
     };
   };
 
-  const center = useMemo(() => {
-    const lat = Number(teacherLocation?.lat);
-    const lng = Number(teacherLocation?.lng);
-
-    if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
-      return { lat, lng };
-    }
-
-    return { lat: 18.5204, lng: 73.8567 };
-  }, [teacherLocation]);
-
   const safePoints = useMemo(() => {
     if (!Array.isArray(points)) {
       return [];
@@ -42,6 +31,29 @@ export default function ClassroomHeatmap({ teacherLocation, points }) {
       .map((point) => normalizePoint(point))
       .filter((point) => point !== null);
   }, [points]);
+
+  const teacherPoint = useMemo(() => {
+    const lat = Number(teacherLocation?.lat);
+    const lng = Number(teacherLocation?.lng);
+
+    if (Number.isNaN(lat) || Number.isNaN(lng)) {
+      return null;
+    }
+
+    return { lat, lng };
+  }, [teacherLocation]);
+
+  const center = useMemo(() => {
+    if (teacherPoint) {
+      return teacherPoint;
+    }
+
+    if (safePoints.length > 0) {
+      return { lat: safePoints[0].lat, lng: safePoints[0].lng };
+    }
+
+    return { lat: 20.5937, lng: 78.9629 };
+  }, [teacherPoint, safePoints]);
 
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) {
@@ -68,6 +80,15 @@ export default function ClassroomHeatmap({ teacherLocation, points }) {
   }, [center]);
 
   useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) {
+      return;
+    }
+
+    map.setView([center.lat, center.lng], map.getZoom(), { animate: true });
+  }, [center]);
+
+  useEffect(() => {
     const teacherLayer = teacherLayerRef.current;
     if (!teacherLayer) {
       return;
@@ -75,13 +96,17 @@ export default function ClassroomHeatmap({ teacherLocation, points }) {
 
     teacherLayer.clearLayers();
 
-    L.circleMarker([center.lat, center.lng], {
+    if (!teacherPoint) {
+      return;
+    }
+
+    L.circleMarker([teacherPoint.lat, teacherPoint.lng], {
       radius: 9,
       color: "#059669",
       fillColor: "#059669",
       fillOpacity: 0.9,
     }).addTo(teacherLayer);
-  }, [center]);
+  }, [teacherPoint]);
 
   useEffect(() => {
     const pointsLayer = pointsLayerRef.current;

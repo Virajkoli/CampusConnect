@@ -257,6 +257,9 @@ function TeacherDashboard() {
         setAllTimetable(timetable);
         setTodaysClasses(timetable.filter((item) => item.day === todayName));
 
+        // Render the dashboard shell early; continue fetching heavy datasets in background.
+        setLoading(false);
+
         const [studentsSnap, usersSnap] = await Promise.all([
           getDocs(collection(firestore, "students")),
           getDocs(collection(firestore, "users")),

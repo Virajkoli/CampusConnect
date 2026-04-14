@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { firestore, auth } from "../../firebase";
 import {
@@ -131,6 +131,8 @@ function StudentDashboard() {
   const [attendanceRefreshing, setAttendanceRefreshing] = useState(false);
   const [studyMaterials, setStudyMaterials] = useState([]);
   const [activeSessions, setActiveSessions] = useState([]);
+  const [activeSessionsRefreshing, setActiveSessionsRefreshing] =
+    useState(false);
   const [examSchedule, setExamSchedule] = useState([]);
   const [eventsCalendar, setEventsCalendar] = useState([]);
   const [academicCalendar, setAcademicCalendar] = useState([]);
@@ -238,6 +240,35 @@ function StudentDashboard() {
     [],
   );
 
+  const refreshActiveSessions = useCallback(
+    async ({ silent = false } = {}) => {
+      if (!user) {
+        return;
+      }
+
+      if (!silent) {
+        setActiveSessionsRefreshing(true);
+      }
+
+      try {
+        const response = await getActiveAttendanceSessions();
+        setActiveSessions(
+          Array.isArray(response.sessions) ? response.sessions : [],
+        );
+      } catch (error) {
+        if (!silent) {
+          console.error("Error refreshing active attendance sessions:", error);
+        }
+        setActiveSessions([]);
+      } finally {
+        if (!silent) {
+          setActiveSessionsRefreshing(false);
+        }
+      }
+    },
+    [user],
+  );
+
   useEffect(() => {
     if (!user) {
       navigate("/login");
@@ -277,8 +308,11 @@ function StudentDashboard() {
           setSemester(resolvedSemester);
           setDivision(studentData.division || "A");
 
+          // Show dashboard shell first, then hydrate heavier sections in background.
+          setLoading(false);
+
           if (resolvedDept && resolvedYear && resolvedSemester) {
-            await fetchTimetable(resolvedDept, resolvedYear, resolvedSemester);
+            fetchTimetable(resolvedDept, resolvedYear, resolvedSemester);
           }
 
           const assignedSubjects = Array.isArray(studentData.subjects)
@@ -292,7 +326,7 @@ function StudentDashboard() {
           );
 
           if (assignedSubjects.length > 0 && resolvedDept && resolvedYear) {
-            await fetchTeachersForSubjects(
+            fetchTeachersForSubjects(
               resolvedDept,
               resolvedYear,
               assignedSubjects,
@@ -301,9 +335,9 @@ function StudentDashboard() {
             setSubjectTeachersMap({});
           }
 
-          await refreshAttendanceSummary(user.uid, { silent: true });
+          refreshAttendanceSummary(user.uid, { silent: true });
 
-          await fetchExamSchedule(resolvedDept, resolvedYear);
+          fetchExamSchedule(resolvedDept, resolvedYear);
         }
       } catch (error) {
         console.error("Error fetching student data:", error);
@@ -534,28 +568,16 @@ function StudentDashboard() {
   useEffect(() => {
     if (!user) return;
 
-    let disposed = false;
-    const refreshSessions = async () => {
-      try {
-        const response = await getActiveAttendanceSessions();
-        if (!disposed) {
-          setActiveSessions(
-            Array.isArray(response.sessions) ? response.sessions : [],
-          );
-        }
-      } catch {
-        if (!disposed) setActiveSessions([]);
-      }
-    };
-
-    refreshSessions();
-    const timer = setInterval(refreshSessions, 30000);
+    refreshActiveSessions({ silent: true });
+    const timer = setInterval(
+      () => refreshActiveSessions({ silent: true }),
+      30000,
+    );
 
     return () => {
-      disposed = true;
       clearInterval(timer);
     };
-  }, [user]);
+  }, [user, refreshActiveSessions]);
 
   const formatTime = (time) => {
     if (!time) return "";
@@ -951,11 +973,21 @@ function StudentDashboard() {
   const renderAttendance = () => (
     <div className="space-y-5">
       <div className="rounded-3xl border border-slate-200/80 bg-white p-5 sm:p-6">
-        <div className="mb-4 flex items-center gap-2">
-          <FiCheck className="h-5 w-5 text-[#2f87d9]" />
-          <h2 className="text-xl font-semibold text-slate-800">
-            Active Attendance Sessions
-          </h2>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <FiCheck className="h-5 w-5 text-[#2f87d9]" />
+            <h2 className="text-xl font-semibold text-slate-800">
+              Active Attendance Sessions
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={() => refreshActiveSessions({ silent: false })}
+            disabled={activeSessionsRefreshing || !user?.uid}
+            className="rounded-md border border-slate-300 px-3 py-1 text-xs text-slate-700 disabled:opacity-60"
+          >
+            {activeSessionsRefreshing ? "Refreshing..." : "Refresh"}
+          </button>
         </div>
 
         {activeSessions.length > 0 ? (

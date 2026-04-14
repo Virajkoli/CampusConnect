@@ -294,6 +294,31 @@ export const getTeacherSubjectAttendanceStudents = async (
   return parseResponse(response);
 };
 
+export const getAttendanceSettings = async () => {
+  const response = await fetchWithNetworkHint(
+    `${API_BASE}/attendance/settings`,
+    {
+      method: "GET",
+      headers: await authHeaders(),
+    },
+  );
+
+  return parseResponse(response);
+};
+
+export const updateAttendanceSettings = async (payload) => {
+  const response = await fetchWithNetworkHint(
+    `${API_BASE}/attendance/settings`,
+    {
+      method: "PUT",
+      headers: await authHeaders(),
+      body: JSON.stringify(payload),
+    },
+  );
+
+  return parseResponse(response);
+};
+
 export const ensureTrustedDevice = async () => {
   const key = "campusconnect_device_id";
   let deviceId = localStorage.getItem(key);

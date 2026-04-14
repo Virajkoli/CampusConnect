@@ -194,11 +194,11 @@ export default function StudentAttendancePage() {
         setDeviceId(persistedDevice);
         await registerStudentDevice(persistedDevice);
 
-        const storedPasskey = getOneTimePasskey();
+        const storedPasskey = getOneTimePasskey(user.uid);
         if (storedPasskey?.assertionId) {
           setBiometricReady(true);
           setBiometricAssertionId(storedPasskey.assertionId);
-          toast.info("One-time passkey loaded from profile.");
+          toast.info("Saved attendance passkey loaded from profile.");
         }
 
         await Promise.all([
@@ -301,7 +301,7 @@ export default function StudentAttendancePage() {
       nextParams.delete("sessionId");
       setSearchParams(nextParams, { replace: true });
 
-      const storedPasskey = getOneTimePasskey();
+      const storedPasskey = getOneTimePasskey(student?.uid || "");
       if (storedPasskey?.assertionId) {
         setBiometricReady(true);
         setBiometricAssertionId(storedPasskey.assertionId);
@@ -314,7 +314,7 @@ export default function StudentAttendancePage() {
       setFaceDescriptor([]);
       setFaceLivenessPassed(false);
     },
-    [searchParams, setSearchParams],
+    [searchParams, setSearchParams, student?.uid],
   );
 
   useEffect(() => {
@@ -395,7 +395,7 @@ export default function StudentAttendancePage() {
             });
 
       toast.success(finalResult.message || "Attendance marked successfully.");
-      consumeOneTimePasskey(biometricAssertionId);
+      consumeOneTimePasskey(biometricAssertionId, student.uid);
       setJoinedSessionId("");
       setBiometricReady(false);
       setBiometricAssertionId("");

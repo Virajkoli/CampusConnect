@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const getDayFromDate = (dateValue) => {
@@ -13,10 +13,22 @@ export default function StartAttendanceModal({
   onClose,
   onStart,
   submitting,
+  defaultEnforceDistanceCheck = false,
 }) {
   const [date, setDate] = useState(todayISO());
   const [lectureId, setLectureId] = useState("");
   const [attendanceWindowSeconds, setAttendanceWindowSeconds] = useState(60);
+  const [enforceDistanceCheck, setEnforceDistanceCheck] = useState(
+    Boolean(defaultEnforceDistanceCheck),
+  );
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    setEnforceDistanceCheck(Boolean(defaultEnforceDistanceCheck));
+  }, [defaultEnforceDistanceCheck, isOpen]);
 
   const durationOptions = [
     { value: 60, label: "1 minute" },
@@ -61,6 +73,7 @@ export default function StartAttendanceModal({
       lectureId: selected.id,
       date,
       attendanceWindowSeconds,
+      enforceDistanceCheck,
     });
   };
 
@@ -124,6 +137,28 @@ export default function StartAttendanceModal({
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={enforceDistanceCheck}
+                onChange={(event) =>
+                  setEnforceDistanceCheck(Boolean(event.target.checked))
+                }
+                className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600"
+              />
+              <span>
+                <span className="block text-sm font-medium text-slate-700">
+                  Enforce student location radius
+                </span>
+                <span className="block text-xs text-slate-500">
+                  If enabled, students must be within classroom distance to mark
+                  attendance. If disabled, location is informational only.
+                </span>
+              </span>
+            </label>
           </div>
 
           {selected ? (

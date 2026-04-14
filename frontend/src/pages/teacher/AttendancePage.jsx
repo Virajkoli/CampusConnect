@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth, firestore } from "../../firebase";
 import { doc, getDoc } from "firebase/firestore";
@@ -17,12 +17,15 @@ import {
   getTeacherSubjectAttendanceStudents,
   getTeacherAttendanceSessionHistory,
   getTeacherAttendanceLectures,
+  getAttendanceSettings,
   markAttendanceByTeacher,
   startAttendanceSession,
 } from "../../services/attendanceService";
 import { FiArrowLeft } from "react-icons/fi";
 
-const getBrowserLocation = () =>
+const TEACHER_QR_SCAN_COOLDOWN_MS = 3500;
+
+const getBrowserLocation = (timeoutMs = 15000) =>
   new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
       reject(new Error("Geolocation is not supported in this browser."));
@@ -38,36 +41,18 @@ const getBrowserLocation = () =>
       },
       (error) =>
         reject(new Error(error.message || "Unable to access location.")),
-      { enableHighAccuracy: true, timeout: 10000 },
+      { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 0 },
     );
   });
 
-const getIpBasedLocation = async () => {
-  const response = await fetch("https://ipapi.co/json/");
-  if (!response.ok) {
-    throw new Error("Unable to resolve network location.");
-  }
-
-  const data = await response.json();
-  const lat = Number(data?.latitude);
-  const lng = Number(data?.longitude);
-
-  if (Number.isNaN(lat) || Number.isNaN(lng)) {
-    throw new Error("Unable to resolve network location.");
-  }
-
-  return { lat, lng };
-};
-
-const getLocation = async () => {
+const getLocation = async ({ required = true } = {}) => {
   try {
     return await getBrowserLocation();
-  } catch (geoError) {
-    try {
-      return await getIpBasedLocation();
-    } catch {
-      throw geoError;
+  } catch (error) {
+    if (required) {
+      throw error;
     }
+    return null;
   }
 };
 
@@ -417,6 +402,10 @@ export default function AttendancePage() {
   const [subjectSearch, setSubjectSearch] = useState("");
   const [subjectFilter, setSubjectFilter] = useState("all");
   const [refreshingSessionData, setRefreshingSessionData] = useState(false);
+  const [defaultEnforceDistanceCheck, setDefaultEnforceDistanceCheck] =
+    useState(false);
+  const scanInFlightRef = useRef(false);
+  const recentScansRef = useRef(new Map());
 
   const refreshSessionHistory = async () => {
     setHistoryLoading(true);
@@ -493,12 +482,27 @@ export default function AttendancePage() {
           throw new Error("Teacher profile not found.");
         }
 
-        const [lecturesResult, activeSessionsResult, historyResult] =
-          await Promise.all([
-            getTeacherAttendanceLectures(),
-            getActiveAttendanceSessions(),
-            getTeacherAttendanceSessionHistory(30),
-          ]);
+        const [
+          lecturesResult,
+          activeSessionsResult,
+          historyResult,
+          settingsResult,
+        ] = await Promise.all([
+          getTeacherAttendanceLectures(),
+          getActiveAttendanceSessions(),
+          getTeacherAttendanceSessionHistory(30),
+          getAttendanceSettings().catch(() => null),
+        ]);
+
+        if (
+          settingsResult?.settings &&
+          typeof settingsResult.settings.distanceEnforcementDefault ===
+            "boolean"
+        ) {
+          setDefaultEnforceDistanceCheck(
+            settingsResult.settings.distanceEnforcementDefault,
+          );
+        }
 
         setTeacherLectures(
           Array.isArray(lecturesResult.lectures) ? lecturesResult.lectures : [],
@@ -960,15 +964,13 @@ export default function AttendancePage() {
   const handleStart = async (payload) => {
     setStarting(true);
     try {
-      const teacherLocation = await getLocation();
-      if (!window.isSecureContext) {
-        toast.info(
-          "Using network-based location fallback because this page is not running on HTTPS.",
-        );
-      }
+      const enforceDistanceCheck = payload?.enforceDistanceCheck !== false;
+      const teacherLocation = await getLocation({
+        required: enforceDistanceCheck,
+      });
       const result = await startAttendanceSession({
         ...payload,
-        teacherLocation,
+        teacherLocation: teacherLocation || undefined,
       });
       setActiveSession(result.session);
       setRecords([]);
@@ -977,6 +979,13 @@ export default function AttendancePage() {
       setStartOpen(false);
       setAnalyticsSubjectId(result?.session?.subjectId || "");
       toast.success("Attendance session started.");
+
+      if (!teacherLocation) {
+        toast.info(
+          "Started without teacher GPS fix. Heatmap center will follow joined students.",
+        );
+      }
+
       await refreshSessionHistory();
     } catch (error) {
       toast.error(error.message || "Unable to start attendance session.");
@@ -991,6 +1000,27 @@ export default function AttendancePage() {
     ).trim();
     if (!sessionId) return;
 
+    const studentKey = String(
+      qrPayload?.studentId || qrPayload?.prn || "",
+    ).trim();
+    if (!studentKey) {
+      toast.error("Invalid QR payload. studentId or prn is required.");
+      return;
+    }
+
+    const now = Date.now();
+    const lastScanMs = Number(recentScansRef.current.get(studentKey) || 0);
+    if (now - lastScanMs < TEACHER_QR_SCAN_COOLDOWN_MS) {
+      return;
+    }
+
+    if (scanInFlightRef.current) {
+      return;
+    }
+
+    recentScansRef.current.set(studentKey, now);
+    scanInFlightRef.current = true;
+
     try {
       const result = await markAttendanceByTeacher({
         sessionId,
@@ -1000,6 +1030,8 @@ export default function AttendancePage() {
       toast.success(result.message || "Attendance marked by teacher scan.");
     } catch (error) {
       toast.error(error.message || "QR attendance failed.");
+    } finally {
+      scanInFlightRef.current = false;
     }
   };
 
@@ -1507,6 +1539,7 @@ export default function AttendancePage() {
         onClose={() => setStartOpen(false)}
         onStart={handleStart}
         submitting={starting}
+        defaultEnforceDistanceCheck={defaultEnforceDistanceCheck}
       />
     </div>
   );

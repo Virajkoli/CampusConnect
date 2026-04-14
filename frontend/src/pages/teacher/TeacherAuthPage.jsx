@@ -12,8 +12,8 @@ export default function TeacherAuthPage() {
   const [loading, setLoading] = useState(false);
 
   const auth = getAuth();
+  const apiBase = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-  // Handle login
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -28,7 +28,7 @@ export default function TeacherAuthPage() {
       let loginEmail = normalizedIdentifier;
       if (!normalizedIdentifier.includes("@")) {
         const resolveResponse = await fetch(
-          `${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/resolve-teacher-login/${encodeURIComponent(normalizedIdentifier)}`,
+          `${apiBase}/api/resolve-teacher-login/${encodeURIComponent(normalizedIdentifier)}`,
         );
         const resolveData = await resolveResponse.json();
         if (!resolveResponse.ok) {
@@ -45,24 +45,22 @@ export default function TeacherAuthPage() {
       const user = userCredential.user;
 
       if (user) {
-        // 👇 Force token refresh after login
         const tokenResult = await user.getIdTokenResult(true);
 
         if (tokenResult.claims.teacher) {
           navigate("/teacher-dashboard");
         } else {
-          setError("❌ You are not authorized as a teacher.");
+          setError("You are not authorized as a teacher.");
         }
       }
     } catch (err) {
       console.error("Login Error:", err.message);
-      setError("❌ " + err.message);
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle register (creating a teacher account)
   const handleRegister = async () => {
     setLoading(true);
     setError("");
@@ -79,17 +77,11 @@ export default function TeacherAuthPage() {
       );
       const user = userCredential.user;
 
-      // ✅ Call backend API to set teacher role
-      const response = await fetch(
-        `${
-          import.meta.env.VITE_API_URL || "http://localhost:5000"
-        }/api/setTeacherRole`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ uid: user.uid }),
-        },
-      );
+      const response = await fetch(`${apiBase}/api/setTeacherRole`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uid: user.uid }),
+      });
 
       const result = await response.json();
 
@@ -97,101 +89,126 @@ export default function TeacherAuthPage() {
         throw new Error(result.message || "Failed to set teacher role.");
       }
 
-      alert("✅ Account created successfully! Now you can login.");
-      navigate("/login"); // ✅ Redirect to login page after registration success
+      alert("Account created successfully. Please login now.");
+      navigate("/login");
     } catch (err) {
       console.error("Error creating account:", err.message);
-      setError("❌ " + err.message);
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 40 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6 }}
-      className="min-h-screen px-4 py-8 flex items-center justify-center bg-gradient-to-br from-green-500 to-blue-400"
-    >
+    <div className="relative min-h-screen overflow-hidden bg-[#eef2f6] px-4 pb-8 pt-24 sm:px-6">
+      <div className="pointer-events-none absolute -left-24 top-24 h-60 w-60 rounded-full bg-[#bff0df] blur-3xl" />
+      <div className="pointer-events-none absolute -right-16 bottom-6 h-64 w-64 rounded-full bg-[#d2e9ff] blur-3xl" />
+
       <motion.div
-        initial={{ scale: 0.95 }}
-        animate={{ scale: 1 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md bg-white/30 backdrop-blur-xl rounded-3xl shadow-2xl p-6 sm:p-8"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35 }}
+        className="relative mx-auto grid w-full max-w-5xl overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-xl lg:grid-cols-2"
       >
-        <motion.h2
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="text-2xl font-bold text-center text-green-700 mb-6"
-        >
-          🎓 Teacher Login
-        </motion.h2>
+        <div className="hidden bg-gradient-to-br from-[#14967f] to-[#32b69d] p-8 text-white lg:block">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-100">
+            Faculty Access
+          </p>
+          <h1 className="mt-3 text-3xl font-semibold leading-tight">
+            Manage Attendance and Classroom Control
+          </h1>
+          <p className="mt-4 text-sm text-emerald-50/95">
+            Login using your teacher ID or registered email to start sessions,
+            view analytics, and manage student attendance.
+          </p>
 
-        {error && (
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-red-600 text-center mb-4"
-          >
-            {error}
-          </motion.p>
-        )}
+          <div className="mt-8 space-y-3 text-sm">
+            <div className="rounded-xl border border-white/20 bg-white/10 px-4 py-3">
+              Teacher ID to email resolve is supported
+            </div>
+            <div className="rounded-xl border border-white/20 bg-white/10 px-4 py-3">
+              Role claim validation before dashboard access
+            </div>
+            <div className="rounded-xl border border-white/20 bg-white/10 px-4 py-3">
+              Self-register option for faculty onboarding
+            </div>
+          </div>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <motion.input
-            whileFocus={{ scale: 1.02 }}
-            type="text"
-            placeholder="Teacher Login ID (e.g. pm01@campusconnect.teacher)"
-            value={identifier}
-            onChange={(e) => setIdentifier(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none"
-            required
-          />
+        <div className="p-5 sm:p-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#14967f]">
+            Teacher Portal
+          </p>
+          <h2 className="mt-2 text-2xl font-semibold text-slate-900">
+            Login as Teacher
+          </h2>
 
-          <motion.input
-            whileFocus={{ scale: 1.02 }}
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none"
-            required
-          />
+          {error ? (
+            <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              {error}
+            </div>
+          ) : null}
 
-          <motion.button
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.98 }}
-            type="submit"
-            className="w-full bg-green-500 text-white py-3 rounded-xl shadow-md hover:bg-green-600 transition duration-200"
-            disabled={loading}
-          >
-            {loading ? "Loading..." : "Login as Teacher"}
-          </motion.button>
+          <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                Teacher Login ID or Email
+              </label>
+              <input
+                type="text"
+                placeholder="Example: pm01 or teacher@college.edu"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-800 outline-none transition focus:border-[#14967f] focus:ring-2 focus:ring-[#c9efe7]"
+                required
+              />
+            </div>
 
-          <p className="text-center mt-4 text-sm text-gray-600">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                Password
+              </label>
+              <input
+                type="password"
+                placeholder="Enter password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-800 outline-none transition focus:border-[#14967f] focus:ring-2 focus:ring-[#c9efe7]"
+                required
+              />
+            </div>
+
+            <motion.button
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
+              type="submit"
+              className="w-full rounded-xl bg-[#14967f] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f7f6b]"
+              disabled={loading}
+            >
+              {loading ? "Please wait..." : "Login as Teacher"}
+            </motion.button>
+          </form>
+
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-sm">
             <button
               onClick={() => navigate("/login")}
               type="button"
-              className="text-green-700 hover:underline"
+              className="font-semibold text-slate-600 hover:text-slate-900"
             >
               ← Back to Role Selection
             </button>
-          </p>
-        </form>
 
-        {/* Register Button */}
-        <div className="mt-6 text-center">
-          <button
-            onClick={handleRegister}
-            className="text-sm text-green-700 hover:underline"
-            disabled={loading}
-          >
-            Don’t have an account? Register as Teacher
-          </button>
+            <button
+              onClick={handleRegister}
+              className="font-semibold text-[#14967f] hover:underline"
+              disabled={loading}
+              type="button"
+            >
+              Register as Teacher
+            </button>
+          </div>
         </div>
       </motion.div>
-    </motion.div>
+    </div>
   );
 }

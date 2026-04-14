@@ -399,11 +399,17 @@ const JOB_PROFILE_ALIASES = {
 };
 
 const ATTENDANCE_ALLOWED_DISTANCE_METERS = 30;
+const ENFORCE_ATTENDANCE_DISTANCE_CHECK =
+  String(process.env.ATTENDANCE_DISTANCE_ENFORCEMENT || "false")
+    .trim()
+    .toLowerCase() === "true";
 const ATTENDANCE_WINDOW_SECONDS = 60;
 const ATTENDANCE_WINDOW_SLOT_SECONDS = [60, 120, 180, 240, 300, 600];
 const FACE_DESCRIPTOR_LENGTH = 128;
 const FACE_MATCH_DISTANCE_THRESHOLD = 0.5;
 const FACE_CHALLENGE_TTL_MS = 45 * 1000;
+const ATTENDANCE_SETTINGS_COLLECTION = "system_settings";
+const ATTENDANCE_SETTINGS_DOC_ID = "attendance";
 
 const createMailTransporter = () => {
   return nodemailer.createTransport({
@@ -538,6 +544,46 @@ const verifyStudentFromRequest = async (req) => {
       uid: decodedToken.uid,
     },
   };
+};
+
+const getAuthTokenFromRequest = (req) => {
+  const authHeader = String(req.headers.authorization || "").trim();
+  if (!authHeader) {
+    throw new Error("No authorization token provided");
+  }
+
+  const token = authHeader.startsWith("Bearer ")
+    ? authHeader.slice(7).trim()
+    : "";
+  if (!token) {
+    throw new Error("No authorization token provided");
+  }
+
+  return token;
+};
+
+const getAttendanceSettings = async (firestore) => {
+  const settingsDoc = await firestore
+    .collection(ATTENDANCE_SETTINGS_COLLECTION)
+    .doc(ATTENDANCE_SETTINGS_DOC_ID)
+    .get();
+
+  const settings = settingsDoc.exists ? settingsDoc.data() || {} : {};
+  return {
+    distanceEnforcementDefault:
+      typeof settings.distanceEnforcementDefault === "boolean"
+        ? settings.distanceEnforcementDefault
+        : ENFORCE_ATTENDANCE_DISTANCE_CHECK,
+    updatedAt: settings.updatedAt || null,
+    updatedBy: String(settings.updatedBy || "").trim(),
+  };
+};
+
+const shouldEnforceDistanceForSession = (sessionData = {}) => {
+  if (typeof sessionData.enforceDistanceCheck === "boolean") {
+    return sessionData.enforceDistanceCheck;
+  }
+  return ENFORCE_ATTENDANCE_DISTANCE_CHECK;
 };
 
 const ensureSubjectSetsInitialized = async () => {
@@ -2554,10 +2600,63 @@ app.post("/attendance/face/register", async (req, res) => {
   }
 });
 
+app.get("/attendance/settings", async (req, res) => {
+  try {
+    const token = getAuthTokenFromRequest(req);
+    await admin.auth().verifyIdToken(token);
+
+    const firestore = admin.firestore();
+    const settings = await getAttendanceSettings(firestore);
+    return res.status(200).json({ success: true, settings });
+  } catch (error) {
+    const status = /token/i.test(error.message) ? 401 : 500;
+    return res.status(status).json({ message: error.message });
+  }
+});
+
+app.put("/attendance/settings", async (req, res) => {
+  try {
+    const decodedToken = await verifyAdminFromRequest(req);
+    const distanceEnforcementDefault = req.body?.distanceEnforcementDefault;
+
+    if (typeof distanceEnforcementDefault !== "boolean") {
+      return res.status(400).json({
+        message: "distanceEnforcementDefault must be a boolean value.",
+      });
+    }
+
+    const firestore = admin.firestore();
+    await firestore
+      .collection(ATTENDANCE_SETTINGS_COLLECTION)
+      .doc(ATTENDANCE_SETTINGS_DOC_ID)
+      .set(
+        {
+          distanceEnforcementDefault,
+          updatedBy: decodedToken.uid,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+
+    return res.status(200).json({
+      success: true,
+      message: "Attendance settings updated successfully.",
+      settings: {
+        distanceEnforcementDefault,
+      },
+    });
+  } catch (error) {
+    const status = /authorized|token/i.test(error.message) ? 403 : 500;
+    return res.status(status).json({ message: error.message });
+  }
+});
+
 app.post("/attendance/start", async (req, res) => {
   try {
     const { decodedToken, teacherDoc } = await verifyTeacherFromRequest(req);
     const teacherData = teacherDoc.exists ? teacherDoc.data() || {} : {};
+    const firestore = admin.firestore();
+    const attendanceSettings = await getAttendanceSettings(firestore);
 
     const lectureIdInput = String(req.body.lectureId || "").trim();
     const date = String(req.body.date || new Date().toISOString().slice(0, 10));
@@ -2567,10 +2666,20 @@ app.post("/attendance/start", async (req, res) => {
     const yearInput = normalizeYear(req.body.year || "");
     const semesterInput = normalizeSemester(req.body.semester || "");
     const requestedWindowSeconds = Number(req.body.attendanceWindowSeconds);
-    const teacherLocation = {
+    const teacherLocationCandidate = {
       lat: Number(req.body?.teacherLocation?.lat),
       lng: Number(req.body?.teacherLocation?.lng),
     };
+    const hasValidTeacherLocation =
+      !Number.isNaN(teacherLocationCandidate.lat) &&
+      !Number.isNaN(teacherLocationCandidate.lng);
+    const enforceDistanceCheck =
+      typeof req.body.enforceDistanceCheck === "boolean"
+        ? req.body.enforceDistanceCheck
+        : attendanceSettings.distanceEnforcementDefault;
+    const teacherLocation = hasValidTeacherLocation
+      ? teacherLocationCandidate
+      : null;
 
     const attendanceWindowSeconds = ATTENDANCE_WINDOW_SLOT_SECONDS.includes(
       requestedWindowSeconds,
@@ -2578,16 +2687,11 @@ app.post("/attendance/start", async (req, res) => {
       ? requestedWindowSeconds
       : ATTENDANCE_WINDOW_SECONDS;
 
-    if (
-      Number.isNaN(teacherLocation.lat) ||
-      Number.isNaN(teacherLocation.lng)
-    ) {
+    if (enforceDistanceCheck && !teacherLocation) {
       return res
         .status(400)
         .json({ message: "Valid teacher location is required." });
     }
-
-    const firestore = admin.firestore();
 
     let resolvedBranch = "";
     let resolvedYear = "";
@@ -2792,6 +2896,7 @@ app.post("/attendance/start", async (req, res) => {
       startTimeMs: nowMs,
       allowedDistanceMeters: ATTENDANCE_ALLOWED_DISTANCE_METERS,
       attendanceWindowSeconds,
+      enforceDistanceCheck,
       teacherLocation,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -3076,7 +3181,14 @@ app.post("/attendance/mark", async (req, res) => {
     const allowedDistance =
       Number(sessionData.allowedDistanceMeters) ||
       ATTENDANCE_ALLOWED_DISTANCE_METERS;
-    if (distance > allowedDistance) {
+    const enforceDistanceCheck = shouldEnforceDistanceForSession(sessionData);
+    if (enforceDistanceCheck && !Number.isFinite(distance)) {
+      return res.status(403).json({
+        message:
+          "Teacher location is unavailable for this session. Ask teacher to restart attendance with location enabled.",
+      });
+    }
+    if (enforceDistanceCheck && distance > allowedDistance) {
       return res.status(403).json({
         message: `Location verification failed. You must be within ${allowedDistance} meters.`,
       });
@@ -3114,7 +3226,9 @@ app.post("/attendance/mark", async (req, res) => {
       method: "biometric",
       biometricAssertionId,
       deviceId,
-      distanceMeters: Number(distance.toFixed(2)),
+      distanceMeters: Number.isFinite(distance)
+        ? Number(distance.toFixed(2))
+        : null,
     };
 
     await recordRef.set(recordPayload);
@@ -3247,7 +3361,14 @@ app.post("/attendance/mark-face", async (req, res) => {
     const allowedDistance =
       Number(sessionData.allowedDistanceMeters) ||
       ATTENDANCE_ALLOWED_DISTANCE_METERS;
-    if (distance > allowedDistance) {
+    const enforceDistanceCheck = shouldEnforceDistanceForSession(sessionData);
+    if (enforceDistanceCheck && !Number.isFinite(distance)) {
+      return res.status(403).json({
+        message:
+          "Teacher location is unavailable for this session. Ask teacher to restart attendance with location enabled.",
+      });
+    }
+    if (enforceDistanceCheck && distance > allowedDistance) {
       return res.status(403).json({
         message: `Location verification failed. You must be within ${allowedDistance} meters.`,
       });
@@ -3349,7 +3470,9 @@ app.post("/attendance/mark-face", async (req, res) => {
       modelVersion: String(faceDoc.data()?.modelVersion || "face-api-v1"),
       livenessPassed: true,
       deviceId,
-      distanceMeters: Number(distance.toFixed(2)),
+      distanceMeters: Number.isFinite(distance)
+        ? Number(distance.toFixed(2))
+        : null,
       challengeId,
     };
 
@@ -3443,7 +3566,11 @@ app.post("/attendance/mark-by-teacher", async (req, res) => {
         .json({ message: "Attendance already marked for this student." });
     }
 
-    const recordRef = firestore.collection("attendance_records").doc();
+    const recordId = `${sessionId}_${studentId}`.replace(
+      /[^a-zA-Z0-9_-]+/g,
+      "_",
+    );
+    const recordRef = firestore.collection("attendance_records").doc(recordId);
     const nowMs = Date.now();
     const recordPayload = {
       recordId: recordRef.id,
@@ -3457,7 +3584,20 @@ app.post("/attendance/mark-by-teacher", async (req, res) => {
       method: "teacher_scan",
       scannedBy: decodedToken.uid,
     };
-    await recordRef.set(recordPayload);
+
+    try {
+      await recordRef.create(recordPayload);
+    } catch (createError) {
+      const alreadyExists =
+        Number(createError?.code) === 6 ||
+        /already exists/i.test(String(createError?.message || ""));
+      if (alreadyExists) {
+        return res
+          .status(409)
+          .json({ message: "Attendance already marked for this student." });
+      }
+      throw createError;
+    }
 
     const eventPayload = {
       ...recordPayload,

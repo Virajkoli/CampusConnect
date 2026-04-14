@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { io } from "socket.io-client";
 import { auth } from "../firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
@@ -55,78 +61,74 @@ export const useSocket = () => useContext(SocketContext);
 export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const [user] = useAuthState(auth);
-  const [connectionError, setConnectionError] = useState(null); // Connect to the socket when the user is authenticated
+  const [connectionError, setConnectionError] = useState(null);
+  const socketRef = useRef(null);
+
+  // Connect to the socket when the authenticated user changes.
   useEffect(() => {
-    let newSocket = null;
-
-    // Only create socket if we have a user and we're not already connected
-    if (user && !socket) {
-      console.log("Attempting to connect socket for user:", user.displayName);
-
-      try {
-        // Connect to the socket server with error handling
-        // Using the correct server port that matches your backend
-        newSocket = io(SOCKET_SERVER_URL, {
-          query: {
-            userId: user.uid,
-            userName: user.displayName || "Anonymous",
-          },
-          reconnectionAttempts: 3,
-          reconnectionDelay: 1000,
-          timeout: 10000,
-          autoConnect: false, // Don't auto connect to avoid connection errors
-        });
-
-        // Set up all event handlers before connecting
-        newSocket.on("connect", () => {
-          console.log("Socket connected successfully");
-          setConnectionError(null);
-        });
-
-        // Handle connection errors gracefully to prevent app crashes
-        newSocket.on("connect_error", (err) => {
-          console.error("Socket connection error:", err);
-          setConnectionError("Chat server connection issue");
-
-          // Don't keep trying to reconnect - this prevents cascading errors
-          newSocket.disconnect();
-        });
-
-        // Handle disconnection
-        newSocket.on("disconnect", (reason) => {
-          console.log("Socket disconnected:", reason);
-        });
-
-        // Only after setting up all handlers, connect and store in state
+    if (!user) {
+      if (socketRef.current) {
         try {
-          newSocket.connect();
-          setSocket(newSocket);
-        } catch (connectErr) {
-          console.error("Failed to connect socket:", connectErr);
+          socketRef.current.disconnect();
+        } catch {
+          // Ignore cleanup failures on sign-out.
         }
-      } catch (err) {
-        console.error("Socket creation error:", err);
-        setConnectionError("Failed to initialize chat");
       }
+      socketRef.current = null;
+      setSocket(null);
+      setConnectionError(null);
+      return;
     }
 
-    // Clean up function
+    let nextSocket;
+
+    try {
+      nextSocket = io(SOCKET_SERVER_URL, {
+        query: {
+          userId: user.uid,
+          userName: user.displayName || "Anonymous",
+        },
+        reconnectionAttempts: 6,
+        reconnectionDelay: 1000,
+        timeout: 10000,
+      });
+    } catch (err) {
+      console.error("Socket creation error:", err);
+      setConnectionError("Failed to initialize chat");
+      return;
+    }
+
+    const onConnect = () => {
+      setConnectionError(null);
+    };
+
+    const onConnectError = (err) => {
+      console.error("Socket connection error:", err);
+      setConnectionError("Realtime connection issue");
+    };
+
+    const onDisconnect = (reason) => {
+      if (reason !== "io client disconnect") {
+        console.warn("Socket disconnected:", reason);
+      }
+    };
+
+    nextSocket.on("connect", onConnect);
+    nextSocket.on("connect_error", onConnectError);
+    nextSocket.on("disconnect", onDisconnect);
+
+    socketRef.current = nextSocket;
+    setSocket(nextSocket);
+
     return () => {
-      // Use the socket from closure and from state to ensure we clean up correctly
-      const socketToCleanup = newSocket || socket;
-
-      if (socketToCleanup) {
-        console.log("Cleaning up socket connection");
+      if (nextSocket) {
         try {
-          // Properly clean up to prevent memory leaks
-          socketToCleanup.off("connect");
-          socketToCleanup.off("connect_error");
-          socketToCleanup.off("disconnect");
-          socketToCleanup.removeAllListeners();
-          socketToCleanup.disconnect();
-
-          // Only clear the state if the socket being cleaned up is the current socket
-          if (socketToCleanup === socket) {
+          nextSocket.off("connect", onConnect);
+          nextSocket.off("connect_error", onConnectError);
+          nextSocket.off("disconnect", onDisconnect);
+          nextSocket.disconnect();
+          if (socketRef.current === nextSocket) {
+            socketRef.current = null;
             setSocket(null);
           }
         } catch (err) {
@@ -134,7 +136,7 @@ export const SocketProvider = ({ children }) => {
         }
       }
     };
-  }, [user, socket]);
+  }, [user?.uid, user?.displayName]);
 
   // The value that will be given to the context
   const value = { socket, connectionError };

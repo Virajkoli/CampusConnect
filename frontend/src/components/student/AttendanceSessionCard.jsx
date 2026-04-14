@@ -47,8 +47,6 @@ export default function AttendanceSessionCard({
   }, [session, studentLocation]);
 
   const allowedDistance = Number(session?.allowedDistanceMeters || 30);
-  const withinDistance =
-    Number.isFinite(distance) && distance <= allowedDistance;
   const isVerificationReady =
     typeof verificationReady === "boolean" ? verificationReady : biometricReady;
   const startMs =
@@ -101,18 +99,16 @@ export default function AttendanceSessionCard({
 
       <button
         type="button"
-        disabled={!withinDistance || !isVerificationReady || marking}
+        disabled={!isVerificationReady || marking}
         onClick={onMark}
         className="mt-4 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
       >
         {marking ? "Marking..." : "Mark Attendance"}
       </button>
 
-      {!withinDistance ? (
-        <p className="mt-2 text-xs text-rose-600">
-          You must be within {allowedDistance} meters from teacher location.
-        </p>
-      ) : null}
+      <p className="mt-2 text-xs text-slate-500">
+        Distance is shown for reference and may vary by network/GPS accuracy.
+      </p>
       {!isVerificationReady ? (
         <p className="mt-2 text-xs text-amber-700">
           Complete {verificationLabel} verification before marking attendance.

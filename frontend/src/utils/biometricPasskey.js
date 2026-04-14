@@ -1,14 +1,15 @@
 const PASSKEY_STORAGE_KEY = "campusconnect_one_time_biometric_passkey";
-const PASSKEY_TTL_MS = 2 * 60 * 1000;
+
+const normalizeUid = (value = "") => String(value || "").trim();
 
 const getStorage = () => {
   if (typeof window === "undefined") {
     return null;
   }
-  return window.sessionStorage;
+  return window.localStorage;
 };
 
-export const createOneTimePasskey = (assertionId) => {
+export const createOneTimePasskey = (assertionId, ownerUid = "") => {
   const normalizedAssertionId = String(assertionId || "").trim();
   if (!normalizedAssertionId) {
     return null;
@@ -18,7 +19,7 @@ export const createOneTimePasskey = (assertionId) => {
   const payload = {
     assertionId: normalizedAssertionId,
     createdAt: now,
-    expiresAt: now + PASSKEY_TTL_MS,
+    ownerUid: normalizeUid(ownerUid),
   };
 
   const storage = getStorage();
@@ -29,11 +30,13 @@ export const createOneTimePasskey = (assertionId) => {
   return payload;
 };
 
-export const getOneTimePasskey = () => {
+export const getOneTimePasskey = (ownerUid = "") => {
   const storage = getStorage();
   if (!storage) {
     return null;
   }
+
+  const normalizedOwnerUid = normalizeUid(ownerUid);
 
   const raw = storage.getItem(PASSKEY_STORAGE_KEY);
   if (!raw) {
@@ -42,18 +45,36 @@ export const getOneTimePasskey = () => {
 
   try {
     const parsed = JSON.parse(raw);
-    const expiresAt = Number(parsed?.expiresAt || 0);
     const assertionId = String(parsed?.assertionId || "").trim();
+    const storedOwnerUid = normalizeUid(parsed?.ownerUid || "");
 
-    if (!assertionId || !expiresAt || Date.now() > expiresAt) {
+    if (!assertionId) {
       storage.removeItem(PASSKEY_STORAGE_KEY);
       return null;
+    }
+
+    if (
+      normalizedOwnerUid &&
+      storedOwnerUid &&
+      storedOwnerUid !== normalizedOwnerUid
+    ) {
+      return null;
+    }
+
+    if (normalizedOwnerUid && !storedOwnerUid) {
+      const migrated = {
+        assertionId,
+        createdAt: Number(parsed?.createdAt || 0),
+        ownerUid: normalizedOwnerUid,
+      };
+      storage.setItem(PASSKEY_STORAGE_KEY, JSON.stringify(migrated));
+      return migrated;
     }
 
     return {
       assertionId,
       createdAt: Number(parsed?.createdAt || 0),
-      expiresAt,
+      ownerUid: storedOwnerUid,
     };
   } catch {
     storage.removeItem(PASSKEY_STORAGE_KEY);
@@ -68,8 +89,8 @@ export const clearOneTimePasskey = () => {
   }
 };
 
-export const consumeOneTimePasskey = (assertionId = "") => {
-  const current = getOneTimePasskey();
+export const consumeOneTimePasskey = (assertionId = "", ownerUid = "") => {
+  const current = getOneTimePasskey(ownerUid);
   if (!current) {
     return false;
   }
@@ -79,6 +100,5 @@ export const consumeOneTimePasskey = (assertionId = "") => {
     return false;
   }
 
-  clearOneTimePasskey();
   return true;
 };

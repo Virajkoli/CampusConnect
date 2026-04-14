@@ -20,47 +20,30 @@ import FingerprintVerification from "../../components/student/FingerprintVerific
 import {
   clearOneTimePasskey,
   createOneTimePasskey,
+  getOneTimePasskey,
 } from "../../utils/biometricPasskey";
 
 const StudentProfile = ({ userData }) => {
   const navigate = useNavigate();
   const [oneTimePasskey, setOneTimePasskey] = useState(null);
-  const [nowMs, setNowMs] = useState(Date.now());
 
   useEffect(() => {
-    if (!oneTimePasskey?.expiresAt) {
-      return;
-    }
+    setOneTimePasskey(getOneTimePasskey(auth.currentUser?.uid || ""));
+  }, []);
 
-    const timer = setInterval(() => {
-      setNowMs(Date.now());
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [oneTimePasskey?.expiresAt]);
-
-  useEffect(() => {
-    if (!oneTimePasskey?.expiresAt) {
-      return;
-    }
-
-    if (nowMs >= oneTimePasskey.expiresAt) {
-      clearOneTimePasskey();
-      setOneTimePasskey(null);
-    }
-  }, [nowMs, oneTimePasskey]);
-
-  const passkeyExpiresIn = useMemo(() => {
-    if (!oneTimePasskey?.expiresAt) {
+  const passkeyCreatedLabel = useMemo(() => {
+    const createdAt = Number(oneTimePasskey?.createdAt || 0);
+    if (!createdAt) {
       return "";
     }
 
-    const remainingMs = Math.max(oneTimePasskey.expiresAt - nowMs, 0);
-    const totalSeconds = Math.ceil(remainingMs / 1000);
-    const mins = Math.floor(totalSeconds / 60);
-    const secs = totalSeconds % 60;
-    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-  }, [oneTimePasskey, nowMs]);
+    const parsed = new Date(createdAt);
+    if (Number.isNaN(parsed.getTime())) {
+      return "";
+    }
+
+    return parsed.toLocaleString();
+  }, [oneTimePasskey]);
 
   const handleLogout = async () => {
     await auth.signOut();
@@ -276,33 +259,49 @@ const StudentProfile = ({ userData }) => {
                 <FiCheckCircle className="h-5 w-5 text-emerald-600" />
               </div>
               <h2 className="text-lg font-semibold text-slate-800 sm:text-xl">
-                One-Time Attendance Passkey
+                Attendance Passkey
               </h2>
             </div>
 
             <FingerprintVerification
-              actionLabel="Create One-Time Passkey"
+              actionLabel="Create Attendance Passkey"
               onVerified={(data) => {
                 if (!data?.biometricVerified || !data?.assertionId) {
                   setOneTimePasskey(null);
                   return;
                 }
 
-                const generated = createOneTimePasskey(data.assertionId);
+                const generated = createOneTimePasskey(
+                  data.assertionId,
+                  auth.currentUser?.uid || userData?.uid || "",
+                );
                 setOneTimePasskey(generated);
               }}
             />
 
             {oneTimePasskey ? (
               <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
-                <p className="font-semibold">Passkey created successfully.</p>
+                <p className="font-semibold">Passkey saved on this device.</p>
                 <p className="mt-1 break-all">
                   Assertion ID: {oneTimePasskey.assertionId}
                 </p>
-                <p className="mt-1 flex items-center gap-1">
-                  <FiClock className="h-3.5 w-3.5" />
-                  Expires in: {passkeyExpiresIn || "00:00"}
-                </p>
+                {passkeyCreatedLabel ? (
+                  <p className="mt-1 flex items-center gap-1">
+                    <FiClock className="h-3.5 w-3.5" />
+                    Created: {passkeyCreatedLabel}
+                  </p>
+                ) : null}
+                <p className="mt-1">It remains active until you clear it.</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearOneTimePasskey();
+                    setOneTimePasskey(null);
+                  }}
+                  className="mt-2 rounded-md border border-emerald-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-emerald-700"
+                >
+                  Clear Saved Passkey
+                </button>
               </div>
             ) : null}
 
