@@ -97,6 +97,22 @@ const upload = multer({
       "image/jpeg",
       "image/png",
       "image/jpg",
+      "image/webp",
+      "video/mp4",
+      "video/webm",
+      "video/quicktime",
+      "video/x-msvideo",
+      "video/x-matroska",
+      "audio/mpeg",
+      "audio/mp3",
+      "audio/wav",
+      "audio/x-wav",
+      "audio/ogg",
+      "audio/webm",
+      "audio/mp4",
+      "audio/x-m4a",
+      "audio/aac",
+      "audio/flac",
       "application/zip",
       "application/x-rar-compressed",
     ];
@@ -109,12 +125,65 @@ const upload = multer({
     } else {
       cb(
         new Error(
-          "Invalid file type. Only documents, images, and archives are allowed.",
+          "Invalid file type. Only documents, images, audio, video, and archives are allowed.",
         ),
       );
     }
   },
 });
+
+const resolveChatAttachmentType = (attachment = {}) => {
+  const explicitType = String(attachment.type || "").toLowerCase();
+  if (["image", "video", "audio", "voice", "document"].includes(explicitType)) {
+    return explicitType;
+  }
+
+  const mimeType = String(attachment.mimeType || "").toLowerCase();
+  if (mimeType.startsWith("image/")) {
+    return "image";
+  }
+
+  if (mimeType.startsWith("video/")) {
+    return "video";
+  }
+
+  if (mimeType.startsWith("audio/")) {
+    return "audio";
+  }
+
+  return "document";
+};
+
+const buildChatLastMessage = (textMessage = "", attachment = null) => {
+  const trimmedText = String(textMessage || "").trim();
+  if (trimmedText) {
+    return trimmedText;
+  }
+
+  if (!attachment || !attachment.url) {
+    return "";
+  }
+
+  const type = resolveChatAttachmentType(attachment);
+  if (type === "image") {
+    return "Image attachment";
+  }
+
+  if (type === "video") {
+    return "Video attachment";
+  }
+
+  if (type === "voice") {
+    return "Voice message";
+  }
+
+  if (type === "audio") {
+    return "Audio attachment";
+  }
+
+  const fileName = String(attachment.name || "").trim();
+  return fileName ? `Document: ${fileName}` : "Document attachment";
+};
 
 const BRANCHES = [
   "Computer Engineering",
@@ -4343,21 +4412,61 @@ io.on("connection", (socket) => {
   socket.on("send_message", async (messageData) => {
     try {
       // Store message in Firestore
-      const { chatId, message, senderId, receiverId, timestamp } = messageData;
+      const { chatId, message, senderId, receiverId, timestamp, attachment } =
+        messageData;
+
+      const normalizedMessage = String(message || "").trim();
+      const normalizedTimestamp =
+        String(timestamp || "").trim() || new Date().toISOString();
+      const hasAttachment = Boolean(attachment?.url);
+
+      if (
+        !chatId ||
+        !senderId ||
+        !receiverId ||
+        (!normalizedMessage && !hasAttachment)
+      ) {
+        socket.emit("message_error", {
+          error: "Message text or attachment is required",
+        });
+        return;
+      }
+
+      const normalizedAttachment = hasAttachment
+        ? {
+            url: String(attachment.url || "").trim(),
+            publicId: String(attachment.publicId || "").trim(),
+            name: String(attachment.name || "").trim() || "attachment",
+            mimeType:
+              String(attachment.mimeType || "").trim() ||
+              "application/octet-stream",
+            type: resolveChatAttachmentType(attachment),
+            size: Number(attachment.size) || 0,
+            format: String(attachment.format || "").trim(),
+            resourceType: String(attachment.resourceType || "").trim() || "raw",
+            durationSec: Number(attachment.durationSec) || 0,
+          }
+        : null;
 
       const messageRef = await admin.firestore().collection("messages").add({
         chatId,
-        message,
+        message: normalizedMessage,
+        attachment: normalizedAttachment,
         senderId,
         receiverId,
-        timestamp,
+        timestamp: normalizedTimestamp,
         read: false,
       });
 
+      const lastMessageText = buildChatLastMessage(
+        normalizedMessage,
+        normalizedAttachment,
+      );
+
       // Update the chat document with the last message
       await admin.firestore().collection("chats").doc(chatId).update({
-        lastMessage: message,
-        lastMessageTimestamp: timestamp,
+        lastMessage: lastMessageText,
+        lastMessageTimestamp: normalizedTimestamp,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
@@ -4365,6 +4474,9 @@ io.on("connection", (socket) => {
       // This prevents duplicate messages since the sender will get updates via Firestore
       socket.to(chatId).emit("receive_message", {
         ...messageData,
+        message: normalizedMessage,
+        attachment: normalizedAttachment,
+        timestamp: normalizedTimestamp,
         id: messageRef.id,
       });
 
@@ -8454,6 +8566,94 @@ app.post("/api/upload-material", upload.single("file"), async (req, res) => {
     });
   }
 });
+
+app.post(
+  "/api/upload-chat-attachment",
+  upload.single("file"),
+  async (req, res) => {
+    try {
+      const authHeader = String(req.headers.authorization || "").trim();
+      if (!authHeader.startsWith("Bearer ")) {
+        return res
+          .status(401)
+          .json({ message: "No authorization token provided" });
+      }
+
+      const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+      const decodedToken = await admin.auth().verifyIdToken(token);
+
+      if (!decodedToken?.uid) {
+        return res.status(401).json({ message: "Invalid authorization token" });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const safeOriginalName = String(req.file.originalname || "attachment")
+        .replace(/[^a-zA-Z0-9._-]/g, "_")
+        .slice(0, 80);
+      const baseName = safeOriginalName.replace(/\.[^.]+$/, "") || "attachment";
+
+      const uploadResult = await new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            folder: "campus-connect/chats",
+            resource_type: "auto",
+            public_id: `${decodedToken.uid}_${Date.now()}_${baseName}`,
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          },
+        );
+
+        uploadStream.end(req.file.buffer);
+      });
+
+      const explicitType = String(req.body?.attachmentType || "")
+        .trim()
+        .toLowerCase();
+      const normalizedMimeType = String(req.file.mimetype || "").toLowerCase();
+
+      let attachmentType = "document";
+      if (
+        ["voice", "audio", "video", "image", "document"].includes(explicitType)
+      ) {
+        attachmentType = explicitType;
+      } else if (normalizedMimeType.startsWith("image/")) {
+        attachmentType = "image";
+      } else if (normalizedMimeType.startsWith("video/")) {
+        attachmentType = "video";
+      } else if (normalizedMimeType.startsWith("audio/")) {
+        attachmentType = "audio";
+      }
+
+      const durationSec = Number(req.body?.durationSec || 0) || 0;
+
+      return res.status(200).json({
+        success: true,
+        attachment: {
+          url: uploadResult.secure_url,
+          publicId: uploadResult.public_id,
+          name: req.file.originalname || "attachment",
+          mimeType: req.file.mimetype || "application/octet-stream",
+          size: Number(req.file.size) || Number(uploadResult.bytes) || 0,
+          type: attachmentType,
+          format: uploadResult.format || "",
+          resourceType: uploadResult.resource_type || "raw",
+          durationSec,
+        },
+      });
+    } catch (error) {
+      console.error("Chat attachment upload error:", error);
+      return res.status(500).json({
+        message: "Failed to upload chat attachment",
+        error: error.message,
+      });
+    }
+  },
+);
 
 // Delete file from Cloudinary
 app.delete("/api/delete-material/:publicId", async (req, res) => {
