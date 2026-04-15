@@ -2,7 +2,6 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
-import { createTeacherAccount } from "../../firebase";
 
 export default function TeacherAuthPage() {
   const navigate = useNavigate();
@@ -61,44 +60,6 @@ export default function TeacherAuthPage() {
     }
   };
 
-  const handleRegister = async () => {
-    setLoading(true);
-    setError("");
-
-    try {
-      if (!identifier.includes("@")) {
-        throw new Error("Please enter a valid email to self-register.");
-      }
-
-      const userCredential = await createTeacherAccount(
-        identifier,
-        password,
-        "Teacher Name",
-      );
-      const user = userCredential.user;
-
-      const response = await fetch(`${apiBase}/api/setTeacherRole`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ uid: user.uid }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || "Failed to set teacher role.");
-      }
-
-      alert("Account created successfully. Please login now.");
-      navigate("/login");
-    } catch (err) {
-      console.error("Error creating account:", err.message);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#eef2f6] px-4 pb-8 pt-24 sm:px-6">
       <div className="pointer-events-none absolute -left-24 top-24 h-60 w-60 rounded-full bg-[#bff0df] blur-3xl" />
@@ -130,7 +91,7 @@ export default function TeacherAuthPage() {
               Role claim validation before dashboard access
             </div>
             <div className="rounded-xl border border-white/20 bg-white/10 px-4 py-3">
-              Self-register option for faculty onboarding
+              Teacher accounts are provisioned by admin
             </div>
           </div>
         </div>
@@ -199,12 +160,15 @@ export default function TeacherAuthPage() {
             </button>
 
             <button
-              onClick={handleRegister}
+              onClick={() =>
+                navigate("/reset-password", {
+                  state: { loginId: String(identifier || "").trim() },
+                })
+              }
               className="font-semibold text-[#14967f] hover:underline"
-              disabled={loading}
               type="button"
             >
-              Register as Teacher
+              Forgot password?
             </button>
           </div>
         </div>

@@ -155,7 +155,11 @@ export default function AdminAuthPage() {
             </button>
             <button
               type="button"
-              onClick={() => navigate("/reset-password")}
+              onClick={() =>
+                navigate("/reset-password", {
+                  state: { loginId: String(email || "").trim() },
+                })
+              }
               className="font-semibold text-[#f97316] hover:underline"
             >
               Forgot password?

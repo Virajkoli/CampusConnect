@@ -1,47 +1,37 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import {
-  signUpWithEmailPassword,
-  loginWithEmailPassword,
-} from "../../firebase";
+import { loginWithEmailPassword } from "../../firebase";
 import { useNavigate } from "react-router-dom";
 
 export default function StudentAuthPage() {
   const navigate = useNavigate();
 
-  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
     const safeEmail = String(email || "").trim();
     const safePassword = String(password || "").trim();
 
     if (!safeEmail || !safePassword) {
       setError("Email and password are required.");
+      setLoading(false);
       return;
     }
 
     try {
-      if (isLogin) {
-        await loginWithEmailPassword(safeEmail, safePassword);
-      } else {
-        const safeName = String(name || "").trim();
-        if (!safeName) {
-          setError("Name is required for signup.");
-          return;
-        }
-
-        await signUpWithEmailPassword(safeEmail, safePassword, safeName);
-      }
+      await loginWithEmailPassword(safeEmail, safePassword);
       navigate("/student-dashboard");
     } catch (err) {
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -61,7 +51,7 @@ export default function StudentAuthPage() {
             Student Access
           </p>
           <h1 className="mt-3 text-3xl font-semibold leading-tight">
-            Continue Your Attendance Journey
+            Login to Your Student Workspace
           </h1>
           <p className="mt-4 text-sm text-blue-50/90">
             Sign in to mark attendance, check your subjects, and track progress
@@ -86,33 +76,13 @@ export default function StudentAuthPage() {
             Student Portal
           </p>
           <h2 className="mt-2 text-2xl font-semibold text-slate-900">
-            {isLogin ? "Welcome back" : "Create student account"}
+            Welcome back
           </h2>
 
-          <div className="mt-5 inline-flex rounded-xl border border-slate-200 bg-slate-100 p-1 text-sm">
-            <button
-              type="button"
-              onClick={() => setIsLogin(true)}
-              className={`rounded-lg px-4 py-2 font-medium transition ${
-                isLogin
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Login
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsLogin(false)}
-              className={`rounded-lg px-4 py-2 font-medium transition ${
-                !isLogin
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Sign Up
-            </button>
-          </div>
+          <p className="mt-3 rounded-xl border border-blue-100 bg-blue-50/80 px-3 py-2 text-xs text-blue-700 sm:text-sm">
+            Student accounts are created by admin. Contact admin if you do not
+            have login credentials.
+          </p>
 
           {error ? (
             <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
@@ -121,21 +91,6 @@ export default function StudentAuthPage() {
           ) : null}
 
           <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-            {!isLogin ? (
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  placeholder="Enter your full name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-800 outline-none transition focus:border-[#2f87d9] focus:ring-2 focus:ring-[#cbe4fb]"
-                />
-              </div>
-            ) : null}
-
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
                 Email
@@ -162,25 +117,28 @@ export default function StudentAuthPage() {
               />
             </div>
 
-            {isLogin ? (
-              <div className="text-right text-sm">
-                <button
-                  type="button"
-                  onClick={() => navigate("/reset-password")}
-                  className="font-medium text-[#2f87d9] hover:underline"
-                >
-                  Forgot password?
-                </button>
-              </div>
-            ) : null}
+            <div className="text-right text-sm">
+              <button
+                type="button"
+                onClick={() =>
+                  navigate("/reset-password", {
+                    state: { loginId: String(email || "").trim() },
+                  })
+                }
+                className="font-medium text-[#2f87d9] hover:underline"
+              >
+                Forgot password?
+              </button>
+            </div>
 
             <motion.button
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.99 }}
               type="submit"
-              className="w-full rounded-xl bg-[#2f87d9] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1f6fb7]"
+              className="w-full rounded-xl bg-[#2f87d9] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1f6fb7] disabled:cursor-not-allowed disabled:opacity-70"
+              disabled={loading}
             >
-              {isLogin ? "Login as Student" : "Create Student Account"}
+              {loading ? "Please wait..." : "Login as Student"}
             </motion.button>
           </form>
 

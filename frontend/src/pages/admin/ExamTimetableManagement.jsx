@@ -33,6 +33,8 @@ const API_URL = String(import.meta.env.VITE_API_URL || "http://localhost:5000")
   .trim()
   .replace(/\/+$/, "");
 
+const GEMINI_API_KEY = String(import.meta.env.VITE_GEMINI_API_KEY || "").trim();
+
 const buildRequestError = (response, rawText = "") => {
   const text = String(rawText || "").trim();
   if (text.startsWith("<")) {
@@ -130,6 +132,32 @@ const normalizeDateString = (rawDate = "") => {
   const mm = String(parsed.getMonth() + 1).padStart(2, "0");
   const yyyy = String(parsed.getFullYear());
   return `${dd}-${mm}-${yyyy}`;
+};
+
+const getTimeRangeStartMinutes = (timeRange = "") => {
+  const token = String(timeRange || "")
+    .trim()
+    .match(/(\d{1,2}):(\d{2})\s*(am|pm)?/i);
+
+  if (!token) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  let hours = Number.parseInt(token[1], 10);
+  const minutes = Number.parseInt(token[2], 10);
+  const meridiem = String(token[3] || "").toLowerCase();
+
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  if (meridiem === "pm" && hours < 12) {
+    hours += 12;
+  } else if (meridiem === "am" && hours === 12) {
+    hours = 0;
+  }
+
+  return hours * 60 + minutes;
 };
 
 const normalizeBranchName = (branchRaw = "") => {
@@ -277,6 +305,68 @@ const parseTimetableText = (text = "", selectedYear = "4th") => {
   return deduped;
 };
 
+const normalizeExamRows = (rows = [], selectedYear = "4th") => {
+  if (!Array.isArray(rows)) {
+    return [];
+  }
+
+  const deduped = [];
+  const seen = new Set();
+
+  rows.forEach((item) => {
+    const row = item && typeof item === "object" ? item : {};
+
+    const date = normalizeDateString(row.date || row.examDate || "");
+    const time = String(row.time || row.slot || row.examTime || "")
+      .replace(/\s+/g, " ")
+      .trim();
+    const branch = normalizeBranchName(row.branch || row.department || "");
+    const courseCode = String(
+      row.courseCode || row.code || row.subjectCode || "",
+    )
+      .replace(/\s+/g, "")
+      .toUpperCase()
+      .trim();
+    const courseName = String(
+      row.courseName || row.subjectName || row.subject || row.course || "",
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+    const day = String(row.day || row.weekday || "").trim();
+
+    if (!date || !time || !courseCode || !courseName) {
+      return;
+    }
+
+    const key = [
+      String(date).trim(),
+      String(time).trim(),
+      String(branch || "")
+        .trim()
+        .toLowerCase(),
+      String(courseCode).trim().toUpperCase(),
+    ].join("|");
+
+    if (seen.has(key)) {
+      return;
+    }
+
+    seen.add(key);
+    deduped.push({
+      day: day || getWeekdayFromDate(date),
+      date,
+      time,
+      branch,
+      courseCode,
+      courseName,
+      duration: String(row.duration || "3 hours").trim() || "3 hours",
+      year: selectedYear,
+    });
+  });
+
+  return deduped;
+};
+
 export default function ExamTimetableManagement() {
   const navigate = useNavigate();
 
@@ -318,6 +408,75 @@ export default function ExamTimetableManagement() {
       null,
     [uploadedPdfs],
   );
+
+  const parsedPreviewByBranch = useMemo(() => {
+    if (!Array.isArray(parsedExams) || parsedExams.length === 0) {
+      return [];
+    }
+
+    const branchOrder = new Map(
+      BRANCH_OPTIONS.map((branch, index) => [branch, index]),
+    );
+
+    const grouped = new Map();
+    parsedExams.forEach((exam) => {
+      const normalizedBranch = normalizeBranchName(exam.branch || "");
+      const branch = normalizedBranch || "Unassigned";
+
+      if (!grouped.has(branch)) {
+        grouped.set(branch, []);
+      }
+      grouped.get(branch).push(exam);
+    });
+
+    return Array.from(grouped.entries())
+      .map(([branch, rows]) => {
+        const sortedRows = [...rows].sort((left, right) => {
+          const leftDate = parseExamDate(left.date || "");
+          const rightDate = parseExamDate(right.date || "");
+
+          const leftDateMs = leftDate
+            ? leftDate.getTime()
+            : Number.POSITIVE_INFINITY;
+          const rightDateMs = rightDate
+            ? rightDate.getTime()
+            : Number.POSITIVE_INFINITY;
+
+          if (leftDateMs !== rightDateMs) {
+            return leftDateMs - rightDateMs;
+          }
+
+          const leftTime = getTimeRangeStartMinutes(left.time || "");
+          const rightTime = getTimeRangeStartMinutes(right.time || "");
+          if (leftTime !== rightTime) {
+            return leftTime - rightTime;
+          }
+
+          return String(left.courseCode || "").localeCompare(
+            String(right.courseCode || ""),
+          );
+        });
+
+        return {
+          branch,
+          rows: sortedRows,
+        };
+      })
+      .sort((left, right) => {
+        const leftOrder = branchOrder.has(left.branch)
+          ? branchOrder.get(left.branch)
+          : Number.POSITIVE_INFINITY;
+        const rightOrder = branchOrder.has(right.branch)
+          ? branchOrder.get(right.branch)
+          : Number.POSITIVE_INFINITY;
+
+        if (leftOrder !== rightOrder) {
+          return leftOrder - rightOrder;
+        }
+
+        return left.branch.localeCompare(right.branch);
+      });
+  }, [parsedExams]);
 
   useEffect(() => {
     fetchExistingExams();
@@ -420,13 +579,18 @@ export default function ExamTimetableManagement() {
       formData.append("file", ocrFile);
       formData.append("year", selectedYear);
 
+      const requestHeaders = {
+        Authorization: `Bearer ${token}`,
+      };
+      if (GEMINI_API_KEY) {
+        requestHeaders["x-gemini-api-key"] = GEMINI_API_KEY;
+      }
+
       const response = await fetchWithNetworkHint(
         `${API_URL}/api/upload-exam-timetable`,
         {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: requestHeaders,
           body: formData,
         },
       );
@@ -436,14 +600,27 @@ export default function ExamTimetableManagement() {
       const rawText = String(data.extractedText || "");
       setExtractedText(rawText);
 
-      const rows = parseTimetableText(rawText, selectedYear);
+      const backendRows = Array.isArray(data.parsedExams)
+        ? data.parsedExams
+        : [];
+      const rows =
+        backendRows.length > 0
+          ? normalizeExamRows(backendRows, selectedYear)
+          : parseTimetableText(rawText, selectedYear);
       setParsedExams(rows);
+
+      const parserLabel =
+        data.structuredBy === "gemini"
+          ? "Gemini"
+          : backendRows.length > 0
+            ? "Server parser"
+            : "Local parser";
 
       setMessage({
         type: "success",
         text:
           rows.length > 0
-            ? `OCR complete. Parsed ${rows.length} exam rows.`
+            ? `OCR complete (${parserLabel}). Parsed ${rows.length} exam rows.`
             : "OCR complete. No structured rows parsed automatically; please edit/add rows manually.",
       });
     } catch (error) {
@@ -1007,6 +1184,80 @@ export default function ExamTimetableManagement() {
                   <pre className="max-h-64 overflow-auto rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700 whitespace-pre-wrap">
                     {extractedText}
                   </pre>
+                </div>
+              ) : null}
+
+              {parsedPreviewByBranch.length > 0 ? (
+                <div className="rounded-2xl bg-white p-5 shadow-sm">
+                  <h3 className="text-lg font-semibold text-slate-800">
+                    Branch-Wise Preview (Date/Time Ordered)
+                  </h3>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Review grouped rows before saving to the selected year.
+                  </p>
+
+                  <div className="mt-4 space-y-4">
+                    {parsedPreviewByBranch.map((group) => (
+                      <div
+                        key={group.branch}
+                        className="rounded-xl border border-slate-200 bg-slate-50"
+                      >
+                        <div className="flex items-center justify-between rounded-t-xl border-b border-slate-200 bg-white px-3 py-2">
+                          <h4 className="text-sm font-semibold text-slate-800">
+                            {group.branch}
+                          </h4>
+                          <span className="text-xs font-medium text-slate-500">
+                            {group.rows.length} exams
+                          </span>
+                        </div>
+
+                        <div className="max-h-72 overflow-auto p-3">
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-12">
+                            {group.rows.map((exam, rowIndex) => (
+                              <div
+                                key={`${group.branch}_${rowIndex}_${exam.courseCode || "row"}`}
+                                className="grid grid-cols-1 gap-2 rounded-lg border border-slate-200 bg-white p-2 text-xs sm:col-span-12 sm:grid-cols-12"
+                              >
+                                <div className="sm:col-span-3">
+                                  <p className="font-semibold text-slate-500">
+                                    Date
+                                  </p>
+                                  <p className="text-slate-700">
+                                    {exam.date || "-"}
+                                    {exam.day ? ` (${exam.day})` : ""}
+                                  </p>
+                                </div>
+                                <div className="sm:col-span-3">
+                                  <p className="font-semibold text-slate-500">
+                                    Time
+                                  </p>
+                                  <p className="text-slate-700">
+                                    {exam.time || "-"}
+                                  </p>
+                                </div>
+                                <div className="sm:col-span-2">
+                                  <p className="font-semibold text-slate-500">
+                                    Code
+                                  </p>
+                                  <p className="text-slate-700">
+                                    {exam.courseCode || "-"}
+                                  </p>
+                                </div>
+                                <div className="sm:col-span-4">
+                                  <p className="font-semibold text-slate-500">
+                                    Subject
+                                  </p>
+                                  <p className="text-slate-700">
+                                    {exam.courseName || "-"}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : null}
 

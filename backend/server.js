@@ -410,6 +410,15 @@ const FACE_MATCH_DISTANCE_THRESHOLD = 0.5;
 const FACE_CHALLENGE_TTL_MS = 45 * 1000;
 const ATTENDANCE_SETTINGS_COLLECTION = "system_settings";
 const ATTENDANCE_SETTINGS_DOC_ID = "attendance";
+const PASSWORD_RESET_OTP_COLLECTION = "password_reset_otps";
+const PASSWORD_RESET_OTP_TTL_MS = 10 * 60 * 1000;
+const PASSWORD_RESET_RESET_TOKEN_TTL_MS = 10 * 60 * 1000;
+const PASSWORD_RESET_MAX_ATTEMPTS = 5;
+const PASSWORD_RESET_REQUEST_COOLDOWN_MS = 45 * 1000;
+const PASSWORD_RESET_OTP_SECRET =
+  String(
+    process.env.PASSWORD_RESET_OTP_SECRET || "campusconnect-password-reset",
+  ).trim() || "campusconnect-password-reset";
 
 const createMailTransporter = () => {
   return nodemailer.createTransport({
@@ -448,6 +457,73 @@ const normalizeJobProfile = (value = "") => {
 const normalizePhone = (value = "") => {
   const digits = String(value).replace(/\D/g, "");
   return digits.length === 10 ? digits : "";
+};
+
+const normalizeEmail = (value = "") => {
+  const email = String(value || "")
+    .trim()
+    .toLowerCase();
+  return email.includes("@") ? email : "";
+};
+
+const maskEmailAddress = (email = "") => {
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) {
+    return "";
+  }
+
+  const [localPart = "", domainPart = ""] = normalizedEmail.split("@");
+  if (!localPart || !domainPart) {
+    return "";
+  }
+
+  const maskedLocal =
+    localPart.length <= 2
+      ? `${localPart[0] || "*"}*`
+      : `${localPart[0]}${"*".repeat(Math.max(1, localPart.length - 2))}${localPart[localPart.length - 1]}`;
+
+  const domainSegments = domainPart.split(".");
+  const rootDomain = domainSegments.shift() || "";
+  const tld = domainSegments.join(".");
+  const maskedRootDomain =
+    rootDomain.length <= 2
+      ? `${rootDomain[0] || "*"}*`
+      : `${rootDomain[0]}${"*".repeat(Math.max(1, rootDomain.length - 2))}${rootDomain[rootDomain.length - 1]}`;
+
+  return `${maskedLocal}@${maskedRootDomain}${tld ? `.${tld}` : ""}`;
+};
+
+const buildPasswordResetDocId = (loginKey = "") => {
+  return crypto
+    .createHash("sha256")
+    .update(
+      String(loginKey || "")
+        .trim()
+        .toLowerCase(),
+    )
+    .digest("hex");
+};
+
+const buildPasswordOtpHash = (loginKey, otp) => {
+  return crypto
+    .createHash("sha256")
+    .update(
+      `${String(loginKey || "")
+        .trim()
+        .toLowerCase()}|${String(otp || "").trim()}|${PASSWORD_RESET_OTP_SECRET}`,
+    )
+    .digest("hex");
+};
+
+const buildPasswordResetTokenHash = (loginKey, token) => {
+  return crypto
+    .createHash("sha256")
+    .update(
+      `${String(loginKey || "")
+        .trim()
+        .toLowerCase()}|${String(token || "").trim()}|${PASSWORD_RESET_OTP_SECRET}`,
+    )
+    .digest("hex");
 };
 
 const makeSubjectSetDocId = (branch, year, semester) => {
@@ -2472,6 +2548,36 @@ const GEMINI_MODEL_FALLBACKS = [
   "gemini-1.5-flash",
 ];
 
+const EXAM_TIMETABLE_FAST_GEMINI_MODELS = [
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-lite",
+  "gemini-2.5-flash",
+];
+
+const GEMINI_TRANSIENT_STATUS_CODES = new Set([429, 500, 503, 504]);
+
+const EXAM_TIMETABLE_DAY_PATTERN =
+  /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)/i;
+const EXAM_TIMETABLE_DATE_PATTERN = /(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/;
+const EXAM_TIMETABLE_TIME_PATTERN =
+  /(\d{1,2}:\d{2}\s*(?:am|pm)?\s*(?:to|-|–)\s*\d{1,2}:\d{2}\s*(?:am|pm)?)/i;
+const EXAM_TIMETABLE_COURSE_PATTERN =
+  /^([A-Z]{2,4}\s?\d{3,4}[A-Z]{0,2})\s*[-–—:]\s*(.+)$/i;
+const EXAM_TIMETABLE_COURSE_SPLIT_PATTERN =
+  /(?=[A-Z]{2,4}\s?\d{3,4}[A-Z]{0,2}\s*[-–—:])/g;
+const EXAM_TIMETABLE_BRANCH_PREFIX_PATTERN =
+  /^(Civil|Computer|Electrical|E\s*&\s*T\s*&\s*C|E&TC|Instrumentation|Mechanical|Information\s+Technology|IT)\b\s*(.*)$/i;
+
+const EXAM_TIMETABLE_BRANCH_VALUES = [
+  "Civil",
+  "Computer",
+  "Electrical",
+  "E&TC",
+  "Instrumentation",
+  "Mechanical",
+  "Information Technology",
+];
+
 const normalizeGeminiModelName = (value = "") => {
   return String(value || "")
     .trim()
@@ -2540,6 +2646,35 @@ const fetchGeminiSupportedModels = async (apiKey = "") => {
   } catch {
     return [];
   }
+};
+
+const waitForMs = async (durationMs = 0) => {
+  const safeDuration = Math.max(0, Number(durationMs) || 0);
+  return new Promise((resolve) => {
+    setTimeout(resolve, safeDuration);
+  });
+};
+
+const buildExamGeminiModelCandidates = (additional = []) => {
+  const seen = new Set();
+  const ordered = [];
+
+  [
+    process.env.GEMINI_EXAM_MODEL || "",
+    ...EXAM_TIMETABLE_FAST_GEMINI_MODELS,
+    ...buildGeminiModelCandidates(),
+    ...additional,
+  ].forEach((item) => {
+    const normalized = normalizeGeminiModelName(item);
+    if (!normalized || seen.has(normalized)) {
+      return;
+    }
+
+    seen.add(normalized);
+    ordered.push(normalized);
+  });
+
+  return ordered;
 };
 
 const extractJsonObjectFromText = (value = "") => {
@@ -2888,6 +3023,549 @@ const parseAcademicCalendarWithGemini = async ({
   return parsed;
 };
 
+const normalizeExamTimetableBranchName = (branchRaw = "") => {
+  const value = String(branchRaw || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+
+  if (!value) return "";
+  if (value === "it" || value.includes("information")) {
+    return "Information Technology";
+  }
+  if (value.includes("civil")) return "Civil";
+  if (value.includes("computer")) return "Computer";
+  if (value.includes("electrical")) return "Electrical";
+  if (value.includes("instrument")) return "Instrumentation";
+  if (value.includes("mechanical")) return "Mechanical";
+  if (
+    value.includes("e&tc") ||
+    value.includes("entc") ||
+    value.includes("e & t & c") ||
+    value.includes("electronics")
+  ) {
+    return "E&TC";
+  }
+
+  return String(branchRaw || "").trim();
+};
+
+const parseExamTimetableDate = (rawDate = "") => {
+  const originalValue = String(rawDate || "").trim();
+  if (!originalValue) {
+    return null;
+  }
+
+  const matchedDate =
+    originalValue.match(/(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/) ||
+    originalValue.match(/(\d{4}[\/-]\d{1,2}[\/-]\d{1,2})/);
+
+  const normalizedValue = matchedDate
+    ? matchedDate[1]
+    : originalValue.replace(/,/g, " ");
+
+  const dmyMatch = normalizedValue.match(
+    /^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/,
+  );
+  if (dmyMatch) {
+    const day = Number(dmyMatch[1]);
+    const month = Number(dmyMatch[2]) - 1;
+    const yearValue = Number(dmyMatch[3]);
+    const year = yearValue < 100 ? 2000 + yearValue : yearValue;
+    return new Date(year, month, day);
+  }
+
+  const ymdMatch = normalizedValue.match(
+    /^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/,
+  );
+  if (ymdMatch) {
+    return new Date(
+      Number(ymdMatch[1]),
+      Number(ymdMatch[2]) - 1,
+      Number(ymdMatch[3]),
+    );
+  }
+
+  const parsed = new Date(normalizedValue);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const normalizeExamTimetableDate = (rawDate = "") => {
+  const parsed = parseExamTimetableDate(rawDate);
+  if (!parsed) {
+    return String(rawDate || "").trim();
+  }
+
+  const dd = String(parsed.getDate()).padStart(2, "0");
+  const mm = String(parsed.getMonth() + 1).padStart(2, "0");
+  const yyyy = String(parsed.getFullYear());
+  return `${dd}-${mm}-${yyyy}`;
+};
+
+const getExamTimetableWeekdayFromDate = (rawDate = "") => {
+  const parsed = parseExamTimetableDate(rawDate);
+  if (!parsed) {
+    return "";
+  }
+
+  return parsed.toLocaleDateString("en-US", { weekday: "long" });
+};
+
+const formatExamTimetableTimePoint = (value = "") => {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  const match = normalized.match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/i);
+  if (!match) {
+    return normalized;
+  }
+
+  const hour = Number.parseInt(match[1], 10);
+  const minute = match[2];
+  const meridiem = String(match[3] || "").toLowerCase();
+  return `${hour}:${minute}${meridiem ? ` ${meridiem}` : ""}`;
+};
+
+const normalizeExamTimetableTime = (timeRaw = "") => {
+  const normalized = String(timeRaw || "")
+    .replace(/[–—]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalized) {
+    return "";
+  }
+
+  const timeTokens = normalized.match(/\d{1,2}:\d{2}\s*(?:am|pm)?/gi) || [];
+  if (timeTokens.length >= 2) {
+    return `${formatExamTimetableTimePoint(timeTokens[0])} to ${formatExamTimetableTimePoint(timeTokens[1])}`;
+  }
+
+  return normalized;
+};
+
+const normalizeExamTimetableCourseCode = (value = "") => {
+  return String(value || "")
+    .replace(/\s+/g, "")
+    .trim()
+    .toUpperCase();
+};
+
+const normalizeExamTimetableCourseName = (value = "") => {
+  return String(value || "")
+    .replace(/\s+/g, " ")
+    .trim();
+};
+
+const getExamTimeStartMinutes = (timeRange = "") => {
+  const token = String(timeRange || "")
+    .trim()
+    .match(/(\d{1,2}):(\d{2})\s*(am|pm)?/i);
+
+  if (!token) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  let hours = Number.parseInt(token[1], 10);
+  const minutes = Number.parseInt(token[2], 10);
+  const meridiem = String(token[3] || "").toLowerCase();
+
+  if (meridiem === "pm" && hours < 12) {
+    hours += 12;
+  } else if (meridiem === "am" && hours === 12) {
+    hours = 0;
+  }
+
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  return hours * 60 + minutes;
+};
+
+const normalizeGeminiExamTimetableEntries = (
+  entries = [],
+  selectedYear = "",
+) => {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+
+  const seen = new Set();
+  const normalized = [];
+
+  entries.forEach((entry) => {
+    const row = entry && typeof entry === "object" ? entry : {};
+
+    const combinedCourse = String(
+      row.course || row.subject || row.title || row.subjectTitle || "",
+    ).trim();
+    const combinedCourseMatch = combinedCourse.match(
+      EXAM_TIMETABLE_COURSE_PATTERN,
+    );
+
+    const date = normalizeExamTimetableDate(
+      row.date || row.examDate || row.dateSlots || row.dateSlot || "",
+    );
+    const time = normalizeExamTimetableTime(
+      row.time || row.slot || row.examTime || row.timeSlot || "",
+    );
+    const branch = normalizeExamTimetableBranchName(
+      row.branch || row.department || row.dept || "",
+    );
+
+    const courseCode = normalizeExamTimetableCourseCode(
+      row.courseCode ||
+        row.code ||
+        row.subjectCode ||
+        (combinedCourseMatch ? combinedCourseMatch[1] : ""),
+    );
+    const courseName = normalizeExamTimetableCourseName(
+      row.courseName ||
+        row.subjectName ||
+        (combinedCourseMatch ? combinedCourseMatch[2] : combinedCourse),
+    );
+
+    if (!date || !time || !branch || !courseCode || !courseName) {
+      return;
+    }
+
+    if (!EXAM_TIMETABLE_BRANCH_VALUES.includes(branch)) {
+      return;
+    }
+
+    const day =
+      String(row.day || row.weekday || "").trim() ||
+      getExamTimetableWeekdayFromDate(date);
+
+    const key = `${date}|${time}|${branch.toLowerCase()}|${courseCode}`;
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+
+    normalized.push({
+      day,
+      date,
+      time,
+      branch,
+      courseCode,
+      courseName,
+      duration: "3 hours",
+      year: String(selectedYear || row.year || "").trim(),
+    });
+  });
+
+  normalized.sort((left, right) => {
+    const leftDate = parseExamTimetableDate(left.date || "");
+    const rightDate = parseExamTimetableDate(right.date || "");
+    const leftMs = leftDate ? leftDate.getTime() : Number.POSITIVE_INFINITY;
+    const rightMs = rightDate ? rightDate.getTime() : Number.POSITIVE_INFINITY;
+
+    if (leftMs !== rightMs) {
+      return leftMs - rightMs;
+    }
+
+    const leftTime = getExamTimeStartMinutes(left.time || "");
+    const rightTime = getExamTimeStartMinutes(right.time || "");
+    if (leftTime !== rightTime) {
+      return leftTime - rightTime;
+    }
+
+    const branchCompare = String(left.branch || "").localeCompare(
+      String(right.branch || ""),
+    );
+    if (branchCompare !== 0) {
+      return branchCompare;
+    }
+
+    return String(left.courseCode || "").localeCompare(
+      String(right.courseCode || ""),
+    );
+  });
+
+  return normalized;
+};
+
+const parseExamTimetableFromText = (text = "", selectedYear = "") => {
+  const lines = String(text || "")
+    .split(/\r?\n/)
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+
+  const exams = [];
+  let currentDay = "";
+  let currentDate = "";
+  let currentTime = "";
+  let currentBranch = "";
+
+  lines.forEach((line) => {
+    const dayMatch = line.match(EXAM_TIMETABLE_DAY_PATTERN);
+    const dateMatch = line.match(EXAM_TIMETABLE_DATE_PATTERN);
+    const timeMatch = line.match(EXAM_TIMETABLE_TIME_PATTERN);
+
+    if (dayMatch || dateMatch || timeMatch) {
+      if (dayMatch) {
+        currentDay = String(dayMatch[1] || "").trim();
+      }
+      if (dateMatch) {
+        currentDate = normalizeExamTimetableDate(dateMatch[1]);
+      }
+      if (timeMatch) {
+        currentTime = normalizeExamTimetableTime(timeMatch[1]);
+      }
+
+      if (dateMatch || timeMatch) {
+        currentBranch = "";
+      }
+
+      if (!line.match(/[A-Z]{2,4}\s?\d{3,4}[A-Z]{0,2}\s*[-–—:]/)) {
+        return;
+      }
+    }
+
+    let remaining = line;
+    const branchMatch = line.match(EXAM_TIMETABLE_BRANCH_PREFIX_PATTERN);
+    if (branchMatch) {
+      currentBranch = normalizeExamTimetableBranchName(branchMatch[1]);
+      remaining = String(branchMatch[2] || "").trim();
+    }
+
+    if (
+      !remaining ||
+      !/[A-Z]{2,4}\s?\d{3,4}[A-Z]{0,2}\s*[-–—:]/.test(remaining)
+    ) {
+      return;
+    }
+
+    if (!currentDate || !currentTime) {
+      return;
+    }
+
+    const courseSegments = remaining
+      .split(EXAM_TIMETABLE_COURSE_SPLIT_PATTERN)
+      .map((segment) => segment.trim())
+      .filter(Boolean);
+
+    courseSegments.forEach((segment) => {
+      const courseMatch = segment.match(EXAM_TIMETABLE_COURSE_PATTERN);
+      if (!courseMatch) {
+        return;
+      }
+
+      const code = normalizeExamTimetableCourseCode(courseMatch[1]);
+      const name = normalizeExamTimetableCourseName(courseMatch[2]);
+      const branch = normalizeExamTimetableBranchName(currentBranch);
+      if (!code || !name || !branch) {
+        return;
+      }
+
+      exams.push({
+        day: currentDay || getExamTimetableWeekdayFromDate(currentDate),
+        date: currentDate,
+        time: currentTime,
+        branch,
+        courseCode: code,
+        courseName: name,
+        duration: "3 hours",
+        year: selectedYear,
+      });
+    });
+  });
+
+  return normalizeGeminiExamTimetableEntries(exams, selectedYear);
+};
+
+const parseExamTimetableWithGemini = async ({
+  file,
+  extractedText = "",
+  apiKey = "",
+  selectedYear = "",
+}) => {
+  const prompt = [
+    "You are parsing a year-wise engineering exam timetable.",
+    "A single date/time slot can contain multiple branch rows and multiple subjects.",
+    "Return strict JSON only with this shape:",
+    "{",
+    '  "exams": [',
+    "    {",
+    '      "day": "",',
+    '      "date": "DD-MM-YYYY",',
+    '      "time": "2:00 pm to 5:00 pm",',
+    '      "branch": "",',
+    '      "courseCode": "",',
+    '      "courseName": ""',
+    "    }",
+    "  ]",
+    "}",
+    "Rules:",
+    "- Branch must be one of: Civil, Computer, Electrical, E&TC, Instrumentation, Mechanical, Information Technology.",
+    "- If one branch line contains multiple subjects, create one exams row per subject.",
+    "- Keep exam time exactly as a clear range string.",
+    "- Do not include markdown, comments, or additional keys.",
+  ].join("\n");
+
+  const parts = [{ text: prompt }];
+
+  if (file?.buffer?.length) {
+    parts.push({
+      inline_data: {
+        mime_type: file.mimetype || "application/octet-stream",
+        data: file.buffer.toString("base64"),
+      },
+    });
+  }
+
+  if (extractedText) {
+    parts.push({
+      text: `OCR extracted text (fallback context):\n${String(extractedText || "").slice(0, 30000)}`,
+    });
+  }
+
+  const requestBody = JSON.stringify({
+    contents: [
+      {
+        role: "user",
+        parts,
+      },
+    ],
+    generationConfig: {
+      temperature: 0,
+      responseMimeType: "application/json",
+    },
+  });
+
+  const triedModels = new Set();
+  let lastFailure = "";
+
+  const tryModels = async (models = []) => {
+    for (const candidate of models) {
+      const modelName = normalizeGeminiModelName(candidate);
+      if (!modelName || triedModels.has(modelName)) {
+        continue;
+      }
+      triedModels.add(modelName);
+
+      const maxAttempts = 2;
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        let response;
+        let rawResponse = "";
+
+        try {
+          response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelName)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: requestBody,
+            },
+          );
+          rawResponse = await response.text();
+        } catch (error) {
+          lastFailure = `Model ${modelName}: ${error.message}`;
+
+          if (attempt < maxAttempts) {
+            await waitForMs(300 * attempt);
+            continue;
+          }
+
+          break;
+        }
+
+        if (!response.ok) {
+          lastFailure = `Model ${modelName} failed with ${response.status}: ${rawResponse.slice(0, 220)}`;
+
+          if (
+            GEMINI_TRANSIENT_STATUS_CODES.has(Number(response.status)) &&
+            attempt < maxAttempts
+          ) {
+            await waitForMs(350 * attempt);
+            continue;
+          }
+
+          break;
+        }
+
+        let payload = {};
+        try {
+          payload = JSON.parse(rawResponse);
+        } catch {
+          lastFailure = `Model ${modelName}: non-JSON payload`;
+          break;
+        }
+
+        const modelText = (payload?.candidates || [])
+          .flatMap((candidateItem) => candidateItem?.content?.parts || [])
+          .map((part) => String(part?.text || ""))
+          .join("\n")
+          .trim();
+
+        if (!modelText) {
+          lastFailure = `Model ${modelName}: empty content`;
+          break;
+        }
+
+        const structured = extractJsonObjectFromText(modelText);
+        if (!structured || typeof structured !== "object") {
+          lastFailure = `Model ${modelName}: invalid structured JSON`;
+          break;
+        }
+
+        const entries = Array.isArray(structured.exams)
+          ? structured.exams
+          : Array.isArray(structured.entries)
+            ? structured.entries
+            : [];
+
+        const normalized = normalizeGeminiExamTimetableEntries(
+          entries,
+          selectedYear,
+        );
+        if (normalized.length > 0) {
+          return normalized;
+        }
+
+        lastFailure = `Model ${modelName}: parsed 0 valid exam rows`;
+        break;
+      }
+    }
+
+    return null;
+  };
+
+  let parsed = await tryModels(buildExamGeminiModelCandidates());
+
+  if (!parsed) {
+    const discoveredModels = await fetchGeminiSupportedModels(apiKey);
+    if (discoveredModels.length > 0) {
+      const discoveredPreferred = discoveredModels.filter((modelName) =>
+        /flash/i.test(modelName),
+      );
+      const discoveredOthers = discoveredModels.filter(
+        (modelName) => !/flash/i.test(modelName),
+      );
+
+      parsed = await tryModels(
+        buildExamGeminiModelCandidates([
+          ...discoveredPreferred,
+          ...discoveredOthers,
+        ]),
+      );
+    }
+  }
+
+  if (!parsed) {
+    const tried = Array.from(triedModels).join(", ");
+    throw new Error(
+      `Gemini exam timetable parse failed for models [${tried}]. ${lastFailure}`,
+    );
+  }
+
+  return parsed;
+};
+
 const buildStudentPassword = (name, phone, prn) => {
   const compactName = String(name || "student")
     .toLowerCase()
@@ -2914,6 +3592,274 @@ const normalizeTeacherLoginId = (value = "") => {
   }
 
   return `${raw}@campusconnect.teacher`;
+};
+
+const findTeacherByLoginIdentifier = async (
+  firestore,
+  loginIdentifier = "",
+) => {
+  const normalizedInput = String(loginIdentifier || "")
+    .trim()
+    .toLowerCase();
+
+  if (!normalizedInput) {
+    return null;
+  }
+
+  const normalizedLoginId = normalizeTeacherLoginId(normalizedInput);
+  let teacherSnapshot = await firestore
+    .collection("teachers")
+    .where("loginId", "==", normalizedLoginId)
+    .limit(1)
+    .get();
+
+  if (teacherSnapshot.empty && normalizedInput.includes("@")) {
+    teacherSnapshot = await firestore
+      .collection("teachers")
+      .where("authEmail", "==", normalizedInput)
+      .limit(1)
+      .get();
+  }
+
+  if (teacherSnapshot.empty) {
+    const localTeacherId = normalizedInput.includes("@")
+      ? normalizedInput.split("@")[0].toUpperCase()
+      : normalizedInput.toUpperCase();
+
+    teacherSnapshot = await firestore
+      .collection("teachers")
+      .where("teacherId", "==", localTeacherId)
+      .limit(1)
+      .get();
+  }
+
+  if (teacherSnapshot.empty) {
+    return null;
+  }
+
+  const teacherDoc = teacherSnapshot.docs[0];
+  const teacherData = teacherDoc.data() || {};
+  const authEmail =
+    normalizeEmail(teacherData.authEmail) ||
+    normalizeEmail(teacherData.loginId) ||
+    normalizeTeacherLoginId(
+      teacherData.teacherId || teacherData.employeeId || normalizedInput,
+    );
+
+  return {
+    uid: teacherDoc.id,
+    teacherData,
+    authEmail,
+    loginId: normalizeTeacherLoginId(
+      teacherData.loginId ||
+        teacherData.teacherId ||
+        teacherData.employeeId ||
+        normalizedInput,
+    ),
+  };
+};
+
+const resolveLoginIdentityForPasswordReset = async (loginIdentifier = "") => {
+  const normalizedInput = String(loginIdentifier || "")
+    .trim()
+    .toLowerCase();
+
+  if (!normalizedInput) {
+    return null;
+  }
+
+  const firestore = admin.firestore();
+
+  if (!normalizedInput.includes("@")) {
+    const teacherMatch = await findTeacherByLoginIdentifier(
+      firestore,
+      normalizedInput,
+    );
+
+    if (teacherMatch) {
+      const personalEmail =
+        normalizeEmail(teacherMatch.teacherData.contactEmail) ||
+        normalizeEmail(teacherMatch.teacherData.email) ||
+        normalizeEmail(teacherMatch.authEmail);
+
+      if (!personalEmail) {
+        return null;
+      }
+
+      return {
+        uid: teacherMatch.uid,
+        role: "teacher",
+        loginId: normalizedInput,
+        authEmail: normalizeEmail(teacherMatch.authEmail),
+        personalEmail,
+        displayName: String(
+          teacherMatch.teacherData.name ||
+            teacherMatch.teacherData.fullName ||
+            teacherMatch.teacherData.displayName ||
+            "",
+        ).trim(),
+      };
+    }
+
+    const normalizedRoll = normalizePrn(normalizedInput);
+    if (normalizedRoll) {
+      let studentSnapshot = await firestore
+        .collection("students")
+        .where("loginId", "==", normalizedRoll)
+        .limit(1)
+        .get();
+
+      if (studentSnapshot.empty) {
+        studentSnapshot = await firestore
+          .collection("students")
+          .where("prn", "==", normalizedRoll)
+          .limit(1)
+          .get();
+      }
+
+      if (studentSnapshot.empty) {
+        studentSnapshot = await firestore
+          .collection("students")
+          .where("rollNo", "==", normalizedRoll)
+          .limit(1)
+          .get();
+      }
+
+      if (!studentSnapshot.empty) {
+        const studentDoc = studentSnapshot.docs[0];
+        const studentData = studentDoc.data() || {};
+        const uid = String(studentData.uid || studentDoc.id).trim();
+
+        let authEmail = normalizeEmail(studentData.email);
+        if (!authEmail && uid) {
+          try {
+            const authUser = await admin.auth().getUser(uid);
+            authEmail = normalizeEmail(authUser.email);
+          } catch (authError) {
+            authEmail = "";
+          }
+        }
+
+        const personalEmail =
+          normalizeEmail(studentData.contactEmail) ||
+          normalizeEmail(studentData.personalEmail) ||
+          normalizeEmail(studentData.email) ||
+          authEmail;
+
+        if (uid && authEmail && personalEmail) {
+          return {
+            uid,
+            role: "student",
+            loginId: normalizedInput,
+            authEmail,
+            personalEmail,
+            displayName: String(studentData.name || "").trim(),
+          };
+        }
+      }
+    }
+  }
+
+  const authEmailInput = normalizeEmail(normalizedInput);
+  if (!authEmailInput) {
+    return null;
+  }
+
+  let userRecord = null;
+  try {
+    userRecord = await admin.auth().getUserByEmail(authEmailInput);
+  } catch (error) {
+    if (error.code !== "auth/user-not-found") {
+      throw error;
+    }
+  }
+
+  if (!userRecord) {
+    const teacherMatch = await findTeacherByLoginIdentifier(
+      firestore,
+      authEmailInput,
+    );
+
+    if (!teacherMatch) {
+      return null;
+    }
+
+    const personalEmail =
+      normalizeEmail(teacherMatch.teacherData.contactEmail) ||
+      normalizeEmail(teacherMatch.teacherData.email) ||
+      normalizeEmail(teacherMatch.authEmail);
+
+    if (!personalEmail) {
+      return null;
+    }
+
+    return {
+      uid: teacherMatch.uid,
+      role: "teacher",
+      loginId: authEmailInput,
+      authEmail: normalizeEmail(teacherMatch.authEmail) || authEmailInput,
+      personalEmail,
+      displayName: String(
+        teacherMatch.teacherData.name ||
+          teacherMatch.teacherData.fullName ||
+          teacherMatch.teacherData.displayName ||
+          "",
+      ).trim(),
+    };
+  }
+
+  const uid = userRecord.uid;
+  const authEmail = normalizeEmail(userRecord.email) || authEmailInput;
+
+  const [teacherDoc, studentDoc, userDoc] = await Promise.all([
+    firestore.collection("teachers").doc(uid).get(),
+    firestore.collection("students").doc(uid).get(),
+    firestore.collection("users").doc(uid).get(),
+  ]);
+
+  let role = "admin";
+  let displayName = String(userRecord.displayName || "").trim();
+  let personalEmail = authEmail;
+
+  if (teacherDoc.exists) {
+    const teacherData = teacherDoc.data() || {};
+    role = "teacher";
+    personalEmail =
+      normalizeEmail(teacherData.contactEmail) ||
+      normalizeEmail(teacherData.email) ||
+      authEmail;
+    displayName = String(
+      teacherData.name ||
+        teacherData.fullName ||
+        teacherData.displayName ||
+        displayName,
+    ).trim();
+  } else if (studentDoc.exists || userDoc.exists) {
+    const studentData = studentDoc.exists ? studentDoc.data() || {} : {};
+    const userData = userDoc.exists ? userDoc.data() || {} : {};
+
+    role = "student";
+    personalEmail =
+      normalizeEmail(userData.contactEmail) ||
+      normalizeEmail(studentData.contactEmail) ||
+      normalizeEmail(userData.personalEmail) ||
+      normalizeEmail(studentData.personalEmail) ||
+      normalizeEmail(userData.email) ||
+      normalizeEmail(studentData.email) ||
+      authEmail;
+    displayName = String(
+      userData.name || studentData.name || displayName,
+    ).trim();
+  }
+
+  return {
+    uid,
+    role,
+    loginId: authEmailInput,
+    authEmail,
+    personalEmail: normalizeEmail(personalEmail) || authEmail,
+    displayName,
+  };
 };
 
 const getPrnFromRecord = (data = {}) => {
@@ -3650,36 +4596,23 @@ app.post("/api/setTeacherRole", async (req, res) => {
 
 app.get("/api/resolve-teacher-login/:loginId", async (req, res) => {
   try {
-    const normalizedLoginId = normalizeTeacherLoginId(req.params.loginId || "");
-    if (!normalizedLoginId) {
+    const loginId = String(req.params.loginId || "").trim();
+    if (!loginId) {
       return res.status(400).json({ message: "Login ID is required." });
     }
 
     const firestore = admin.firestore();
-    let teacherSnapshot = await firestore
-      .collection("teachers")
-      .where("loginId", "==", normalizedLoginId)
-      .limit(1)
-      .get();
-
-    if (teacherSnapshot.empty) {
-      const localTeacherId = normalizedLoginId.split("@")[0].toUpperCase();
-      teacherSnapshot = await firestore
-        .collection("teachers")
-        .where("teacherId", "==", localTeacherId)
-        .limit(1)
-        .get();
-    }
-
-    if (teacherSnapshot.empty) {
+    const teacherMatch = await findTeacherByLoginIdentifier(firestore, loginId);
+    if (!teacherMatch) {
       return res.status(404).json({ message: "Teacher login ID not found." });
     }
 
-    const teacherData = teacherSnapshot.docs[0].data() || {};
+    const teacherData = teacherMatch.teacherData || {};
     const resolvedEmail =
-      teacherData.authEmail ||
-      teacherData.email ||
-      teacherData.contactEmail ||
+      normalizeEmail(teacherData.authEmail) ||
+      normalizeEmail(teacherData.email) ||
+      normalizeEmail(teacherData.contactEmail) ||
+      normalizeEmail(teacherMatch.authEmail) ||
       "";
 
     if (!resolvedEmail) {
@@ -3688,11 +4621,279 @@ app.get("/api/resolve-teacher-login/:loginId", async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      loginId: normalizedLoginId,
+      loginId: teacherMatch.loginId,
       email: resolvedEmail,
     });
   } catch (error) {
     console.error("Error resolving teacher login:", error);
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.post("/api/auth/password-otp/request", async (req, res) => {
+  const loginId = String(req.body.loginId || "").trim();
+  if (!loginId) {
+    return res.status(400).json({ message: "Login ID is required." });
+  }
+
+  const genericMessage =
+    "If the login ID exists, an OTP has been sent to the registered personal email.";
+
+  try {
+    const identity = await resolveLoginIdentityForPasswordReset(loginId);
+    if (!identity || !identity.uid || !identity.authEmail) {
+      return res.status(200).json({ success: true, message: genericMessage });
+    }
+
+    const firestore = admin.firestore();
+    const docId = buildPasswordResetDocId(identity.authEmail);
+    const otpDocRef = firestore
+      .collection(PASSWORD_RESET_OTP_COLLECTION)
+      .doc(docId);
+    const otpDoc = await otpDocRef.get();
+
+    const now = Date.now();
+    const existingData = otpDoc.exists ? otpDoc.data() || {} : {};
+    const lastRequestedAt = Number(existingData.requestedAt || 0);
+    if (
+      lastRequestedAt > 0 &&
+      now - lastRequestedAt < PASSWORD_RESET_REQUEST_COOLDOWN_MS
+    ) {
+      const waitSeconds = Math.ceil(
+        (PASSWORD_RESET_REQUEST_COOLDOWN_MS - (now - lastRequestedAt)) / 1000,
+      );
+      return res.status(429).json({
+        message: `Please wait ${waitSeconds}s before requesting a new OTP.`,
+      });
+    }
+
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    const otpHash = buildPasswordOtpHash(identity.authEmail, otp);
+    const otpExpiresAt = now + PASSWORD_RESET_OTP_TTL_MS;
+
+    await otpDocRef.set(
+      {
+        uid: identity.uid,
+        role: identity.role,
+        authEmail: identity.authEmail,
+        personalEmail: identity.personalEmail,
+        otpHash,
+        otpExpiresAt,
+        requestedAt: now,
+        attempts: 0,
+        resetTokenHash: "",
+        resetTokenExpiresAt: 0,
+        verifiedAt: 0,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true },
+    );
+
+    const recipientEmail =
+      normalizeEmail(identity.personalEmail) ||
+      normalizeEmail(identity.authEmail);
+
+    if (!recipientEmail) {
+      return res.status(200).json({ success: true, message: genericMessage });
+    }
+
+    const transporter = createMailTransporter();
+    await transporter.verify();
+    await transporter.sendMail({
+      from: `"Campus Connect" <${process.env.EMAIL_USERNAME}>`,
+      to: recipientEmail,
+      subject: "CampusConnect Password Reset OTP",
+      text: `Hi ${identity.displayName || "there"},\n\nYour OTP for CampusConnect password reset is: ${otp}\n\nThis OTP is valid for 10 minutes.\nIf you did not request this, please ignore this message.\n\n- CampusConnect Team`,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "OTP sent to your registered personal email.",
+      loginId,
+      maskedEmail: maskEmailAddress(recipientEmail),
+    });
+  } catch (error) {
+    console.error("Password OTP request error:", error);
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.post("/api/auth/password-otp/verify", async (req, res) => {
+  const loginId = String(req.body.loginId || "").trim();
+  const otp = String(req.body.otp || "")
+    .trim()
+    .replace(/\s+/g, "");
+
+  if (!loginId || !/^\d{6}$/.test(otp)) {
+    return res
+      .status(400)
+      .json({ message: "Valid login ID and 6-digit OTP are required." });
+  }
+
+  try {
+    const identity = await resolveLoginIdentityForPasswordReset(loginId);
+    if (!identity || !identity.authEmail) {
+      return res.status(400).json({ message: "Invalid login ID or OTP." });
+    }
+
+    const firestore = admin.firestore();
+    const docId = buildPasswordResetDocId(identity.authEmail);
+    const otpDocRef = firestore
+      .collection(PASSWORD_RESET_OTP_COLLECTION)
+      .doc(docId);
+    const otpDoc = await otpDocRef.get();
+
+    if (!otpDoc.exists) {
+      return res.status(400).json({ message: "OTP not found. Request again." });
+    }
+
+    const otpData = otpDoc.data() || {};
+    const now = Date.now();
+
+    if (Number(otpData.otpExpiresAt || 0) < now) {
+      await otpDocRef.delete();
+      return res.status(400).json({ message: "OTP expired. Request again." });
+    }
+
+    const attempts = Number(otpData.attempts || 0);
+    if (attempts >= PASSWORD_RESET_MAX_ATTEMPTS) {
+      await otpDocRef.delete();
+      return res.status(429).json({
+        message: "Too many incorrect OTP attempts. Request a new OTP.",
+      });
+    }
+
+    const expectedHash = buildPasswordOtpHash(identity.authEmail, otp);
+    if (expectedHash !== otpData.otpHash) {
+      const nextAttempts = attempts + 1;
+
+      if (nextAttempts >= PASSWORD_RESET_MAX_ATTEMPTS) {
+        await otpDocRef.delete();
+      } else {
+        await otpDocRef.set(
+          {
+            attempts: nextAttempts,
+            lastAttemptAt: now,
+            updatedAt: new Date().toISOString(),
+          },
+          { merge: true },
+        );
+      }
+
+      return res.status(400).json({ message: "Invalid OTP." });
+    }
+
+    const resetToken = crypto.randomBytes(24).toString("hex");
+    await otpDocRef.set(
+      {
+        otpHash: "",
+        attempts: 0,
+        verifiedAt: now,
+        resetTokenHash: buildPasswordResetTokenHash(
+          identity.authEmail,
+          resetToken,
+        ),
+        resetTokenExpiresAt: now + PASSWORD_RESET_RESET_TOKEN_TTL_MS,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true },
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "OTP verified successfully.",
+      resetToken,
+      loginId,
+      maskedEmail: maskEmailAddress(identity.personalEmail),
+    });
+  } catch (error) {
+    console.error("Password OTP verify error:", error);
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.post("/api/auth/password-otp/reset", async (req, res) => {
+  const loginId = String(req.body.loginId || "").trim();
+  const resetToken = String(req.body.resetToken || "").trim();
+  const newPassword = String(req.body.newPassword || "");
+
+  if (!loginId || !resetToken || !newPassword) {
+    return res.status(400).json({
+      message: "Login ID, reset token, and new password are required.",
+    });
+  }
+
+  if (newPassword.length < 8) {
+    return res
+      .status(400)
+      .json({ message: "Password must be at least 8 characters long." });
+  }
+
+  try {
+    const identity = await resolveLoginIdentityForPasswordReset(loginId);
+    if (!identity || !identity.uid || !identity.authEmail) {
+      return res.status(400).json({ message: "Invalid reset request." });
+    }
+
+    const firestore = admin.firestore();
+    const docId = buildPasswordResetDocId(identity.authEmail);
+    const otpDocRef = firestore
+      .collection(PASSWORD_RESET_OTP_COLLECTION)
+      .doc(docId);
+    const otpDoc = await otpDocRef.get();
+
+    if (!otpDoc.exists) {
+      return res.status(400).json({ message: "Reset session expired." });
+    }
+
+    const otpData = otpDoc.data() || {};
+    const now = Date.now();
+    const expectedResetHash = buildPasswordResetTokenHash(
+      identity.authEmail,
+      resetToken,
+    );
+
+    if (
+      !otpData.resetTokenHash ||
+      expectedResetHash !== otpData.resetTokenHash ||
+      Number(otpData.resetTokenExpiresAt || 0) < now
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Invalid or expired password reset session." });
+    }
+
+    await admin.auth().updateUser(identity.uid, {
+      password: newPassword,
+    });
+
+    await otpDocRef.delete();
+
+    const recipientEmail =
+      normalizeEmail(identity.personalEmail) ||
+      normalizeEmail(identity.authEmail);
+
+    if (recipientEmail) {
+      try {
+        const transporter = createMailTransporter();
+        await transporter.verify();
+        await transporter.sendMail({
+          from: `"Campus Connect" <${process.env.EMAIL_USERNAME}>`,
+          to: recipientEmail,
+          subject: "CampusConnect Password Changed",
+          text: `Hi ${identity.displayName || "there"},\n\nYour CampusConnect password was changed successfully.\nIf this was not you, contact your administrator immediately.\n\n- CampusConnect Team`,
+        });
+      } catch (mailError) {
+        console.error("Password reset confirmation email failed:", mailError);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Password reset successful. You can now log in.",
+    });
+  } catch (error) {
+    console.error("Password reset error:", error);
     return res.status(500).json({ message: error.message });
   }
 });
@@ -7067,22 +8268,42 @@ app.post(
         return res.status(400).json({ message: "Year is required" });
       }
 
-      // For PDF files, extract text using pdf-parse
-      let extractedText = "";
-
-      if (req.file.mimetype === "application/pdf") {
-        const pdfParse = require("pdf-parse");
-        const pdfData = await pdfParse(req.file.buffer);
-        extractedText = pdfData.text;
-      } else if (req.file.mimetype.startsWith("image/")) {
-        // For images, we'll use Tesseract.js
-        const Tesseract = require("tesseract.js");
-        const result = await Tesseract.recognize(req.file.buffer, "eng");
-        extractedText = result.data.text;
-      } else {
+      const isSupportedFile =
+        req.file.mimetype === "application/pdf" ||
+        req.file.mimetype.startsWith("image/");
+      if (!isSupportedFile) {
         return res
           .status(400)
           .json({ message: "Only PDF and image files are supported" });
+      }
+
+      const extractedText = await extractTextFromUploadedFile(req.file);
+      const geminiApiKey = getGeminiApiKeyFromRequest(req);
+
+      let parsedExams = [];
+      let structuredBy = "legacy";
+
+      if (geminiApiKey) {
+        try {
+          parsedExams = await parseExamTimetableWithGemini({
+            file: req.file,
+            extractedText,
+            apiKey: geminiApiKey,
+            selectedYear: year,
+          });
+
+          if (parsedExams.length > 0) {
+            structuredBy = "gemini";
+          }
+        } catch (geminiError) {
+          console.warn(
+            `Gemini exam timetable parsing failed, using text fallback parser: ${geminiError.message}`,
+          );
+        }
+      }
+
+      if (parsedExams.length === 0) {
+        parsedExams = parseExamTimetableFromText(extractedText, year);
       }
 
       // Upload the original file to Cloudinary for reference
@@ -7104,6 +8325,8 @@ app.post(
       res.status(200).json({
         success: true,
         extractedText,
+        parsedExams,
+        structuredBy,
         fileURL: uploadResult.secure_url,
         publicId: uploadResult.public_id,
         fileName: req.file.originalname,

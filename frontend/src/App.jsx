@@ -2,10 +2,8 @@ import {
   BrowserRouter as Router,
   Routes,
   Route,
-  useLocation,
-  useNavigate,
+  Navigate,
 } from "react-router-dom";
-import { useEffect } from "react";
 import { ToastContainer } from "react-toastify";
 
 import Navbar from "./components/common/Navbar";
@@ -65,7 +63,7 @@ function AppContent() {
 
         {/* Authentication */}
         <Route path="/login" element={<AuthPage />} />
-        <Route path="/signup" element={<AuthPage />} />
+        <Route path="/signup" element={<Navigate to="/login" replace />} />
         <Route path="/auth/student" element={<StudentAuthPage />} />
         <Route path="/auth/admin" element={<AdminAuthPage />} />
         <Route path="/auth/teacher" element={<TeacherAuthPage />} />
@@ -356,29 +354,11 @@ function AppContent() {
   );
 }
 
-function FirebaseRedirectHandler() {
-  const location = useLocation();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const mode = params.get("mode");
-    const oobCode = params.get("oobCode");
-
-    if (mode === "resetPassword" && oobCode) {
-      navigate(`/reset-password-confirm?oobCode=${oobCode}`);
-    }
-  }, [location, navigate]);
-
-  return null;
-}
-
 function App() {
   return (
     <Router future={{ v7_startTransition: true }}>
       <SocketProvider>
         <AppContent />
-        <FirebaseRedirectHandler />
         {/* Toast notifications from react-toastify */}
         <ToastContainer
           position="top-right"

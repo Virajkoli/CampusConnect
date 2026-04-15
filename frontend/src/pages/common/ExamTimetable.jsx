@@ -43,7 +43,6 @@ const parseExamDate = (dateStr = "") => {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
-
 const formatExamDate = (dateValue = "") => {
   const parsed = parseExamDate(dateValue);
   if (!parsed) {
@@ -328,7 +327,8 @@ const ExamTimetable = () => {
 
           <div className="mb-3 flex flex-wrap gap-2">
             {YEARS.map((year) => {
-              const active = normalizeYearToken(effectiveYear) === normalizeYearToken(year);
+              const active =
+                normalizeYearToken(effectiveYear) === normalizeYearToken(year);
 
               return (
                 <button
@@ -348,7 +348,8 @@ const ExamTimetable = () => {
           </div>
 
           <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-            Timetable is year-wise. Select any year to view its exam list and official PDF.
+            Timetable is year-wise. Select any year to view its exam list and
+            official PDF.
           </div>
         </div>
 

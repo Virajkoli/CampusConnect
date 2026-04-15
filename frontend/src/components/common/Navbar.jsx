@@ -18,9 +18,13 @@ function Navbar() {
   const [userRole, setUserRole] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Check if current page is login/signup
+  // Keep auth/reset pages readable with the light navbar style.
   const isAuthPage =
-    location.pathname === "/login" || location.pathname === "/signup";
+    location.pathname === "/login" ||
+    location.pathname === "/signup" ||
+    location.pathname === "/reset-password" ||
+    location.pathname === "/reset-password-confirm" ||
+    location.pathname.startsWith("/auth/");
 
   // Handle scrolling effects
   useEffect(() => {
@@ -302,7 +306,7 @@ function Navbar() {
                       : "hover:text-gray-300"
                   }`}
                 >
-                  Login / Signup
+                  Login
                 </Link>
               </motion.div>
             )}
@@ -376,7 +380,7 @@ function Navbar() {
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="block px-3 py-2 rounded-md hover:bg-gray-100"
                 >
-                  Login / Signup
+                  Login
                 </Link>
               )}
             </div>
