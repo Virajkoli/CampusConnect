@@ -4412,8 +4412,15 @@ io.on("connection", (socket) => {
   socket.on("send_message", async (messageData) => {
     try {
       // Store message in Firestore
-      const { chatId, message, senderId, receiverId, timestamp, attachment } =
-        messageData;
+      const {
+        chatId,
+        message,
+        senderId,
+        receiverId,
+        timestamp,
+        attachment,
+        replyTo,
+      } = messageData;
 
       const normalizedMessage = String(message || "").trim();
       const normalizedTimestamp =
@@ -4448,10 +4455,33 @@ io.on("connection", (socket) => {
           }
         : null;
 
+      const normalizedReplyToCandidate =
+        replyTo && typeof replyTo === "object"
+          ? {
+              messageId: String(replyTo.messageId || "").trim(),
+              senderId: String(replyTo.senderId || "").trim(),
+              senderName: String(replyTo.senderName || "").trim(),
+              message: String(replyTo.message || "")
+                .trim()
+                .slice(0, 500),
+              attachmentName: String(replyTo.attachmentName || "").trim(),
+              attachmentType: String(replyTo.attachmentType || "")
+                .trim()
+                .toLowerCase(),
+            }
+          : null;
+
+      const normalizedReplyTo =
+        normalizedReplyToCandidate?.messageId &&
+        normalizedReplyToCandidate?.senderId
+          ? normalizedReplyToCandidate
+          : null;
+
       const messageRef = await admin.firestore().collection("messages").add({
         chatId,
         message: normalizedMessage,
         attachment: normalizedAttachment,
+        replyTo: normalizedReplyTo,
         senderId,
         receiverId,
         timestamp: normalizedTimestamp,
@@ -4476,6 +4506,7 @@ io.on("connection", (socket) => {
         ...messageData,
         message: normalizedMessage,
         attachment: normalizedAttachment,
+        replyTo: normalizedReplyTo,
         timestamp: normalizedTimestamp,
         id: messageRef.id,
       });

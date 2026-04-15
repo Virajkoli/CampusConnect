@@ -129,7 +129,7 @@ function Navbar() {
 
   // Always use a consistent navbar style
   // We're using a fully solid background for better readability on all pages
-  const navbarClasses = `w-full z-30 transition-all duration-300 fixed top-0 left-0 ${
+  const navbarClasses = `w-full z-[100] transition-all duration-300 fixed top-0 left-0 ${
     isAuthPage
       ? "bg-white shadow-md text-gray-800"
       : scrolled

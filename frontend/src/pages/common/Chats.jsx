@@ -35,6 +35,7 @@ import {
   FaPalette,
   FaVideo,
   FaMusic,
+  FaReply,
 } from "react-icons/fa";
 
 const CHAT_API_BASE = String(
@@ -321,6 +322,44 @@ const getChatLastMessagePreview = (textMessage = "", attachment = null) => {
   return fileName ? `Document: ${fileName}` : "Document attachment";
 };
 
+const truncatePreviewText = (value = "", maxLength = 140) => {
+  const normalized = String(value || "").trim();
+  if (!normalized) {
+    return "";
+  }
+
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, maxLength - 3)}...`;
+};
+
+const getReplyAttachmentFallback = (replyTo = {}) => {
+  const attachmentName = String(replyTo.attachmentName || "").trim();
+  if (attachmentName) {
+    return attachmentName;
+  }
+
+  const attachmentType = String(replyTo.attachmentType || "")
+    .trim()
+    .toLowerCase();
+  if (attachmentType === "image") return "Image attachment";
+  if (attachmentType === "video") return "Video attachment";
+  if (attachmentType === "voice") return "Voice message";
+  if (attachmentType === "audio") return "Audio attachment";
+  return "Attachment";
+};
+
+const getReplyPreviewText = (replyTo = {}) => {
+  const messageText = String(replyTo.message || "").trim();
+  if (messageText) {
+    return truncatePreviewText(messageText, 120);
+  }
+
+  return truncatePreviewText(getReplyAttachmentFallback(replyTo), 120);
+};
+
 const escapeRegExp = (value = "") =>
   String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -416,6 +455,7 @@ function Chats() {
   const [chatSearchQuery, setChatSearchQuery] = useState("");
   const [showMessageSearch, setShowMessageSearch] = useState(false);
   const [messageSearchQuery, setMessageSearchQuery] = useState("");
+  const [replyingTo, setReplyingTo] = useState(null);
   const [showChatMenu, setShowChatMenu] = useState(false);
   const [chatTheme, setChatTheme] = useState(getInitialChatTheme);
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
@@ -871,6 +911,7 @@ function Chats() {
   const handleChatSelect = (selectedChat) => {
     // Clear any previous messages and processed IDs
     setMessages([]);
+    setReplyingTo(null);
     processedMessageIds.clear();
 
     setChatId(selectedChat.id);
@@ -1138,6 +1179,26 @@ function Chats() {
     return uploadedAttachment;
   };
 
+  const handleReplySelection = (sourceMessage) => {
+    if (!sourceMessage?.id || !user?.uid) {
+      return;
+    }
+
+    setReplyingTo({
+      messageId: String(sourceMessage.id || "").trim(),
+      senderId: String(sourceMessage.senderId || "").trim(),
+      senderName:
+        sourceMessage.senderId === user.uid
+          ? "You"
+          : String(chattingWith?.name || "Contact"),
+      message: truncatePreviewText(String(sourceMessage.message || ""), 280),
+      attachmentName: String(sourceMessage.attachment?.name || "").trim(),
+      attachmentType: String(sourceMessage.attachment?.type || "")
+        .trim()
+        .toLowerCase(),
+    });
+  };
+
   // Handle sending a message
   const sendMessage = async (e) => {
     e.preventDefault();
@@ -1175,6 +1236,7 @@ function Chats() {
         receiverId,
         message: trimmedMessage,
         attachment: uploadedAttachment,
+        replyTo: replyingTo || null,
         timestamp,
         read: false,
       };
@@ -1197,6 +1259,7 @@ function Chats() {
       }
 
       setMessage("");
+      setReplyingTo(null);
       clearPendingAttachment();
     } catch (err) {
       console.error("Error sending message:", err);
@@ -1428,9 +1491,9 @@ function Chats() {
   // Chat interface - both student and teacher
   return (
     <div
-      className={`min-h-screen px-3 py-4 sm:px-5 sm:py-6 lg:px-8 ${themeStyles.page}`}
+      className={`h-[calc(100vh-4rem)] overflow-hidden px-3 py-3 sm:px-4 sm:py-4 lg:px-6 ${themeStyles.page}`}
     >
-      <div className="mx-auto h-[86vh] max-w-6xl sm:h-[88vh]">
+      <div className="mx-auto h-full max-w-6xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1448,6 +1511,7 @@ function Chats() {
                     setChatId(null);
                     setChattingWith(null);
                     setMessages([]);
+                    setReplyingTo(null);
                     processedMessageIds.clear();
                     return;
                   }
@@ -1628,6 +1692,9 @@ function Chats() {
                   {filteredMessages.map((msg, index) => {
                     const isOwnMessage = msg.senderId === user.uid;
                     const attachment = msg.attachment || null;
+                    const replyPreviewText = msg.replyTo
+                      ? getReplyPreviewText(msg.replyTo)
+                      : "";
                     const imageAttachment = isImageAttachment(attachment);
                     const videoAttachment = isVideoAttachment(attachment);
                     const audioAttachment = isAudioAttachment(attachment);
@@ -1665,6 +1732,35 @@ function Chats() {
                                 : themeStyles.incomingBubble
                             }`}
                           >
+                            {msg.replyTo ? (
+                              <div
+                                className={`mb-2 rounded-lg border-l-2 px-2 py-1 ${
+                                  isOwnMessage
+                                    ? "border-white/55 bg-white/15"
+                                    : "border-[#2f87d9]/50 bg-[#eef6ff]"
+                                }`}
+                              >
+                                <p
+                                  className={`text-[10px] font-semibold uppercase tracking-wide ${
+                                    isOwnMessage
+                                      ? "text-blue-100"
+                                      : "text-[#1f6fb7]"
+                                  }`}
+                                >
+                                  Reply to {msg.replyTo.senderName || "Message"}
+                                </p>
+                                <p
+                                  className={`mt-0.5 line-clamp-2 text-[11px] ${
+                                    isOwnMessage
+                                      ? "text-blue-50"
+                                      : "text-slate-700"
+                                  }`}
+                                >
+                                  {replyPreviewText}
+                                </p>
+                              </div>
+                            ) : null}
+
                             {attachment ? (
                               imageAttachment ? (
                                 <div className="relative">
@@ -1873,21 +1969,37 @@ function Chats() {
                               </p>
                             ) : null}
 
-                            <div className="mt-1.5 flex items-center justify-end gap-1.5">
-                              <p
-                                className={`text-[10px] ${
+                            <div className="mt-1.5 flex items-center justify-between gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleReplySelection(msg)}
+                                className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold transition ${
                                   isOwnMessage
-                                    ? "text-blue-100"
-                                    : themeStyles.incomingMeta
+                                    ? "text-blue-50 hover:bg-white/15"
+                                    : "text-[#1f6fb7] hover:bg-[#e9f2ff]"
                                 }`}
+                                aria-label="Reply to this message"
                               >
-                                {formatMessageTime(msg.timestamp)}
-                              </p>
-                              {isOwnMessage && (
-                                <div className="text-[10px] text-blue-100">
-                                  ✓✓
-                                </div>
-                              )}
+                                <FaReply className="text-[9px]" />
+                                Reply
+                              </button>
+
+                              <div className="flex items-center gap-1.5">
+                                <p
+                                  className={`text-[10px] ${
+                                    isOwnMessage
+                                      ? "text-blue-100"
+                                      : themeStyles.incomingMeta
+                                  }`}
+                                >
+                                  {formatMessageTime(msg.timestamp)}
+                                </p>
+                                {isOwnMessage && (
+                                  <div className="text-[10px] text-blue-100">
+                                    ✓✓
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </motion.div>
 
@@ -1976,6 +2088,29 @@ function Chats() {
                   className="rounded-lg bg-red-600 px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-red-700"
                 >
                   Stop
+                </button>
+              </div>
+            ) : null}
+
+            {replyingTo ? (
+              <div
+                className={`mb-2 flex items-start gap-2 rounded-xl px-2.5 py-2 ${themeStyles.pendingCard}`}
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-semibold text-[#2f87d9]">
+                    Replying to {replyingTo.senderName || "Message"}
+                  </p>
+                  <p className="mt-0.5 truncate text-xs text-slate-600">
+                    {getReplyPreviewText(replyingTo)}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReplyingTo(null)}
+                  className="rounded-full p-1.5 text-slate-500 transition hover:bg-slate-200"
+                  aria-label="Cancel reply"
+                >
+                  <FaTimes className="text-xs" />
                 </button>
               </div>
             ) : null}

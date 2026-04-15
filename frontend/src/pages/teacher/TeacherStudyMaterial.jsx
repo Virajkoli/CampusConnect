@@ -10,6 +10,7 @@ import {
   deleteDoc,
   doc,
   orderBy,
+  getDoc,
 } from "firebase/firestore";
 import { firestore, auth } from "../../firebase"; // Remove storage import
 import { useAuthState } from "react-firebase-hooks/auth";
@@ -17,6 +18,89 @@ import { toast } from "react-toastify";
 import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+const normalizeAssignments = (teacherData = {}) => {
+  if (
+    Array.isArray(teacherData.assignments) &&
+    teacherData.assignments.length > 0
+  ) {
+    return teacherData.assignments;
+  }
+
+  if (
+    Array.isArray(teacherData.assignedCourses) &&
+    teacherData.assignedCourses.length > 0
+  ) {
+    const fallbackBranch = teacherData.department || teacherData.dept || "";
+    return teacherData.assignedCourses.map((course) => ({
+      branch: fallbackBranch,
+      year: course.year || "",
+      subjects: Array.isArray(course.subjects) ? course.subjects : [],
+    }));
+  }
+
+  if (teacherData.year && Array.isArray(teacherData.subjects)) {
+    return [
+      {
+        branch: teacherData.department || teacherData.dept || "",
+        year: teacherData.year,
+        subjects: teacherData.subjects,
+      },
+    ];
+  }
+
+  return [];
+};
+
+const buildAssignedSubjectsByBranch = (
+  assignments = [],
+  fallbackBranch = "",
+) => {
+  const branchMap = new Map();
+
+  assignments.forEach((assignment) => {
+    const branchName = String(
+      assignment?.branch || assignment?.department || fallbackBranch || "",
+    ).trim();
+    if (!branchName) {
+      return;
+    }
+
+    const list = branchMap.get(branchName) || [];
+    const nextSubjects = Array.isArray(assignment?.subjects)
+      ? assignment.subjects
+      : [];
+
+    nextSubjects.forEach((subject) => {
+      const normalized = String(subject || "").trim();
+      if (normalized && !list.includes(normalized)) {
+        list.push(normalized);
+      }
+    });
+
+    branchMap.set(branchName, list);
+  });
+
+  return Object.fromEntries(branchMap.entries());
+};
+
+const getPreferredBranch = (branches = [], preferred = "") => {
+  const normalizedPreferred = String(preferred || "")
+    .trim()
+    .toLowerCase();
+
+  if (!normalizedPreferred) {
+    return branches[0] || "";
+  }
+
+  const exact = branches.find(
+    (branch) =>
+      String(branch || "")
+        .trim()
+        .toLowerCase() === normalizedPreferred,
+  );
+  return exact || branches[0] || "";
+};
 
 const TeacherStudyMaterial = () => {
   const [user] = useAuthState(auth);
@@ -40,6 +124,7 @@ const TeacherStudyMaterial = () => {
   const [subjects, setSubjects] = useState([]);
   const [branches, setBranches] = useState([]);
   const [selectedBranch, setSelectedBranch] = useState("");
+  const [assignedSubjectsByBranch, setAssignedSubjectsByBranch] = useState({});
   const [materials, setMaterials] = useState([]);
   useEffect(() => {
     // Verify user is a teacher and get their department
@@ -70,18 +155,23 @@ const TeacherStudyMaterial = () => {
 
       try {
         console.log("Attempting to query teachers collection");
-        const teachersRef = collection(firestore, "teachers");
-        const q = query(teachersRef, where("uid", "==", user.uid));
-        const snapshot = await getDocs(q);
+        const teacherDoc = await getDoc(doc(firestore, "teachers", user.uid));
+
+        let snapshot = null;
+        if (!teacherDoc.exists()) {
+          const teachersRef = collection(firestore, "teachers");
+          const q = query(teachersRef, where("uid", "==", user.uid));
+          snapshot = await getDocs(q);
+        }
 
         console.log(
           "Query result:",
-          snapshot.empty
-            ? "No documents found"
-            : `Found ${snapshot.docs.length} documents`,
+          teacherDoc.exists() || (snapshot && !snapshot.empty)
+            ? "Found teacher record"
+            : "No documents found",
         );
 
-        if (snapshot.empty) {
+        if (!teacherDoc.exists() && (!snapshot || snapshot.empty)) {
           console.log("No teacher document found with UID:", user.uid);
 
           // For development - create a teacher document instead of redirecting
@@ -91,6 +181,7 @@ const TeacherStudyMaterial = () => {
           setTeacherDept("Computer Engineering");
           setTeacherName(user.displayName || "Teacher");
           setSelectedBranch("Computer Engineering");
+          setAssignedSubjectsByBranch({});
 
           // Fetch branches and subjects
           await fetchBranches();
@@ -103,13 +194,39 @@ const TeacherStudyMaterial = () => {
           // return;
         }
 
-        const teacherData = snapshot.docs[0].data();
-        setTeacherDept(teacherData.department || "");
-        setTeacherName(teacherData.name || user.displayName || "Teacher");
-        setSelectedBranch(teacherData.department || "");
+        const teacherData = teacherDoc.exists()
+          ? teacherDoc.data()
+          : snapshot.docs[0].data();
 
-        // Fetch branches and subjects
-        await fetchBranches();
+        const teacherDepartment =
+          teacherData.department || teacherData.dept || "";
+        const normalizedAssignments = normalizeAssignments(teacherData);
+        const assignedMap = buildAssignedSubjectsByBranch(
+          normalizedAssignments,
+          teacherDepartment,
+        );
+
+        setAssignedSubjectsByBranch(assignedMap);
+        setTeacherDept(teacherDepartment);
+        setTeacherName(
+          teacherData.name ||
+            teacherData.displayName ||
+            user.displayName ||
+            "Teacher",
+        );
+
+        const assignedBranches = Object.keys(assignedMap);
+        if (assignedBranches.length > 0) {
+          const preferredBranch = getPreferredBranch(
+            assignedBranches,
+            teacherDepartment,
+          );
+          setBranches(assignedBranches);
+          setSelectedBranch(preferredBranch);
+        } else {
+          setSelectedBranch(teacherDepartment || "");
+          await fetchBranches();
+        }
       } catch (error) {
         console.error("Error verifying teacher:", error);
         toast.error("Failed to verify your credentials");
@@ -138,6 +255,7 @@ const TeacherStudyMaterial = () => {
       } else {
         const branchList = snapshot.docs.map((doc) => doc.data().name);
         setBranches(branchList);
+        setSelectedBranch((previous) => previous || branchList[0] || "");
       }
     } catch (error) {
       console.error("Error fetching branches:", error);
@@ -148,6 +266,7 @@ const TeacherStudyMaterial = () => {
         "Electrical Engineering",
       ];
       setBranches(mockBranches);
+      setSelectedBranch((previous) => previous || mockBranches[0]);
     }
   };
 
@@ -155,6 +274,22 @@ const TeacherStudyMaterial = () => {
   useEffect(() => {
     const fetchSubjectsForBranch = async () => {
       if (!selectedBranch) return;
+
+      const assignedSubjects = assignedSubjectsByBranch[selectedBranch] || [];
+      if (assignedSubjects.length > 0) {
+        setSubjects(assignedSubjects);
+        setSelectedSubject((previous) =>
+          assignedSubjects.includes(previous) ? previous : assignedSubjects[0],
+        );
+        return;
+      }
+
+      if (Object.keys(assignedSubjectsByBranch).length > 0) {
+        setSubjects([]);
+        setSelectedSubject("");
+        return;
+      }
+
       try {
         const deptRef = collection(firestore, "departments");
         const q = query(deptRef, where("name", "==", selectedBranch));
@@ -191,12 +326,15 @@ const TeacherStudyMaterial = () => {
     };
 
     fetchSubjectsForBranch();
-  }, [selectedBranch]);
+  }, [selectedBranch, assignedSubjectsByBranch]);
 
   // Fetch materials when subject changes
   useEffect(() => {
     const fetchMaterials = async () => {
-      if (!selectedBranch || !selectedSubject) return;
+      if (!selectedBranch || !selectedSubject) {
+        setMaterials([]);
+        return;
+      }
 
       setLoading(true);
       try {
@@ -516,12 +654,19 @@ const TeacherStudyMaterial = () => {
               className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
               value={selectedSubject}
               onChange={(e) => setSelectedSubject(e.target.value)}
+              disabled={subjects.length === 0}
             >
-              {subjects.map((subject, index) => (
-                <option key={index} value={subject}>
-                  {subject}
+              {subjects.length === 0 ? (
+                <option value="">
+                  No assigned subjects available for this branch
                 </option>
-              ))}
+              ) : (
+                subjects.map((subject, index) => (
+                  <option key={index} value={subject}>
+                    {subject}
+                  </option>
+                ))
+              )}
             </select>
           </div>
         </div>
