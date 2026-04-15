@@ -8659,7 +8659,9 @@ app.post("/api/upload-fixit-media", upload.single("file"), async (req, res) => {
   try {
     const authHeader = String(req.headers.authorization || "").trim();
     if (!authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ message: "No authorization token provided" });
+      return res
+        .status(401)
+        .json({ message: "No authorization token provided" });
     }
 
     const token = authHeader.replace(/^Bearer\s+/i, "").trim();

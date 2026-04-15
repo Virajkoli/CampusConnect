@@ -142,7 +142,8 @@ function FixItBoard({ role = "student", displayName = "" }) {
         });
 
         resolvedRows.sort((a, b) => {
-          const resolvedDiff = getMillis(b.resolvedAt) - getMillis(a.resolvedAt);
+          const resolvedDiff =
+            getMillis(b.resolvedAt) - getMillis(a.resolvedAt);
           if (resolvedDiff !== 0) return resolvedDiff;
           return getMillis(b.createdAt) - getMillis(a.createdAt);
         });
@@ -151,10 +152,7 @@ function FixItBoard({ role = "student", displayName = "" }) {
         setResolvedComplaints(resolvedRows.slice(0, 80));
       },
       (snapshotError) => {
-        console.error(
-          "FixIt complaints subscribe error:",
-          snapshotError,
-        );
+        console.error("FixIt complaints subscribe error:", snapshotError);
       },
     );
 
@@ -165,7 +163,8 @@ function FixItBoard({ role = "student", displayName = "" }) {
 
   const prioritizedOpenComplaints = useMemo(() => {
     return [...openComplaints].sort((a, b) => {
-      const votesDiff = Number(b.upvotesCount || 0) - Number(a.upvotesCount || 0);
+      const votesDiff =
+        Number(b.upvotesCount || 0) - Number(a.upvotesCount || 0);
       if (votesDiff !== 0) return votesDiff;
       return getMillis(b.createdAt) - getMillis(a.createdAt);
     });
@@ -247,7 +246,9 @@ function FixItBoard({ role = "student", displayName = "" }) {
       },
       (geoError) => {
         console.error("FixIt geolocation error:", geoError);
-        setError("Unable to capture location. Please allow location permission.");
+        setError(
+          "Unable to capture location. Please allow location permission.",
+        );
         setGeoLoading(false);
       },
       {
@@ -265,11 +266,15 @@ function FixItBoard({ role = "student", displayName = "" }) {
     formData.append("file", file);
     formData.append("attachmentType", type);
 
-    const response = await axios.post(`${API_BASE}/api/upload-fixit-media`, formData, {
-      headers: {
-        Authorization: `Bearer ${token}`,
+    const response = await axios.post(
+      `${API_BASE}/api/upload-fixit-media`,
+      formData,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       },
-    });
+    );
 
     return response?.data?.media || null;
   };
@@ -321,7 +326,9 @@ function FixItBoard({ role = "student", displayName = "" }) {
       clearComposer();
     } catch (submitError) {
       console.error("FixIt submit error:", submitError);
-      setError(submitError?.response?.data?.message || "Failed to post complaint.");
+      setError(
+        submitError?.response?.data?.message || "Failed to post complaint.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -338,7 +345,9 @@ function FixItBoard({ role = "student", displayName = "" }) {
         if (!snapshot.exists()) return;
 
         const data = snapshot.data() || {};
-        const currentVoters = Array.isArray(data.upvotedBy) ? data.upvotedBy : [];
+        const currentVoters = Array.isArray(data.upvotedBy)
+          ? data.upvotedBy
+          : [];
         const alreadyUpvoted = currentVoters.includes(user.uid);
         const nextVoters = alreadyUpvoted
           ? currentVoters.filter((uid) => uid !== user.uid)
@@ -383,8 +392,8 @@ function FixItBoard({ role = "student", displayName = "" }) {
           <h2 className="text-xl font-semibold text-slate-800">FixIt Board</h2>
         </div>
         <p className="mt-1 text-sm text-slate-500">
-          Report campus issues with details, location, and optional media. Upvote
-          important posts so critical problems rise to priority.
+          Report campus issues with details, location, and optional media.
+          Upvote important posts so critical problems rise to priority.
         </p>
       </div>
 
@@ -426,7 +435,11 @@ function FixItBoard({ role = "student", displayName = "" }) {
               disabled={geoLoading}
               className="mt-2 inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700"
             >
-              {geoLoading ? <FiLoader className="h-3.5 w-3.5 animate-spin" /> : <FiMapPin className="h-3.5 w-3.5" />} 
+              {geoLoading ? (
+                <FiLoader className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <FiMapPin className="h-3.5 w-3.5" />
+              )}
               Use current location
             </button>
           </div>
@@ -490,7 +503,11 @@ function FixItBoard({ role = "student", displayName = "" }) {
             disabled={submitting}
             className="inline-flex items-center gap-2 rounded-xl bg-[#2f87d9] px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
           >
-            {submitting ? <FiLoader className="h-4 w-4 animate-spin" /> : <FiSend className="h-4 w-4" />}
+            {submitting ? (
+              <FiLoader className="h-4 w-4 animate-spin" />
+            ) : (
+              <FiSend className="h-4 w-4" />
+            )}
             Post Complaint
           </button>
         </div>
@@ -505,12 +522,16 @@ function FixItBoard({ role = "student", displayName = "" }) {
         </div>
 
         {prioritizedOpenComplaints.length === 0 ? (
-          <p className="text-sm text-slate-500">No active complaints right now.</p>
+          <p className="text-sm text-slate-500">
+            No active complaints right now.
+          </p>
         ) : (
           <div className="space-y-4">
             {prioritizedOpenComplaints.map((item) => {
               const votes = Number(item.upvotesCount || 0);
-              const voters = Array.isArray(item.upvotedBy) ? item.upvotedBy : [];
+              const voters = Array.isArray(item.upvotedBy)
+                ? item.upvotedBy
+                : [];
               const isUpvoted = user ? voters.includes(user.uid) : false;
               const isTopPriority = item.id === topPriorityId;
               const cardMedia = item.media || null;
@@ -533,7 +554,8 @@ function FixItBoard({ role = "student", displayName = "" }) {
                         </span>
                       </p>
                       <p className="text-xs text-slate-500">
-                        {formatRelativeTime(item.createdAt)} • {formatDateTime(item.createdAt)}
+                        {formatRelativeTime(item.createdAt)} •{" "}
+                        {formatDateTime(item.createdAt)}
                       </p>
                     </div>
                     {isTopPriority ? (
@@ -630,7 +652,9 @@ function FixItBoard({ role = "student", displayName = "" }) {
       <div className="rounded-3xl border border-slate-200/80 bg-white p-5 sm:p-6">
         <div className="mb-4 flex items-center gap-2">
           <FiClock className="h-5 w-5 text-emerald-600" />
-          <h3 className="text-lg font-semibold text-slate-800">Resolved Issues</h3>
+          <h3 className="text-lg font-semibold text-slate-800">
+            Resolved Issues
+          </h3>
         </div>
 
         {resolvedComplaints.length === 0 ? (
