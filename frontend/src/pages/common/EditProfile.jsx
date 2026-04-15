@@ -14,7 +14,51 @@ import {
   FiHash,
   FiBriefcase,
 } from "react-icons/fi";
-import axios from "axios";
+
+const API_URL = String(import.meta.env.VITE_API_URL || "http://localhost:5000")
+  .trim()
+  .replace(/\/+$/, "");
+
+const buildRequestError = (response, rawText = "") => {
+  const text = String(rawText || "").trim();
+  if (text.startsWith("<")) {
+    return `Server returned HTML instead of JSON (HTTP ${response.status}). Check VITE_API_URL and backend deployment.`;
+  }
+
+  return (
+    text ||
+    `Request failed with status ${response.status}${response.statusText ? ` (${response.statusText})` : ""}.`
+  );
+};
+
+const parseJsonResponse = async (response) => {
+  const rawText = await response.text();
+  let data = {};
+
+  if (rawText) {
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      throw new Error(buildRequestError(response, rawText));
+    }
+  }
+
+  if (!response.ok) {
+    throw new Error(data.message || buildRequestError(response, rawText));
+  }
+
+  return data;
+};
+
+const fetchWithNetworkHint = async (url, options) => {
+  try {
+    return await fetch(url, options);
+  } catch {
+    throw new Error(
+      `Unable to reach backend at ${API_URL}. Check deployment env VITE_API_URL and backend availability.`,
+    );
+  }
+};
 
 function EditProfile() {
   const [user, setUser] = useState(null);
@@ -119,6 +163,11 @@ function EditProfile() {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        alert("Image exceeds 10MB upload limit. Please choose a smaller file.");
+        return;
+      }
+
       setPhotoFile(file);
       // Create preview
       const reader = new FileReader();
@@ -137,22 +186,18 @@ function EditProfile() {
     formData.append("file", photoFile);
 
     try {
-      const response = await axios.post(
-        "http://localhost:5000/api/upload-profile",
+      const response = await fetchWithNetworkHint(
+        `${API_URL}/api/upload-profile`,
         formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        },
       );
-      setUploading(false);
-      return response.data.url;
+      const data = await parseJsonResponse(response);
+      return String(data.url || "").trim() || photoURL;
     } catch (error) {
       console.error("Upload error:", error);
-      setUploading(false);
       alert("Failed to upload image. Please try again.");
       return photoURL;
+    } finally {
+      setUploading(false);
     }
   };
 

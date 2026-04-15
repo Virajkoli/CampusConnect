@@ -5,6 +5,7 @@ import {
   collection,
   addDoc,
   getDocs,
+  getDoc,
   query,
   where,
   orderBy,
@@ -63,21 +64,48 @@ function EventsCalendar() {
   useEffect(() => {
     const checkUserRole = async () => {
       if (user) {
-        // Check if user is admin
-        const adminQuery = query(
-          collection(firestore, "admins"),
-          where("uid", "==", user.uid),
-        );
-        const adminSnapshot = await getDocs(adminQuery);
-        setIsAdmin(!adminSnapshot.empty);
+        try {
+          const tokenResult = await user.getIdTokenResult(true);
+          const claims = tokenResult?.claims || {};
 
-        // Check if user is teacher
-        const teacherQuery = query(
-          collection(firestore, "teachers"),
-          where("uid", "==", user.uid),
-        );
-        const teacherSnapshot = await getDocs(teacherQuery);
-        setIsTeacher(!teacherSnapshot.empty);
+          let adminAllowed = Boolean(claims.admin);
+          if (!adminAllowed) {
+            const adminDoc = await getDoc(doc(firestore, "admins", user.uid));
+            if (adminDoc.exists()) {
+              adminAllowed = true;
+            } else {
+              const adminQuery = query(
+                collection(firestore, "admins"),
+                where("uid", "==", user.uid),
+              );
+              const adminSnapshot = await getDocs(adminQuery);
+              adminAllowed = !adminSnapshot.empty;
+            }
+          }
+
+          let teacherAllowed = Boolean(claims.teacher);
+          if (!teacherAllowed) {
+            const teacherDoc = await getDoc(
+              doc(firestore, "teachers", user.uid),
+            );
+            if (teacherDoc.exists()) {
+              teacherAllowed = true;
+            } else {
+              const teacherQuery = query(
+                collection(firestore, "teachers"),
+                where("uid", "==", user.uid),
+              );
+              const teacherSnapshot = await getDocs(teacherQuery);
+              teacherAllowed = !teacherSnapshot.empty;
+            }
+          }
+
+          setIsAdmin(adminAllowed);
+          setIsTeacher(teacherAllowed);
+        } catch {
+          setIsAdmin(false);
+          setIsTeacher(false);
+        }
       }
     };
 

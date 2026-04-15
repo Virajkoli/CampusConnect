@@ -36,7 +36,7 @@ function About() {
             end: "top 30%",
             toggleActions: "play none none reverse",
           },
-        }
+        },
       );
     });
 
@@ -56,7 +56,7 @@ function About() {
             scrub: true,
             toggleActions: "play none none reverse",
           },
-        }
+        },
       );
     });
 
@@ -75,7 +75,7 @@ function About() {
             whyRef.current.style.fontWeight = "bold"; // Ensure it stays bold
           },
         },
-      }
+      },
     );
 
     gsap.fromTo(
@@ -92,7 +92,7 @@ function About() {
           end: "top 50%",
           scrub: true,
         },
-      }
+      },
     );
 
     gsap.fromTo(
@@ -110,9 +110,48 @@ function About() {
           scrub: true,
           toggleActions: "play none none reverse",
         },
-      }
+      },
     );
   }, []);
+
+  const impactCards = [
+    {
+      title: "Designed for Students",
+      emoji: "🎓",
+      description:
+        "Built specifically to simplify and improve the everyday lives of college students and campus communities.",
+      image: designstudents,
+      imageAlt: "Design for Students",
+      gradient: "from-blue-500/5 to-purple-500/5",
+    },
+    {
+      title: "Connected Experience",
+      emoji: "🔗",
+      description:
+        "Focused on building a seamless and more organized digital campus with real-time collaboration.",
+      image: connected_experience,
+      imageAlt: "Connected Experience",
+      gradient: "from-green-500/5 to-emerald-500/5",
+    },
+    {
+      title: "Instant Updates",
+      emoji: "📣",
+      description:
+        "Never miss important announcements, events, or notices — stay updated at all times.",
+      image: instant_updates,
+      imageAlt: "Instant Updates",
+      gradient: "from-orange-500/5 to-yellow-500/5",
+    },
+    {
+      title: "Constantly Evolving",
+      emoji: "🌱",
+      description:
+        "We're actively developing and always open to feedback to make CampusConnect even better.",
+      image: feedback,
+      imageAlt: "Feedback",
+      gradient: "from-pink-500/5 to-purple-500/5",
+    },
+  ];
 
   return (
     <div className="bg-gradient-to-b from-white to-gray-50">
@@ -259,140 +298,43 @@ function About() {
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-10">
-            <motion.div
-              initial={{ opacity: 0, y: 50 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0 }}
-              whileHover={{ y: -10 }}
-              className="relative"
-              ref={(el) => (cardRefs.current[0] = el)}
-            >
-              <div className="bg-white rounded-3xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 flex flex-col items-center text-center relative overflow-hidden group border border-gray-100">
-                {/* Gradient Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-10 items-stretch">
+            {impactCards.map((card, index) => (
+              <motion.div
+                key={card.title}
+                initial={{ opacity: 0, y: 50 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+                whileHover={{ y: -10 }}
+                className="relative h-full"
+                ref={(el) => (cardRefs.current[index] = el)}
+              >
+                <div className="h-full min-h-[360px] bg-white rounded-3xl p-6 md:p-7 shadow-lg hover:shadow-2xl transition-all duration-300 flex flex-col items-center text-center relative overflow-hidden group border border-gray-100">
+                  <div
+                    className={`absolute inset-0 bg-gradient-to-br ${card.gradient} opacity-0 group-hover:opacity-100 transition-opacity`}
+                  ></div>
 
-                {/* Floating Image */}
-                <div className="w-28 h-28 mb-6 rounded-2xl overflow-hidden shadow-xl -mt-16 relative z-10 ring-4 ring-white transform group-hover:scale-110 transition-transform duration-300">
-                  <img
-                    src={designstudents}
-                    alt="Design for Students"
-                    className="w-full h-full object-cover"
-                  />
+                  <div className="w-24 h-24 md:w-28 md:h-28 mb-5 rounded-2xl overflow-hidden shadow-xl relative z-10 ring-4 ring-white bg-gray-100">
+                    <img
+                      src={card.image}
+                      alt={card.imageAlt}
+                      className="w-full h-full object-cover object-center transform group-hover:scale-105 transition-transform duration-300"
+                    />
+                  </div>
+
+                  <div className="relative z-10 flex-1 flex flex-col">
+                    <div className="text-4xl mb-3">{card.emoji}</div>
+                    <h3 className="text-xl font-bold mb-4 text-gray-800 min-h-[56px] flex items-center justify-center">
+                      {card.title}
+                    </h3>
+                    <p className="text-gray-600 text-base leading-relaxed">
+                      {card.description}
+                    </p>
+                  </div>
                 </div>
-
-                <div className="relative z-10">
-                  <div className="text-4xl mb-3">🎓</div>
-                  <h3 className="text-xl font-bold mb-4 text-gray-800">
-                    Designed for Students
-                  </h3>
-                  <p className="text-gray-600 text-base leading-relaxed">
-                    Built specifically to simplify and improve the everyday
-                    lives of college students and campus communities.
-                  </p>
-                </div>
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 50 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
-              whileHover={{ y: -10 }}
-              className="relative"
-              ref={(el) => (cardRefs.current[1] = el)}
-            >
-              <div className="bg-white rounded-3xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 flex flex-col items-center text-center relative overflow-hidden group border border-gray-100">
-                <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-
-                <div className="w-28 h-28 mb-6 rounded-2xl overflow-hidden shadow-xl -mt-16 relative z-10 ring-4 ring-white transform group-hover:scale-110 transition-transform duration-300">
-                  <img
-                    src={connected_experience}
-                    alt="Connected Experience"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-
-                <div className="relative z-10">
-                  <div className="text-4xl mb-3">🔗</div>
-                  <h3 className="text-xl font-bold mb-4 text-gray-800">
-                    Connected Experience
-                  </h3>
-                  <p className="text-gray-600 text-base leading-relaxed">
-                    Focused on building a seamless and more organized digital
-                    campus with real-time collaboration.
-                  </p>
-                </div>
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 50 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.2 }}
-              whileHover={{ y: -10 }}
-              className="relative"
-              ref={(el) => (cardRefs.current[2] = el)}
-            >
-              <div className="bg-white rounded-3xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 flex flex-col items-center text-center relative overflow-hidden group border border-gray-100">
-                <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-yellow-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-
-                <div className="w-28 h-28 mb-6 rounded-2xl overflow-hidden shadow-xl -mt-16 relative z-10 ring-4 ring-white transform group-hover:scale-110 transition-transform duration-300">
-                  <img
-                    src={instant_updates}
-                    alt="Instant Updates"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-
-                <div className="relative z-10">
-                  <div className="text-4xl mb-3">📣</div>
-                  <h3 className="text-xl font-bold mb-4 text-gray-800">
-                    Instant Updates
-                  </h3>
-                  <p className="text-gray-600 text-base leading-relaxed">
-                    Never miss important announcements, events, or notices —
-                    stay updated at all times.
-                  </p>
-                </div>
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 50 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.3 }}
-              whileHover={{ y: -10 }}
-              className="relative"
-              ref={(el) => (cardRefs.current[3] = el)}
-            >
-              <div className="bg-white rounded-3xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 flex flex-col items-center text-center relative overflow-hidden group border border-gray-100">
-                <div className="absolute inset-0 bg-gradient-to-br from-pink-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-
-                <div className="w-28 h-28 mb-6 rounded-2xl overflow-hidden shadow-xl -mt-16 relative z-10 ring-4 ring-white transform group-hover:scale-110 transition-transform duration-300">
-                  <img
-                    src={feedback}
-                    alt="Feedback"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-
-                <div className="relative z-10">
-                  <div className="text-4xl mb-3">🌱</div>
-                  <h3 className="text-xl font-bold mb-4 text-gray-800">
-                    Constantly Evolving
-                  </h3>
-                  <p className="text-gray-600 text-base leading-relaxed">
-                    We're actively developing and always open to feedback to
-                    make CampusConnect even better.
-                  </p>
-                </div>
-              </div>
-            </motion.div>
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>

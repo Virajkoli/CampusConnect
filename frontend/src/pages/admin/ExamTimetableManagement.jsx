@@ -29,7 +29,50 @@ import {
 import { db } from "../../firebase";
 import { useNavigate } from "react-router-dom";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API_URL = String(import.meta.env.VITE_API_URL || "http://localhost:5000")
+  .trim()
+  .replace(/\/+$/, "");
+
+const buildRequestError = (response, rawText = "") => {
+  const text = String(rawText || "").trim();
+  if (text.startsWith("<")) {
+    return `Server returned HTML instead of JSON (HTTP ${response.status}). Check VITE_API_URL and backend deployment.`;
+  }
+
+  return (
+    text ||
+    `Request failed with status ${response.status}${response.statusText ? ` (${response.statusText})` : ""}.`
+  );
+};
+
+const parseJsonResponse = async (response) => {
+  const rawText = await response.text();
+  let data = {};
+
+  if (rawText) {
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      throw new Error(buildRequestError(response, rawText));
+    }
+  }
+
+  if (!response.ok) {
+    throw new Error(data.message || buildRequestError(response, rawText));
+  }
+
+  return data;
+};
+
+const fetchWithNetworkHint = async (url, options) => {
+  try {
+    return await fetch(url, options);
+  } catch {
+    throw new Error(
+      `Unable to reach backend at ${API_URL}. Check deployment env VITE_API_URL and backend availability.`,
+    );
+  }
+};
 
 const YEARS = ["1st", "2nd", "3rd", "4th"];
 const BRANCH_OPTIONS = [
@@ -342,6 +385,17 @@ export default function ExamTimetableManagement() {
 
   const handleOcrFileChange = (event) => {
     const selected = event.target.files?.[0] || null;
+    if (selected && selected.size > 10 * 1024 * 1024) {
+      setMessage({
+        type: "error",
+        text: "File exceeds 10MB upload limit. Please upload a smaller PDF/image.",
+      });
+      setOcrFile(null);
+      setExtractedText("");
+      setParsedExams([]);
+      return;
+    }
+
     setOcrFile(selected);
     setExtractedText("");
     setParsedExams([]);
@@ -366,18 +420,18 @@ export default function ExamTimetableManagement() {
       formData.append("file", ocrFile);
       formData.append("year", selectedYear);
 
-      const response = await fetch(`${API_URL}/api/upload-exam-timetable`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
+      const response = await fetchWithNetworkHint(
+        `${API_URL}/api/upload-exam-timetable`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
         },
-        body: formData,
-      });
+      );
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || "OCR upload failed.");
-      }
+      const data = await parseJsonResponse(response);
 
       const rawText = String(data.extractedText || "");
       setExtractedText(rawText);
@@ -459,19 +513,19 @@ export default function ExamTimetableManagement() {
         })),
       };
 
-      const response = await fetch(`${API_URL}/api/save-exam-timetable`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const response = await fetchWithNetworkHint(
+        `${API_URL}/api/save-exam-timetable`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
         },
-        body: JSON.stringify(payload),
-      });
+      );
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to save OCR parsed timetable.");
-      }
+      const data = await parseJsonResponse(response);
 
       setMessage({
         type: "success",
@@ -494,19 +548,19 @@ export default function ExamTimetableManagement() {
       const auth = getAuth();
       const token = await auth.currentUser.getIdToken();
 
-      const response = await fetch(`${API_URL}/api/clear-exam-timetable`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const response = await fetchWithNetworkHint(
+        `${API_URL}/api/clear-exam-timetable`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ year: selectedYear }),
         },
-        body: JSON.stringify({ year: selectedYear }),
-      });
+      );
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to clear timetable.");
-      }
+      const data = await parseJsonResponse(response);
 
       setMessage({
         type: "success",
@@ -525,18 +579,18 @@ export default function ExamTimetableManagement() {
       const auth = getAuth();
       const token = await auth.currentUser.getIdToken();
 
-      const response = await fetch(`${API_URL}/api/remove-duplicate-exams`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const response = await fetchWithNetworkHint(
+        `${API_URL}/api/remove-duplicate-exams`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
         },
-      });
+      );
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to remove duplicates.");
-      }
+      const data = await parseJsonResponse(response);
 
       setMessage({
         type: "success",
@@ -751,18 +805,18 @@ export default function ExamTimetableManagement() {
       formData.append("file", pdfFile);
       formData.append("year", selectedYear);
 
-      const response = await fetch(`${API_URL}/api/upload-exam-timetable-pdf`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
+      const response = await fetchWithNetworkHint(
+        `${API_URL}/api/upload-exam-timetable-pdf`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
         },
-        body: formData,
-      });
+      );
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || "PDF upload failed.");
-      }
+      const data = await parseJsonResponse(response);
 
       setMessage({
         type: "success",
