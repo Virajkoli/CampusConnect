@@ -282,6 +282,9 @@ const StudentProfile = ({ userData }) => {
 
             <FingerprintVerification
               actionLabel="Create Attendance Passkey"
+              mode="create"
+              userId={auth.currentUser?.uid || userData?.uid || ""}
+              userName={userData?.email || userData?.displayName || "Student"}
               onVerified={(data) => {
                 if (!data?.biometricVerified || !data?.assertionId) {
                   setOneTimePasskey(null);

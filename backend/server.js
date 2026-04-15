@@ -69,8 +69,8 @@ app.use(
     credentials: true,
   }),
 );
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "8mb" }));
+app.use(express.urlencoded({ extended: true, limit: "8mb" }));
 
 // Configure Multer for file uploads (memory storage)
 const storage = multer.memoryStorage();
@@ -6134,6 +6134,42 @@ app.post(
     }
   },
 );
+
+app.use((error, req, res, next) => {
+  if (error instanceof multer.MulterError) {
+    if (error.code === "LIMIT_FILE_SIZE") {
+      return res.status(413).json({
+        message: "Uploaded file exceeds the 10MB limit",
+      });
+    }
+
+    return res.status(400).json({
+      message: error.message || "File upload failed",
+    });
+  }
+
+  if (error?.type === "entity.too.large") {
+    return res.status(413).json({
+      message:
+        "Request payload is too large. Reduce the batch size and try again.",
+    });
+  }
+
+  if (error?.name === "SyntaxError" && error?.status === 400) {
+    return res.status(400).json({
+      message: "Invalid JSON payload",
+    });
+  }
+
+  if (error) {
+    console.error("Unhandled server error:", error);
+    return res.status(500).json({
+      message: error.message || "Internal server error",
+    });
+  }
+
+  return next();
+});
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, "0.0.0.0", () => {

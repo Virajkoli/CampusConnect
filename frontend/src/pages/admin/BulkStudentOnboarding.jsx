@@ -8,7 +8,52 @@ import {
 } from "react-icons/fi";
 import { auth } from "../../firebase";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API_URL = String(import.meta.env.VITE_API_URL || "http://localhost:5000")
+  .trim()
+  .replace(/\/+$/, "");
+
+const buildRequestError = (response, rawText = "") => {
+  const text = String(rawText || "").trim();
+  const isHtmlResponse = text.startsWith("<");
+
+  if (isHtmlResponse) {
+    return `Server returned HTML instead of JSON (HTTP ${response.status}). Check VITE_API_URL and ensure it points to your backend API.`;
+  }
+
+  return (
+    text ||
+    `Request failed with status ${response.status}${response.statusText ? ` (${response.statusText})` : ""}.`
+  );
+};
+
+const parseJsonResponse = async (response) => {
+  const rawText = await response.text();
+  let data = {};
+
+  if (rawText) {
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      throw new Error(buildRequestError(response, rawText));
+    }
+  }
+
+  if (!response.ok) {
+    throw new Error(data.message || buildRequestError(response, rawText));
+  }
+
+  return data;
+};
+
+const fetchWithNetworkHint = async (url, options) => {
+  try {
+    return await fetch(url, options);
+  } catch {
+    throw new Error(
+      `Unable to reach backend at ${API_URL}. Check deployment env VITE_API_URL and backend availability.`,
+    );
+  }
+};
 
 export default function BulkStudentOnboarding() {
   const navigate = useNavigate();
@@ -95,7 +140,7 @@ export default function BulkStudentOnboarding() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch(
+      const response = await fetchWithNetworkHint(
         `${API_URL}/api/admin/parse-student-onboarding`,
         {
           method: "POST",
@@ -106,10 +151,7 @@ export default function BulkStudentOnboarding() {
         },
       );
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to parse file");
-      }
+      const data = await parseJsonResponse(response);
 
       setParsedEntries(data.entries || []);
       setSuccess(
@@ -141,7 +183,7 @@ export default function BulkStudentOnboarding() {
       }
       const token = await user.getIdToken();
 
-      const response = await fetch(
+      const response = await fetchWithNetworkHint(
         `${API_URL}/api/admin/precheck-student-onboarding`,
         {
           method: "POST",
@@ -153,10 +195,7 @@ export default function BulkStudentOnboarding() {
         },
       );
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || "Pre-check failed");
-      }
+      const data = await parseJsonResponse(response);
 
       setPrecheck(data.precheck || null);
       setSuccess(
@@ -188,7 +227,7 @@ export default function BulkStudentOnboarding() {
       }
       const token = await user.getIdToken();
 
-      const response = await fetch(
+      const response = await fetchWithNetworkHint(
         `${API_URL}/api/admin/bulk-onboard-students`,
         {
           method: "POST",
@@ -203,10 +242,7 @@ export default function BulkStudentOnboarding() {
         },
       );
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || "Bulk onboarding failed");
-      }
+      const data = await parseJsonResponse(response);
 
       setSummary(data.summary);
       setSuccess("Bulk onboarding completed. Check summary below.");
