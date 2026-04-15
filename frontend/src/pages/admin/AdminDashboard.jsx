@@ -18,6 +18,7 @@ const styles = `
 
 // Icons
 import {
+  FiAlertCircle,
   FiSearch,
   FiLogOut,
   FiUser,
@@ -39,6 +40,7 @@ import {
 } from "react-icons/fi";
 import { FaEnvelope, FaPhoneAlt } from "react-icons/fa";
 import CalendarComponent from "../../components/common/CalendarComponent";
+import FixItBoard from "../../components/common/FixItBoard";
 
 // Sidebar Item Component
 function SidebarItem({
@@ -605,6 +607,11 @@ export default function AdminDashboard() {
       route: "/admin/announcements",
     },
     {
+      id: "fixit",
+      label: "FixIt",
+      icon: FiAlertCircle,
+    },
+    {
       id: "calendars",
       label: "Calendars",
       icon: FiCalendar,
@@ -1102,6 +1109,8 @@ export default function AdminDashboard() {
     if (activeTab === "students") return renderStudentsPanel();
     if (activeTab === "teachers") return renderTeachersPanel();
     if (activeTab === "announcements") return renderAnnouncementsPanel();
+    if (activeTab === "fixit")
+      return <FixItBoard role="admin" displayName={adminName} />;
     if (activeTab === "calendars") return renderCalendarsPanel();
     if (activeTab === "exam-timetable") return renderExamPanel();
 

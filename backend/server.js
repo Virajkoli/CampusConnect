@@ -8655,6 +8655,86 @@ app.post(
   },
 );
 
+app.post("/api/upload-fixit-media", upload.single("file"), async (req, res) => {
+  try {
+    const authHeader = String(req.headers.authorization || "").trim();
+    if (!authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "No authorization token provided" });
+    }
+
+    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    if (!decodedToken?.uid) {
+      return res.status(401).json({ message: "Invalid authorization token" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    const normalizedMimeType = String(req.file.mimetype || "").toLowerCase();
+    const explicitType = String(req.body?.attachmentType || "")
+      .trim()
+      .toLowerCase();
+
+    let mediaType = "";
+    if (explicitType === "image" || explicitType === "video") {
+      mediaType = explicitType;
+    } else if (normalizedMimeType.startsWith("image/")) {
+      mediaType = "image";
+    } else if (normalizedMimeType.startsWith("video/")) {
+      mediaType = "video";
+    }
+
+    if (!mediaType) {
+      return res
+        .status(400)
+        .json({ message: "Only image and video files are supported." });
+    }
+
+    const safeOriginalName = String(req.file.originalname || "fixit_media")
+      .replace(/[^a-zA-Z0-9._-]/g, "_")
+      .slice(0, 80);
+    const baseName = safeOriginalName.replace(/\.[^.]+$/, "") || "fixit_media";
+
+    const uploadResult = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: "campus-connect/fixit",
+          resource_type: "auto",
+          public_id: `${decodedToken.uid}_${Date.now()}_${baseName}`,
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        },
+      );
+
+      uploadStream.end(req.file.buffer);
+    });
+
+    return res.status(200).json({
+      success: true,
+      media: {
+        url: uploadResult.secure_url,
+        publicId: uploadResult.public_id,
+        name: req.file.originalname || "media",
+        mimeType: req.file.mimetype || "application/octet-stream",
+        size: Number(req.file.size) || Number(uploadResult.bytes) || 0,
+        type: mediaType,
+        format: uploadResult.format || "",
+        resourceType: uploadResult.resource_type || "raw",
+      },
+    });
+  } catch (error) {
+    console.error("FixIt media upload error:", error);
+    return res.status(500).json({
+      message: "Failed to upload FixIt media",
+      error: error.message,
+    });
+  }
+});
+
 // Delete file from Cloudinary
 app.delete("/api/delete-material/:publicId", async (req, res) => {
   try {

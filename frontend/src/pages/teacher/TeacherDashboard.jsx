@@ -15,6 +15,7 @@ import {
 import { useAuthState } from "react-firebase-hooks/auth";
 import { useNavigate } from "react-router-dom";
 import {
+  FiAlertCircle,
   FiBell,
   FiBook,
   FiCalendar,
@@ -29,6 +30,7 @@ import {
   FiMessageCircle,
   FiUsers,
 } from "react-icons/fi";
+import FixItBoard from "../../components/common/FixItBoard";
 
 const dayOrder = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
@@ -218,6 +220,7 @@ function TeacherDashboard() {
     () => [
       { id: "overview", label: "Overview", icon: FiGrid },
       { id: "announcements", label: "Announcements", icon: FiBell },
+      { id: "fixit", label: "FixIt", icon: FiAlertCircle },
       { id: "calendars", label: "Calendars", icon: FiCalendar },
       { id: "chats", label: "Student Chats", icon: FiMessageCircle },
       { id: "courses", label: "Courses", icon: FiBook },
@@ -1516,6 +1519,8 @@ function TeacherDashboard() {
   const renderActivePanel = () => {
     if (activeTab === "overview") return renderOverview();
     if (activeTab === "announcements") return renderAnnouncements();
+    if (activeTab === "fixit")
+      return <FixItBoard role="teacher" displayName={teacherName} />;
     if (activeTab === "calendars") return renderCalendars();
     if (activeTab === "chats")
       return renderActionPanel(

@@ -14,6 +14,7 @@ import {
 } from "firebase/firestore";
 import { useAuthState } from "react-firebase-hooks/auth";
 import {
+  FiAlertCircle,
   FiCalendar,
   FiBook,
   FiBell,
@@ -33,6 +34,7 @@ import {
   getStudentAttendance,
   getActiveAttendanceSessions,
 } from "../../services/attendanceService";
+import FixItBoard from "../../components/common/FixItBoard";
 
 const makeSubjectId = (subjectName = "") =>
   String(subjectName || "")
@@ -244,6 +246,7 @@ function StudentDashboard() {
     () => [
       { id: "overview", label: "Overview", icon: FiGrid },
       { id: "announcements", label: "Announcements", icon: FiBell },
+      { id: "fixit", label: "FixIt", icon: FiAlertCircle },
       { id: "study-materials", label: "Study Materials", icon: FiBook },
       { id: "calendars", label: "Calendars", icon: FiCalendar },
       { id: "attendance", label: "Attendance", icon: FiCheck },
@@ -1613,6 +1616,8 @@ function StudentDashboard() {
   const renderActivePanel = () => {
     if (activeTab === "overview") return renderOverview();
     if (activeTab === "announcements") return renderAnnouncements();
+    if (activeTab === "fixit")
+      return <FixItBoard role="student" displayName={studentName} />;
     if (activeTab === "study-materials") return renderStudyMaterials();
     if (activeTab === "calendars") return renderCalendars();
     if (activeTab === "attendance") return renderAttendance();
