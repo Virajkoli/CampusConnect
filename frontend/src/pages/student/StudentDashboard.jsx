@@ -53,6 +53,14 @@ const formatDateTime = (value) => {
 const normalizeYearToken = (value = "") =>
   String(value || "").replace(/[^0-9]/g, "");
 
+const toLocalDateKey = (value) => {
+  const date = value instanceof Date ? value : new Date(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 const parseExamDate = (dateStr = "") => {
   const raw = String(dateStr || "").trim();
   if (!raw) return null;
@@ -135,6 +143,10 @@ function StudentDashboard() {
     useState(false);
   const [examSchedule, setExamSchedule] = useState([]);
   const [examTimetablePdf, setExamTimetablePdf] = useState(null);
+  const [examCalendarMonth, setExamCalendarMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
   const [eventsCalendar, setEventsCalendar] = useState([]);
   const [academicCalendar, setAcademicCalendar] = useState([]);
   const [activeTab, setActiveTab] = useState("overview");
@@ -625,6 +637,23 @@ function StudentDashboard() {
       clearInterval(timer);
     };
   }, [user, refreshActiveSessions]);
+
+  useEffect(() => {
+    if (!examSchedule.length) {
+      return;
+    }
+
+    const upcoming = examSchedule
+      .map((exam) => parseExamDate(exam.date || ""))
+      .filter(Boolean)
+      .sort((a, b) => a.getTime() - b.getTime())[0];
+
+    if (upcoming) {
+      setExamCalendarMonth(
+        new Date(upcoming.getFullYear(), upcoming.getMonth(), 1),
+      );
+    }
+  }, [examSchedule]);
 
   const formatTime = (time) => {
     if (!time) return "";
@@ -1274,47 +1303,186 @@ function StudentDashboard() {
       ) : null}
 
       {examSchedule.length > 0 ? (
-        <div className="overflow-x-auto rounded-2xl border border-slate-200">
-          <table className="w-full min-w-[820px] text-left text-sm">
-            <thead>
-              <tr className="bg-slate-100 text-slate-700">
-                <th className="px-3 py-2">Date</th>
-                <th className="px-3 py-2">Time</th>
-                <th className="px-3 py-2">Course Code</th>
-                <th className="px-3 py-2">Course Name</th>
-                <th className="px-3 py-2">Duration</th>
-                <th className="px-3 py-2">Branch</th>
-                <th className="px-3 py-2">Year</th>
-              </tr>
-            </thead>
-            <tbody>
-              {examSchedule.map((exam) => (
-                <tr key={exam.id} className="border-t border-slate-200">
-                  <td className="px-3 py-2 text-slate-700">
-                    {exam.date || "Date TBA"}
-                  </td>
-                  <td className="px-3 py-2 text-slate-700">
-                    {exam.time || "Time TBA"}
-                  </td>
-                  <td className="px-3 py-2 text-slate-700">
-                    {exam.courseCode || "-"}
-                  </td>
-                  <td className="px-3 py-2 font-medium text-slate-800">
-                    {exam.courseName || "Course"}
-                  </td>
-                  <td className="px-3 py-2 text-slate-700">
-                    {exam.duration || "-"}
-                  </td>
-                  <td className="px-3 py-2 text-slate-700">
-                    {exam.branch || "-"}
-                  </td>
-                  <td className="px-3 py-2 text-slate-700">
-                    {exam.year || "-"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3 sm:p-4">
+          {(() => {
+            const monthStart = new Date(
+              examCalendarMonth.getFullYear(),
+              examCalendarMonth.getMonth(),
+              1,
+            );
+            const monthEnd = new Date(
+              examCalendarMonth.getFullYear(),
+              examCalendarMonth.getMonth() + 1,
+              0,
+            );
+
+            const examRows = examSchedule
+              .map((exam) => {
+                const parsedDate = parseExamDate(exam.date || "");
+                return parsedDate ? { ...exam, parsedDate } : null;
+              })
+              .filter(Boolean);
+
+            const examMap = new Map();
+            examRows.forEach((exam) => {
+              const key = toLocalDateKey(exam.parsedDate);
+              if (!examMap.has(key)) {
+                examMap.set(key, []);
+              }
+              examMap.get(key).push(exam);
+            });
+
+            const firstWeekday = monthStart.getDay();
+            const totalDays = monthEnd.getDate();
+            const cells = [];
+
+            for (let i = 0; i < firstWeekday; i += 1) {
+              cells.push({ key: `blank_${i}`, isBlank: true });
+            }
+
+            for (let day = 1; day <= totalDays; day += 1) {
+              const date = new Date(
+                examCalendarMonth.getFullYear(),
+                examCalendarMonth.getMonth(),
+                day,
+              );
+              const key = toLocalDateKey(date);
+              cells.push({
+                key,
+                day,
+                date,
+                exams: examMap.get(key) || [],
+                isToday: key === toLocalDateKey(new Date()),
+              });
+            }
+
+            return (
+              <>
+                <div className="mb-3 flex items-center justify-between rounded-xl bg-white px-3 py-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExamCalendarMonth(
+                        (prev) =>
+                          new Date(prev.getFullYear(), prev.getMonth() - 1, 1),
+                      )
+                    }
+                    className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                  >
+                    Prev
+                  </button>
+                  <p className="text-sm font-semibold text-slate-800 sm:text-base">
+                    {monthStart.toLocaleDateString("en-US", {
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExamCalendarMonth(
+                        (prev) =>
+                          new Date(prev.getFullYear(), prev.getMonth() + 1, 1),
+                      )
+                    }
+                    className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                  >
+                    Next
+                  </button>
+                </div>
+
+                <div className="mb-2 grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-500 sm:text-xs">
+                  {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
+                    (name) => (
+                      <div key={name} className="rounded-lg bg-white py-2">
+                        {name}
+                      </div>
+                    ),
+                  )}
+                </div>
+
+                <div className="grid grid-cols-7 gap-1 sm:gap-2">
+                  {cells.map((cell) => {
+                    if (cell.isBlank) {
+                      return (
+                        <div
+                          key={cell.key}
+                          className="min-h-[78px] rounded-lg border border-transparent bg-transparent"
+                        />
+                      );
+                    }
+
+                    return (
+                      <div
+                        key={cell.key}
+                        className={`group relative min-h-[78px] rounded-lg border bg-white p-2 transition sm:min-h-[90px] ${
+                          cell.exams.length
+                            ? "border-[#9cc7f2] shadow-sm"
+                            : "border-slate-200"
+                        } ${cell.isToday ? "ring-2 ring-[#2f87d9]/40" : ""}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-slate-700 sm:text-sm">
+                            {cell.day}
+                          </span>
+                          {cell.exams.length ? (
+                            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#2f87d9] px-1 text-[10px] font-semibold text-white">
+                              {cell.exams.length}
+                            </span>
+                          ) : null}
+                        </div>
+
+                        {cell.exams.length ? (
+                          <div className="mt-1 space-y-1">
+                            {cell.exams.slice(0, 2).map((exam) => (
+                              <p
+                                key={`${cell.key}_${exam.id}`}
+                                className="truncate rounded bg-[#eef6ff] px-1.5 py-0.5 text-[10px] font-medium text-[#1f6fb7]"
+                              >
+                                {exam.courseCode || exam.courseName}
+                              </p>
+                            ))}
+                          </div>
+                        ) : null}
+
+                        {cell.exams.length ? (
+                          <div className="pointer-events-none absolute left-1/2 top-[100%] z-30 hidden w-60 -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-3 shadow-xl group-hover:block">
+                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                              {cell.date.toLocaleDateString("en-US", {
+                                weekday: "long",
+                                day: "numeric",
+                                month: "short",
+                              })}
+                            </p>
+                            <div className="space-y-2">
+                              {cell.exams.map((exam) => (
+                                <div
+                                  key={`hover_${cell.key}_${exam.id}`}
+                                  className="rounded-lg border border-slate-200 bg-slate-50 p-2"
+                                >
+                                  <p className="text-xs font-semibold text-slate-800">
+                                    {exam.courseCode || "-"} •{" "}
+                                    {exam.courseName || "Course"}
+                                  </p>
+                                  <p className="mt-1 text-[11px] text-slate-600">
+                                    {exam.time || "Time TBA"}
+                                    {exam.duration ? ` • ${exam.duration}` : ""}
+                                  </p>
+                                  <p className="text-[11px] text-slate-500">
+                                    {exam.branch || "Branch"}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            );
+          })()}
         </div>
       ) : (
         <p className="text-slate-500">No exams published yet for your class.</p>

@@ -1,446 +1,353 @@
-import React, { useEffect, useRef } from "react";
-import Footer from "../../components/common/Footer";
-import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
+import React from "react";
 import { motion } from "framer-motion";
-
+import {
+  ArrowRight,
+  Blocks,
+  Bot,
+  Compass,
+  GraduationCap,
+  LayoutPanelTop,
+  Rocket,
+  Shield,
+  Sparkles,
+  Users,
+} from "lucide-react";
+import { Link } from "react-router-dom";
+import Footer from "../../components/common/Footer";
 import about_img from "../../assets/building.jpg";
-import designstudents from "../../assets/designstudents.jpg";
-import connected_experience from "../../assets/connected_experience.jpg";
-import instant_updates from "../../assets/instant_updates.jpg";
-import feedback from "../../assets/feedback.jpg";
 
-gsap.registerPlugin(ScrollTrigger);
+const values = [
+  {
+    icon: Compass,
+    title: "Student-Centered Decisions",
+    description:
+      "Every major flow starts with real student pain points and time-saving intent.",
+  },
+  {
+    icon: Blocks,
+    title: "Modular Platform Thinking",
+    description:
+      "Announcements, attendance, timetable, and analytics all work as one connected system.",
+  },
+  {
+    icon: Shield,
+    title: "Integrity + Trust",
+    description:
+      "Role-aware access and verification layers keep campus operations reliable.",
+  },
+  {
+    icon: Rocket,
+    title: "Rapid Iteration",
+    description:
+      "We ship, learn, and refine continuously from usage patterns and feedback loops.",
+  },
+];
+
+const featureStories = [
+  {
+    tag: "Communication",
+    title: "Announcements that actually reach everyone",
+    detail:
+      "From critical alerts to academic reminders, notifications are built for high visibility and low friction.",
+  },
+  {
+    tag: "Academic Operations",
+    title: "Calendar and exam flow, centrally managed",
+    detail:
+      "Year-wise scheduling and structured previews reduce admin overhead and confusion.",
+  },
+  {
+    tag: "Attendance Intelligence",
+    title: "Face, QR, and biometric-ready workflows",
+    detail:
+      "Flexible attendance paths designed for both classroom speed and record confidence.",
+  },
+  {
+    tag: "Insights",
+    title: "Data-backed visibility for teachers and admins",
+    detail:
+      "Attendance analytics and trend surfaces help teams take action earlier.",
+  },
+];
+
+const team = [
+  {
+    name: "Viraj Koli",
+    role: "Architecture + Platform Logic",
+    focus: "Release stability, testing strategy, and deployment quality.",
+    aura: "from-[#eadfff] via-[#f5f1ff] to-[#fbf9ff]",
+    ring: "#9a82d8",
+  },
+  {
+    name: "Pallavi Patil",
+    role: "Frontend + Product Experience",
+    focus: "Design systems, UX choreography, and student-facing flows.",
+    aura: "from-[#ffdbcb] via-[#fff3ed] to-[#f8fbff]",
+    ring: "#f59f79",
+  },
+  {
+    name: "Rahul Brahmane",
+    role: "Backend + Attendance Intelligence",
+    focus: "Face-recognition pipelines, automation, and real-time services.",
+    aura: "from-[#d4f3ff] via-[#edfaff] to-[#f7fcff]",
+    ring: "#66b7d4",
+  },
+  {
+    name: "Durgesh Patil",
+    role: "User flow + Platform Reliability",
+    focus: "Face-recognition pipelines and high-confidence verification.",
+    aura: "from-[#ddeed9] via-[#f2fbf0] to-[#f9fdf8]",
+    ring: "#7ead75",
+  },
+];
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 40 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.55, ease: "easeOut" },
+  },
+};
+
+const staggerContainer = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.12 },
+  },
+};
 
 function About() {
-  const sectionRefs = useRef([]);
-  const cardRefs = useRef([]);
-  const whyRef = useRef(null);
-  const storyRef = useRef(null);
-  const visionRef = useRef(null);
-
-  useEffect(() => {
-    // Animate sections
-    sectionRefs.current.forEach((section) => {
-      gsap.fromTo(
-        section,
-        { opacity: 0, y: 50 },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 1,
-          ease: "power2.out",
-          scrollTrigger: {
-            trigger: section,
-            start: "top 80%",
-            end: "top 30%",
-            toggleActions: "play none none reverse",
-          },
-        },
-      );
-    });
-
-    cardRefs.current.forEach((card, index) => {
-      gsap.fromTo(
-        card,
-        { opacity: 0, y: 50 },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 1.5,
-          ease: "power2.out",
-          scrollTrigger: {
-            trigger: card,
-            start: "top 90%",
-            end: "top 60%",
-            scrub: true,
-            toggleActions: "play none none reverse",
-          },
-        },
-      );
-    });
-
-    gsap.fromTo(
-      whyRef.current,
-      { opacity: 1 },
-      {
-        opacity: 1, // Keep it fully visible
-        duration: 1,
-        scrollTrigger: {
-          trigger: whyRef.current,
-          start: "top 50%",
-          end: "top 20%",
-          scrub: true,
-          onUpdate: () => {
-            whyRef.current.style.fontWeight = "bold"; // Ensure it stays bold
-          },
-        },
-      },
-    );
-
-    gsap.fromTo(
-      storyRef.current,
-      { opacity: 0, x: -100 },
-      {
-        opacity: 1,
-        x: 0,
-        duration: 1,
-        ease: "power2.out",
-        scrollTrigger: {
-          trigger: storyRef.current,
-          start: "top 80%",
-          end: "top 50%",
-          scrub: true,
-        },
-      },
-    );
-
-    gsap.fromTo(
-      visionRef.current,
-      { opacity: 0, x: 100 },
-      {
-        opacity: 1,
-        x: 0,
-        duration: 1,
-        ease: "power2.out",
-        scrollTrigger: {
-          trigger: visionRef.current,
-          start: "top 90%",
-          end: "top 70%",
-          scrub: true,
-          toggleActions: "play none none reverse",
-        },
-      },
-    );
-  }, []);
-
-  const impactCards = [
-    {
-      title: "Designed for Students",
-      emoji: "🎓",
-      description:
-        "Built specifically to simplify and improve the everyday lives of college students and campus communities.",
-      image: designstudents,
-      imageAlt: "Design for Students",
-      gradient: "from-blue-500/5 to-purple-500/5",
-    },
-    {
-      title: "Connected Experience",
-      emoji: "🔗",
-      description:
-        "Focused on building a seamless and more organized digital campus with real-time collaboration.",
-      image: connected_experience,
-      imageAlt: "Connected Experience",
-      gradient: "from-green-500/5 to-emerald-500/5",
-    },
-    {
-      title: "Instant Updates",
-      emoji: "📣",
-      description:
-        "Never miss important announcements, events, or notices — stay updated at all times.",
-      image: instant_updates,
-      imageAlt: "Instant Updates",
-      gradient: "from-orange-500/5 to-yellow-500/5",
-    },
-    {
-      title: "Constantly Evolving",
-      emoji: "🌱",
-      description:
-        "We're actively developing and always open to feedback to make CampusConnect even better.",
-      image: feedback,
-      imageAlt: "Feedback",
-      gradient: "from-pink-500/5 to-purple-500/5",
-    },
-  ];
-
   return (
-    <div className="bg-gradient-to-b from-white to-gray-50">
-      {/* Hero Section with Image */}
-      <div className="relative h-[70vh] overflow-hidden">
-        {/* Image with Overlay */}
-        <div className="absolute inset-0">
-          <img
-            src={about_img}
-            alt="Campus Building"
-            className="w-full h-full object-cover"
-          />
-          {/* Gradient Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-white"></div>
-        </div>
+    <div className="bg-[#f6f7fb] text-slate-800">
+      <section className="relative isolate h-[72vh] overflow-hidden">
+        <img
+          src={about_img}
+          alt="Campus Building"
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-[#f6f7fb]" />
 
-        {/* Hero Content */}
-        <div className="relative z-10 h-full flex flex-col justify-center items-center text-white px-6">
+        <div className="relative z-10 mx-auto flex h-full max-w-7xl items-center px-4 sm:px-6 lg:px-8">
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="text-center"
-          >
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
-              className="mb-6"
-            >
-              <span className="inline-block px-6 py-3 bg-white/20 backdrop-blur-md rounded-full text-sm font-semibold border border-white/30">
-                🎓 Learn More About Us
-              </span>
-            </motion.div>
-
-            <motion.h1
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
-              className="text-5xl md:text-7xl font-extrabold mb-6 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent"
-            >
-              About CampusConnect
-            </motion.h1>
-
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.7 }}
-              className="text-xl md:text-2xl font-light max-w-3xl mx-auto text-gray-100"
-            >
-              Empowering students to connect, collaborate, and thrive together
-            </motion.p>
-          </motion.div>
-        </div>
-
-        {/* Scroll Indicator */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.2 }}
-          className="absolute bottom-10 left-1/2 transform -translate-x-1/2 z-10"
-        >
-          <motion.div
-            animate={{ y: [0, 10, 0] }}
-            transition={{ duration: 1.5, repeat: Infinity }}
-            className="text-white text-center"
-          >
-            <div className="text-sm mb-2">Scroll Down</div>
-            <div className="w-6 h-10 border-2 border-white rounded-full mx-auto flex justify-center">
-              <motion.div
-                animate={{ y: [0, 12, 0] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
-                className="w-1.5 h-1.5 bg-white rounded-full mt-2"
-              />
-            </div>
-          </motion.div>
-        </motion.div>
-      </div>
-
-      {/* About Us Section */}
-      <section
-        className="py-24 px-6 relative overflow-hidden"
-        ref={(el) => (sectionRefs.current[0] = el)}
-      >
-        {/* Decorative Elements */}
-        <div className="absolute top-0 left-0 w-96 h-96 bg-blue-200 rounded-full filter blur-3xl opacity-20"></div>
-        <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-200 rounded-full filter blur-3xl opacity-20"></div>
-
-        <div className="max-w-4xl mx-auto text-center relative z-10">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
             transition={{ duration: 0.6 }}
+            className="max-w-3xl text-white"
           >
-            <span className="inline-block px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full text-sm font-semibold mb-6">
-              ✨ Our Journey
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.15em]">
+              <Sparkles className="h-3.5 w-3.5" />
+              About CampusConnect
             </span>
-            <h2 className="text-4xl md:text-5xl font-bold mb-8 text-gray-800">
-              About{" "}
-              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                CampusConnect
+            <h1 className="mt-5 text-4xl font-bold leading-tight sm:text-6xl">
+              Building the digital spine
+              <span className="block bg-gradient-to-r from-[#9fd5ff] via-[#d3b9ff] to-[#ffc3a6] bg-clip-text text-transparent">
+                for student life
               </span>
-            </h2>
-            <p className="text-lg md:text-xl text-gray-600 leading-relaxed">
-              CampusConnect was envisioned in 2025 as a simple idea—to create a
-              digital space that connects every student, club, and event in a
-              single college community. What started as a basic project to
-              simplify communication has now evolved into a platform aimed at
-              transforming student life.
+            </h1>
+            <p className="mt-4 max-w-2xl text-base text-white/90 sm:text-lg">
+              Started by four developers, CampusConnect turns scattered campus
+              workflows into one elegant, dependable platform.
             </p>
-            <div className="mt-8 p-6 bg-gradient-to-br from-blue-50 to-purple-50 rounded-3xl border border-gray-100">
-              <p className="text-lg text-gray-700 leading-relaxed">
-                From announcements and events to resources and real-time
-                discussions, CampusConnect makes it all accessible in one place.
-                Whether you're a fresher or final-year student, it helps you
-                stay connected, informed, and involved.
-              </p>
-            </div>
           </motion.div>
         </div>
       </section>
 
-      {/* How We're Changing Campus Life */}
-      <section
-        className="bg-gradient-to-b from-gray-50 to-white py-24 px-6"
-        ref={(el) => (sectionRefs.current[1] = el)}
-      >
-        <div className="max-w-7xl mx-auto">
+      <section className="px-4 py-20 sm:px-6 lg:px-8">
+        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.2fr_0.8fr]">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 18 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-center mb-16"
+            transition={{ duration: 0.5 }}
+            className="rounded-[2rem] border border-slate-200 bg-white p-7 shadow-sm sm:p-10"
           >
-            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-gray-800">
-              How We're Changing{" "}
-              <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                Campus Life
-              </span>
+            <span className="inline-flex items-center gap-2 rounded-full bg-[#ebf5ff] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#1f668c]">
+              <GraduationCap className="h-4 w-4" />
+              Our Mission
+            </span>
+            <h2 className="mt-4 text-3xl font-bold text-slate-800 sm:text-4xl">
+              Simplify campus operations without losing human connection
             </h2>
-            <p className="text-xl text-gray-600">
-              Making student life simpler, smarter, and more connected
+            <p className="mt-4 text-slate-600">
+              We are designing a platform where communication, attendance,
+              scheduling, and academic planning feel coherent instead of
+              fragmented. CampusConnect is focused on reducing admin fatigue and
+              improving student clarity every day.
+            </p>
+
+            <div className="mt-7 grid gap-3 sm:grid-cols-2">
+              {[
+                "Unified admin-teacher-student experience",
+                "Reliable reminders and communication loops",
+                "Attendance integrity with modern verification",
+                "Scalable architecture for campus growth",
+              ].map((line) => (
+                <div
+                  key={line}
+                  className="rounded-xl border border-slate-200 bg-[#fafcff] px-4 py-3 text-sm font-medium text-slate-700"
+                >
+                  {line}
+                </div>
+              ))}
+            </div>
+          </motion.div>
+
+          <motion.aside
+            initial={{ opacity: 0, y: 18 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.05 }}
+            className="rounded-[2rem] border border-slate-200 bg-gradient-to-br from-[#0f4e6b] via-[#1c6a8d] to-[#2e8cb6] p-7 text-white shadow-sm sm:p-10"
+          >
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-white/90">
+              <LayoutPanelTop className="h-4 w-4" />
+              Platform Snapshot
+            </span>
+            <div className="mt-5 space-y-3 text-sm text-white/95">
+              <p>12+ major modules integrated under one product surface.</p>
+              <p>
+                Role-specific flows for admin, teacher, and student contexts.
+              </p>
+              <p>Real-time notifications and exam reminder support.</p>
+              <p>Attendance stack powered by AI-first capabilities.</p>
+            </div>
+          </motion.aside>
+        </div>
+      </section>
+
+      <section className="relative overflow-hidden bg-[#f2f6ff] px-4 py-20 sm:px-6 lg:px-8">
+        <div className="pointer-events-none absolute -top-16 left-0 h-72 w-72 rounded-full bg-[#c8dcff]/45 blur-3xl" />
+
+        <div className="mx-auto max-w-7xl">
+          <motion.div
+            initial={{ opacity: 0, y: 22 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+            className="mb-10 text-center"
+          >
+            <span className="inline-flex items-center gap-2 rounded-full border border-[#b2c7ef] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#355c9d]">
+              <Bot className="h-3.5 w-3.5" />
+              What We Are Building
+            </span>
+            <h2 className="mt-4 text-4xl font-bold text-slate-800 sm:text-5xl">
+              Design, intelligence, and workflow depth
+            </h2>
+          </motion.div>
+
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={staggerContainer}
+            className="grid gap-5 md:grid-cols-2"
+          >
+            {featureStories.map((story) => (
+              <motion.article
+                key={story.title}
+                variants={fadeInUp}
+                whileHover={{ y: -6 }}
+                className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-300 hover:shadow-xl"
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#3c6ca8]">
+                  {story.tag}
+                </p>
+                <h3 className="mt-2 text-2xl font-semibold text-slate-800">
+                  {story.title}
+                </h3>
+                <p className="mt-3 text-sm leading-relaxed text-slate-600">
+                  {story.detail}
+                </p>
+              </motion.article>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      <section className="relative overflow-hidden bg-[#f2f6ff] px-4 py-20 sm:px-6 lg:px-8">
+        <div className="pointer-events-none absolute -top-16 right-0 h-64 w-64 rounded-full bg-[#ced8ff]/40 blur-3xl" />
+
+        <div className="mx-auto max-w-7xl">
+          <motion.div
+            initial={{ opacity: 0, y: 22 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+            className="mb-10 text-center"
+          >
+            <span className="inline-flex items-center gap-2 rounded-full border border-[#b6c8ef] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#3d5b9a]">
+              <Users className="h-3.5 w-3.5" />
+              Team Behind CampusConnect
+            </span>
+            <h2 className="mt-4 text-4xl font-bold text-slate-800 sm:text-5xl">
+              Four minds, one campus-grade mission
+            </h2>
+            <p className="mx-auto mt-3 max-w-3xl text-slate-600">
+              A compact developer squad blending product design, AI attendance,
+              backend architecture, and release discipline.
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-10 items-stretch">
-            {impactCards.map((card, index) => (
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={staggerContainer}
+            className="grid gap-5 md:grid-cols-2 xl:grid-cols-4"
+          >
+            {team.map((member, index) => (
               <motion.div
-                key={card.title}
-                initial={{ opacity: 0, y: 50 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
-                whileHover={{ y: -10 }}
-                className="relative h-full"
-                ref={(el) => (cardRefs.current[index] = el)}
+                key={member.name}
+                variants={fadeInUp}
+                whileHover={{ y: -8 }}
+                className={`rounded-3xl border border-slate-200 bg-gradient-to-br ${member.aura} p-5 shadow-sm transition-all duration-300 hover:shadow-xl`}
               >
-                <div className="h-full min-h-[360px] bg-white rounded-3xl p-6 md:p-7 shadow-lg hover:shadow-2xl transition-all duration-300 flex flex-col items-center text-center relative overflow-hidden group border border-gray-100">
-                  <div
-                    className={`absolute inset-0 bg-gradient-to-br ${card.gradient} opacity-0 group-hover:opacity-100 transition-opacity`}
-                  ></div>
-
-                  <div className="w-24 h-24 md:w-28 md:h-28 mb-5 rounded-2xl overflow-hidden shadow-xl relative z-10 ring-4 ring-white bg-gray-100">
-                    <img
-                      src={card.image}
-                      alt={card.imageAlt}
-                      className="w-full h-full object-cover object-center transform group-hover:scale-105 transition-transform duration-300"
-                    />
-                  </div>
-
-                  <div className="relative z-10 flex-1 flex flex-col">
-                    <div className="text-4xl mb-3">{card.emoji}</div>
-                    <h3 className="text-xl font-bold mb-4 text-gray-800 min-h-[56px] flex items-center justify-center">
-                      {card.title}
-                    </h3>
-                    <p className="text-gray-600 text-base leading-relaxed">
-                      {card.description}
-                    </p>
-                  </div>
+                <div
+                  className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl border bg-white text-sm font-bold"
+                  style={{ borderColor: member.ring, color: member.ring }}
+                >
+                  {String(index + 1).padStart(2, "0")}
                 </div>
+                <h3 className="text-lg font-semibold text-slate-800">
+                  {member.name}
+                </h3>
+                <p className="mt-1 text-sm font-medium text-slate-700">
+                  {member.role}
+                </p>
+                <p className="mt-3 text-sm leading-relaxed text-slate-600">
+                  {member.focus}
+                </p>
               </motion.div>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
 
-      {/* Why, Story, Vision Section */}
-      <section
-        className="py-24 px-6 bg-white relative overflow-hidden"
-        ref={(el) => (sectionRefs.current[2] = el)}
-      >
-        <div className="max-w-6xl mx-auto space-y-20">
-          {/* Why CampusConnect */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center"
-            ref={whyRef}
+      <section className="px-4 pb-20 sm:px-6 lg:px-8">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="mx-auto flex max-w-5xl flex-col items-center rounded-[2rem] border border-slate-200 bg-white px-6 py-10 text-center shadow-sm sm:px-10"
+        >
+          <h3 className="text-3xl font-bold text-slate-800 sm:text-4xl">
+            Want to explore CampusConnect in action?
+          </h3>
+          <p className="mt-3 max-w-3xl text-slate-600">
+            See how your campus can move from isolated tools to one beautiful,
+            student-focused operating layer.
+          </p>
+          <Link
+            to="/login"
+            className="mt-7 inline-flex items-center gap-2 rounded-2xl bg-[#145d80] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#0f4a67]"
           >
-            <div className="inline-block px-6 py-3 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full mb-6">
-              <span className="text-blue-600 font-semibold">
-                💡 Our Purpose
-              </span>
-            </div>
-            <h2 className="text-4xl md:text-5xl font-bold mb-6 text-gray-800">
-              Why{" "}
-              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                CampusConnect
-              </span>
-              ?
-            </h2>
-            <p className="text-xl text-gray-600 leading-relaxed max-w-4xl mx-auto">
-              We're not just building a website — we're building a student
-              ecosystem. CampusConnect is the bridge between students, clubs,
-              events, and college life.
-            </p>
-          </motion.div>
-
-          {/* Our Story & Vision - Side by Side */}
-          <div className="grid md:grid-cols-2 gap-12">
-            {/* Our Story */}
-            <motion.div
-              initial={{ opacity: 0, x: -50 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6 }}
-              className="relative"
-              ref={storyRef}
-            >
-              <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-3xl p-10 border border-gray-100 h-full hover:shadow-xl transition-shadow">
-                <div className="absolute -top-6 -left-6 w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center text-white text-2xl shadow-lg">
-                  📖
-                </div>
-                <div className="mt-4">
-                  <h3 className="text-3xl font-bold mb-6 text-gray-800">
-                    Our Story
-                  </h3>
-                  <p className="text-lg text-gray-700 leading-relaxed">
-                    Started by 4 students with a shared vision — we dreamed of a
-                    cleaner, smarter way to stay connected on campus. What began
-                    as a side project is now a growing platform that empowers
-                    every student's journey.
-                  </p>
-                  <div className="mt-8 flex items-center gap-4">
-                    <div className="w-16 h-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full"></div>
-                    <span className="text-sm text-gray-500 font-medium">
-                      Since 2025
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Our Vision */}
-            <motion.div
-              initial={{ opacity: 0, x: 50 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6 }}
-              className="relative"
-              ref={visionRef}
-            >
-              <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-3xl p-10 border border-gray-100 h-full hover:shadow-xl transition-shadow">
-                <div className="absolute -top-6 -right-6 w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center text-white text-2xl shadow-lg">
-                  🚀
-                </div>
-                <div className="mt-4">
-                  <h3 className="text-3xl font-bold mb-6 text-gray-800">
-                    Our Vision
-                  </h3>
-                  <p className="text-lg text-gray-700 leading-relaxed">
-                    To create a centralized, interactive, and student-driven hub
-                    for every college in the country. From real-time event
-                    updates to simplified communications — CampusConnect is your
-                    all-in-one campus companion.
-                  </p>
-                  <div className="mt-8 flex items-center gap-4 justify-end">
-                    <span className="text-sm text-gray-500 font-medium">
-                      Expanding Nationwide
-                    </span>
-                    <div className="w-16 h-1 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full"></div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        </div>
+            Start Exploring
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </motion.div>
       </section>
 
       <Footer />

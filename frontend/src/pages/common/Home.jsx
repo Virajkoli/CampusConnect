@@ -1,23 +1,26 @@
 import AnnouncementsBanner from "../../components/common/AnnouncementsBanner";
+import Footer from "../../components/common/Footer";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { auth } from "../../firebase";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-  FaBell,
-  FaUsers,
-  FaBookOpen,
-  FaChartLine,
-  FaCalendarAlt,
-  FaComments,
-  FaRocket,
-  FaStar,
-  FaCheckCircle,
-  FaGraduationCap,
-  FaLaptopCode,
-  FaMobileAlt,
-  FaShieldAlt,
-} from "react-icons/fa";
+  ArrowRight,
+  Bell,
+  BookOpen,
+  CalendarClock,
+  CalendarRange,
+  ChartColumnBig,
+  CheckCircle2,
+  Fingerprint,
+  LayoutDashboard,
+  MessageSquare,
+  QrCode,
+  ScanFace,
+  ShieldCheck,
+  Sparkles,
+  Users,
+} from "lucide-react";
 
 function Home() {
   const [user] = useAuthState(auth);
@@ -36,46 +39,164 @@ function Home() {
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.2,
+        staggerChildren: 0.12,
       },
     },
   };
 
-  const scaleIn = {
-    hidden: { scale: 0.8, opacity: 0 },
-    visible: {
-      scale: 1,
-      opacity: 1,
-      transition: { duration: 0.5 },
+  const featureTiles = [
+    {
+      icon: LayoutDashboard,
+      title: "Role-Based Dashboards",
+      description:
+        "Student, teacher, and admin workflows in one consistent interface.",
+      accent: "from-[#125c7f] to-[#1d8cbf]",
+      bg: "from-[#e8f6ff] to-[#f6fbff]",
     },
-  };
+    {
+      icon: Bell,
+      title: "Announcements + Alerts",
+      description:
+        "Real-time communication that keeps everyone synced and informed.",
+      accent: "from-[#c95f2f] to-[#ef7f4f]",
+      bg: "from-[#fff1e8] to-[#fff8f3]",
+    },
+    {
+      icon: CalendarRange,
+      title: "Academic Calendar",
+      description:
+        "Institution events, holidays, and timelines in a clean visual view.",
+      accent: "from-[#2f7a4f] to-[#43a16a]",
+      bg: "from-[#e9f9ef] to-[#f5fdf8]",
+    },
+    {
+      icon: CalendarClock,
+      title: "Exam Timetable Engine",
+      description:
+        "Year-wise scheduling with branch-aware mapping and preview validation.",
+      accent: "from-[#6244b8] to-[#7a5bd1]",
+      bg: "from-[#f1edff] to-[#f8f5ff]",
+    },
+    {
+      icon: ScanFace,
+      title: "Face Attendance",
+      description:
+        "AI-assisted identity checks for secure and fast attendance capture.",
+      accent: "from-[#1f6d78] to-[#2a93a1]",
+      bg: "from-[#e6f8fa] to-[#f2fcfd]",
+    },
+    {
+      icon: QrCode,
+      title: "QR Attendance",
+      description:
+        "Scan-based class marking for low-friction attendance operations.",
+      accent: "from-[#8c5a12] to-[#b27919]",
+      bg: "from-[#fff6e7] to-[#fffbf2]",
+    },
+    {
+      icon: Fingerprint,
+      title: "Biometric Verification",
+      description: "Additional integrity layer for attendance confidence.",
+      accent: "from-[#7a3b4d] to-[#a44f68]",
+      bg: "from-[#fff0f5] to-[#fff7fa]",
+    },
+    {
+      icon: BookOpen,
+      title: "Study Resources",
+      description:
+        "Subjects, notes, and materials with faster in-app discoverability.",
+      accent: "from-[#3366a0] to-[#4f84c5]",
+      bg: "from-[#ecf4ff] to-[#f7faff]",
+    },
+    {
+      icon: MessageSquare,
+      title: "Campus Chat",
+      description:
+        "Direct communication between students, teachers, and communities.",
+      accent: "from-[#355f56] to-[#4a8678]",
+      bg: "from-[#ebf7f3] to-[#f6fcfa]",
+    },
+    {
+      icon: ChartColumnBig,
+      title: "Analytics + Insights",
+      description:
+        "Attendance trends and data-backed decision support for faculty.",
+      accent: "from-[#7a4a1b] to-[#a56627]",
+      bg: "from-[#fff2e8] to-[#fff9f4]",
+    },
+    {
+      icon: ShieldCheck,
+      title: "Protected Access",
+      description: "Route guards and role validation across the platform.",
+      accent: "from-[#2c5f76] to-[#3f85a5]",
+      bg: "from-[#ebf8ff] to-[#f6fcff]",
+    },
+    {
+      icon: Users,
+      title: "Unified Campus Layer",
+      description:
+        "Designed to keep departments, batches, and stakeholders aligned.",
+      accent: "from-[#55426f] to-[#755a97]",
+      bg: "from-[#f2edfb] to-[#faf7ff]",
+    },
+  ];
+
+  const team = [
+    {
+      name: "Viraj Koli",
+      role: "Architecture + Platform Logic",
+      focus: "Release stability, testing strategy, and deployment quality.",
+      aura: "from-[#eadfff] via-[#f5f1ff] to-[#fbf9ff]",
+      ring: "#9a82d8",
+    },
+    {
+      name: "Pallavi Patil",
+      role: "Frontend + Product Experience",
+      focus: "Design systems, UX choreography, and student-facing flows.",
+      aura: "from-[#ffdbcb] via-[#fff3ed] to-[#f8fbff]",
+      ring: "#f59f79",
+    },
+    {
+      name: "Rahul Brahmane",
+      role: "Backend + Attendance Intelligence",
+      focus: "Face-recognition pipelines, automation, and real-time services.",
+      aura: "from-[#d4f3ff] via-[#edfaff] to-[#f7fcff]",
+      ring: "#66b7d4",
+    },
+    {
+      name: "Durgesh Patil",
+      role: "User flow + Platform Reliability",
+      focus: "Face-recognition pipelines and high-confidence verification.",
+      aura: "from-[#ddeed9] via-[#f2fbf0] to-[#f9fdf8]",
+      ring: "#7ead75",
+    },
+  ];
 
   return (
-    <main className="overflow-x-hidden">
-      {/* Display AnnouncementsBanner for logged in users */}
+    <main className="overflow-x-hidden bg-[#f6f7fb] text-slate-800">
       {user && <AnnouncementsBanner />}
 
-      {/* Hero Section with Video Background */}
-      <section className="relative h-screen w-full overflow-hidden">
+      {/* Hero section with modernized controls */}
+      <section className="relative h-screen w-full overflow-hidden bg-black">
         <video
-          className="absolute top-0 left-0 w-full h-full object-cover z-[-1]"
+          className="absolute inset-0 h-full w-full object-cover z-0"
           autoPlay
           loop
           muted
           playsInline
+          preload="auto"
         >
           <source src="/video.mp4" type="video/mp4" />
           Your browser does not support the video tag.
         </video>
 
-        {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/70 z-0"></div>
+        <div className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-b from-black/50 via-black/30 to-black/70"></div>
 
         <motion.div
           initial="hidden"
           animate="visible"
           variants={staggerContainer}
-          className="relative z-10 flex flex-col justify-center items-center h-full text-white text-center px-4"
+          className="relative z-20 flex h-full flex-col items-center justify-center px-4 text-center text-white"
         >
           <motion.div variants={fadeInUp} className="mb-6">
             <span className="inline-block px-6 py-2 bg-white/10 backdrop-blur-md rounded-full text-sm font-semibold border border-white/20">
@@ -99,249 +220,80 @@ function Home() {
 
           <motion.div
             variants={fadeInUp}
-            className="flex gap-4 flex-wrap justify-center"
+            className="flex flex-wrap items-center justify-center gap-3 sm:gap-4"
           >
             {!user ? (
               <>
                 <Link to="/student-auth">
-                  <button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-4 px-8 rounded-full shadow-2xl transform hover:scale-105 transition-all duration-300">
+                  <button className="group inline-flex items-center gap-2 rounded-full border border-white/30 bg-white px-6 py-3 text-sm font-semibold text-slate-900 shadow-[0_14px_40px_rgba(0,0,0,0.28)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_44px_rgba(0,0,0,0.34)] sm:px-8 sm:py-4 sm:text-base">
                     Get Started Free
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                   </button>
                 </Link>
-                <button className="bg-white/10 backdrop-blur-md hover:bg-white/20 text-white font-bold py-4 px-8 rounded-full border-2 border-white/30 transform hover:scale-105 transition-all duration-300">
+                <button className="inline-flex items-center gap-2 rounded-full border border-white/35 bg-[#0c1b2d]/30 px-6 py-3 text-sm font-semibold text-white backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-[#0c1b2d]/45 sm:px-8 sm:py-4 sm:text-base">
                   Watch Demo
                 </button>
               </>
             ) : (
               <Link to="/student-dashboard">
-                <button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-4 px-8 rounded-full shadow-2xl transform hover:scale-105 transition-all duration-300">
+                <button className="group inline-flex items-center gap-2 rounded-full border border-white/30 bg-white px-6 py-3 text-sm font-semibold text-slate-900 shadow-[0_14px_40px_rgba(0,0,0,0.28)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_44px_rgba(0,0,0,0.34)] sm:px-8 sm:py-4 sm:text-base">
                   Go to Dashboard
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 </button>
               </Link>
             )}
           </motion.div>
-        </motion.div>
-      </section>
 
-      {/* Features Section */}
-      <section className="py-24 bg-gradient-to-b from-white via-blue-50 to-purple-50 relative overflow-hidden">
-        {/* Decorative Background Elements */}
-        <div className="absolute top-0 left-0 w-96 h-96 bg-blue-300 rounded-full filter blur-3xl opacity-10 -translate-x-1/2 -translate-y-1/2"></div>
-        <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-300 rounded-full filter blur-3xl opacity-10 translate-x-1/2 translate-y-1/2"></div>
-
-        <div className="max-w-7xl mx-auto px-6 relative z-10">
           <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
             variants={fadeInUp}
-            className="text-center mb-16"
-          >
-            <span className="inline-block px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full text-sm font-semibold mb-4">
-              ✨ Powerful Features
-            </span>
-            <h2 className="text-5xl md:text-6xl font-bold text-gray-800 mb-4">
-              Everything You Need in
-              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                {" "}
-                One Place
-              </span>
-            </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Streamline your campus experience with our comprehensive suite of
-              tools
-            </p>
-          </motion.div>
-
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={staggerContainer}
-            className="grid md:grid-cols-2 lg:grid-cols-3 gap-8"
+            className="mt-7 grid w-full max-w-3xl grid-cols-1 gap-3 px-3 sm:grid-cols-3 sm:px-0"
           >
             {[
-              {
-                icon: <FaBell className="w-8 h-8" />,
-                title: "Instant Notifications",
-                description:
-                  "Never miss important announcements, deadlines, or campus events with real-time push notifications.",
-                gradient: "from-blue-500 to-blue-600",
-                bgGradient: "from-blue-50 to-blue-100",
-              },
-              {
-                icon: <FaUsers className="w-8 h-8" />,
-                title: "Connected Community",
-                description:
-                  "Build meaningful relationships with peers, mentors, and faculty across departments.",
-                gradient: "from-green-500 to-emerald-600",
-                bgGradient: "from-green-50 to-emerald-100",
-              },
-              {
-                icon: <FaBookOpen className="w-8 h-8" />,
-                title: "Study Materials",
-                description:
-                  "Access course materials, notes, and resources organized by subject and semester.",
-                gradient: "from-purple-500 to-purple-600",
-                bgGradient: "from-purple-50 to-purple-100",
-              },
-              {
-                icon: <FaCalendarAlt className="w-8 h-8" />,
-                title: "Smart Timetable",
-                description:
-                  "Interactive calendar with class schedules, exam dates, and personalized reminders.",
-                gradient: "from-orange-500 to-orange-600",
-                bgGradient: "from-orange-50 to-orange-100",
-              },
-              {
-                icon: <FaComments className="w-8 h-8" />,
-                title: "Discussion Forums",
-                description:
-                  "Engage in meaningful conversations, ask questions, and share knowledge with the community.",
-                gradient: "from-pink-500 to-pink-600",
-                bgGradient: "from-pink-50 to-pink-100",
-              },
-              {
-                icon: <FaChartLine className="w-8 h-8" />,
-                title: "Performance Analytics",
-                description:
-                  "Track your academic progress with detailed insights and personalized recommendations.",
-                gradient: "from-indigo-500 to-indigo-600",
-                bgGradient: "from-indigo-50 to-indigo-100",
-              },
-            ].map((feature, index) => (
-              <motion.div
-                key={index}
-                variants={scaleIn}
-                whileHover={{ y: -10, transition: { duration: 0.3 } }}
-                className={`bg-gradient-to-br ${feature.bgGradient} p-8 rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 group`}
+              { label: "Role Flows", value: "Student • Teacher • Admin" },
+              { label: "Attendance", value: "Face • QR • Biometric" },
+              { label: "Communication", value: "Realtime Alerts + Chat" },
+            ].map((item) => (
+              <div
+                key={item.label}
+                className="rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-left backdrop-blur-md"
               >
-                <div
-                  className={`w-16 h-16 bg-gradient-to-br ${feature.gradient} rounded-2xl flex items-center justify-center mb-6 text-white transform group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300`}
-                >
-                  {feature.icon}
-                </div>
-                <h3 className="text-2xl font-bold mb-3 text-gray-800">
-                  {feature.title}
-                </h3>
-                <p className="text-gray-600 leading-relaxed">
-                  {feature.description}
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-200">
+                  {item.label}
                 </p>
-              </motion.div>
+                <p className="mt-1 text-sm font-medium text-white">
+                  {item.value}
+                </p>
+              </div>
             ))}
           </motion.div>
-        </div>
+        </motion.div>
       </section>
 
-      {/* How It Works Section */}
-      <section className="py-24 bg-white relative">
-        <div className="max-w-7xl mx-auto px-6">
+      <section className="relative isolate overflow-hidden px-4 py-20 sm:px-6 lg:px-8">
+        <div className="pointer-events-none absolute -top-24 -left-20 h-72 w-72 rounded-full bg-[#9ec6ff]/35 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-0 right-0 h-80 w-80 rounded-full bg-[#ffd6b8]/35 blur-3xl" />
+
+        <div className="mx-auto max-w-7xl">
           <motion.div
-            initial="hidden"
-            whileInView="visible"
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            variants={fadeInUp}
-            className="text-center mb-20"
+            transition={{ duration: 0.5 }}
+            className="mb-10 text-center"
           >
-            <span className="inline-block px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full text-sm font-semibold mb-4">
-              🚀 Simple Process
+            <span className="inline-flex items-center gap-2 rounded-full border border-[#9ab8d9] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#1b5777]">
+              <Sparkles className="h-3.5 w-3.5" />
+              Platform Surface
             </span>
-            <h2 className="text-5xl md:text-6xl font-bold text-gray-800 mb-4">
-              Get Started in{" "}
-              <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                3 Easy Steps
+            <h2 className="mt-4 text-4xl font-bold tracking-tight text-slate-800 sm:text-5xl">
+              Campus Operations,
+              <span className="block bg-gradient-to-r from-[#1d7098] via-[#3b86b1] to-[#c96d3f] bg-clip-text text-transparent">
+                Beautifully Unified
               </span>
             </h2>
-          </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-12 relative">
-            {/* Connection Lines */}
-            <div className="hidden md:block absolute top-1/4 left-1/6 right-1/6 h-1 bg-gradient-to-r from-purple-200 via-pink-200 to-orange-200"></div>
-
-            {[
-              {
-                step: "01",
-                title: "Create Account",
-                description:
-                  "Sign up with your college email and verify your identity in seconds",
-                icon: <FaRocket />,
-                color: "purple",
-              },
-              {
-                step: "02",
-                title: "Complete Profile",
-                description:
-                  "Add your details, interests, and academic information to personalize your experience",
-                icon: <FaGraduationCap />,
-                color: "pink",
-              },
-              {
-                step: "03",
-                title: "Start Connecting",
-                description:
-                  "Join discussions, access materials, and stay updated with campus life",
-                icon: <FaCheckCircle />,
-                color: "orange",
-              },
-            ].map((item, index) => (
-              <motion.div
-                key={index}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true }}
-                variants={{
-                  hidden: { opacity: 0, y: 50 },
-                  visible: {
-                    opacity: 1,
-                    y: 0,
-                    transition: { delay: index * 0.2, duration: 0.6 },
-                  },
-                }}
-                className="relative"
-              >
-                <div
-                  className={`w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-${item.color}-500 to-${item.color}-600 flex items-center justify-center text-white text-3xl shadow-xl relative z-10`}
-                >
-                  {item.icon}
-                </div>
-                <div className="text-center">
-                  <div
-                    className={`text-6xl font-bold text-${item.color}-200 mb-2`}
-                  >
-                    {item.step}
-                  </div>
-                  <h3 className="text-2xl font-bold text-gray-800 mb-3">
-                    {item.title}
-                  </h3>
-                  <p className="text-gray-600">{item.description}</p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials */}
-      <section className="py-24 bg-gradient-to-b from-gray-50 to-white">
-        <div className="max-w-7xl mx-auto px-6">
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={fadeInUp}
-            className="text-center mb-16"
-          >
-            <span className="inline-block px-4 py-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-full text-sm font-semibold mb-4">
-              ⭐ Success Stories
-            </span>
-            <h2 className="text-5xl md:text-6xl font-bold text-gray-800 mb-4">
-              Loved by{" "}
-              <span className="bg-gradient-to-r from-yellow-500 to-orange-500 bg-clip-text text-transparent">
-                Thousands
-              </span>
-            </h2>
-            <p className="text-xl text-gray-600">
-              See what our community members are saying
+            <p className="mx-auto mt-4 max-w-3xl text-base text-slate-600 sm:text-lg">
+              Every major feature of CampusConnect, presented as one integrated
+              digital campus cockpit.
             </p>
           </motion.div>
 
@@ -350,343 +302,116 @@ function Home() {
             whileInView="visible"
             viewport={{ once: true }}
             variants={staggerContainer}
-            className="grid md:grid-cols-3 gap-8"
+            className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3"
           >
-            {[
-              {
-                name: "Pallavi Patil",
-                role: "Computer Science, Final Year",
-                avatar: "👩‍💻",
-                rating: 5,
-                text: "CampusConnect transformed my college experience! The study materials feature helped me ace my exams, and I've made amazing connections through the discussion forums.",
-                highlight: "98% grade improvement",
-              },
-              {
-                name: "Rahul Brahmane",
-                role: "Computer Science, Final Year",
-                avatar: "👨‍💼",
-                rating: 5,
-                text: "As a club leader, reaching 3000+ students with event announcements was impossible before. Now our engagement has tripled! The announcement system is a game-changer.",
-                highlight: "3x engagement boost",
-              },
-              {
-                name: "Durgesh Patil",
-                role: "Computer Science, Final Year",
-                avatar: "👩‍🔬",
-                rating: 5,
-                text: "The timetable feature keeps me organized, and the real-time notifications ensure I never miss important deadlines. Plus, seniors mentoring through chat is invaluable!",
-                highlight: "Zero missed deadlines",
-              },
-            ].map((testimonial, index) => (
-              <motion.div
-                key={index}
-                variants={scaleIn}
-                whileHover={{ y: -10, transition: { duration: 0.3 } }}
-                className="bg-white p-8 rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 relative overflow-hidden group"
-              >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-yellow-200 to-orange-200 rounded-full filter blur-3xl opacity-30 group-hover:opacity-50 transition-opacity"></div>
-
-                <div className="relative z-10">
-                  <div className="flex items-center mb-4">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-3xl mr-4">
-                      {testimonial.avatar}
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-gray-800">
-                        {testimonial.name}
-                      </h4>
-                      <p className="text-sm text-gray-600">
-                        {testimonial.role}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex mb-4">
-                    {[...Array(testimonial.rating)].map((_, i) => (
-                      <FaStar key={i} className="text-yellow-400 w-5 h-5" />
-                    ))}
-                  </div>
-
-                  <p className="text-gray-700 mb-4 leading-relaxed italic">
-                    "{testimonial.text}"
-                  </p>
-
-                  <div className="inline-block px-4 py-2 bg-gradient-to-r from-yellow-100 to-orange-100 rounded-full">
-                    <span className="text-sm font-semibold text-orange-700">
-                      💡 {testimonial.highlight}
-                    </span>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Why Choose Us */}
-      <section className="py-24 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 relative overflow-hidden">
-        {/* Animated Background Elements */}
-        <div className="absolute inset-0">
-          <div className="absolute top-10 left-10 w-72 h-72 bg-white rounded-full filter blur-3xl opacity-10 animate-pulse"></div>
-          <div
-            className="absolute bottom-10 right-10 w-96 h-96 bg-yellow-300 rounded-full filter blur-3xl opacity-10 animate-pulse"
-            style={{ animationDelay: "1s" }}
-          ></div>
-        </div>
-
-        <div className="max-w-7xl mx-auto px-6 relative z-10">
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={fadeInUp}
-            className="text-center mb-16 text-white"
-          >
-            <h2 className="text-5xl md:text-6xl font-bold mb-6">
-              Why Choose CampusConnect?
-            </h2>
-            <p className="text-xl text-blue-100 max-w-3xl mx-auto">
-              We're more than just a platform - we're your complete campus
-              companion
-            </p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {[
-              {
-                icon: <FaLaptopCode />,
-                title: "Modern Tech",
-                description:
-                  "Built with cutting-edge technology for seamless performance",
-              },
-              {
-                icon: <FaMobileAlt />,
-                title: "Mobile First",
-                description:
-                  "Access everything on-the-go from any device, anywhere",
-              },
-              {
-                icon: <FaShieldAlt />,
-                title: "Secure & Private",
-                description:
-                  "Your data is protected with enterprise-grade security",
-              },
-              {
-                icon: <FaRocket />,
-                title: "Always Improving",
-                description:
-                  "Regular updates with new features based on your feedback",
-              },
-            ].map((item, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
-                className="text-center text-white"
-              >
-                <div className="w-20 h-20 mx-auto mb-4 bg-white/20 backdrop-blur-lg rounded-2xl flex items-center justify-center text-4xl border border-white/30">
-                  {item.icon}
-                </div>
-                <h3 className="text-xl font-bold mb-2">{item.title}</h3>
-                <p className="text-blue-100">{item.description}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Call to Action */}
-      <section className="py-32 bg-gradient-to-b from-white to-gray-50 relative overflow-hidden">
-        <div className="absolute inset-0">
-          <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-200 rounded-full filter blur-3xl opacity-20"></div>
-          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-200 rounded-full filter blur-3xl opacity-20"></div>
-        </div>
-
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={fadeInUp}
-          className="max-w-5xl mx-auto text-center px-6 relative z-10"
-        >
-          <div className="inline-block px-6 py-3 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full mb-6">
-            <span className="text-blue-600 font-semibold">
-              🎉 Join 10,000+ Happy Students
-            </span>
-          </div>
-
-          <h2 className="text-5xl md:text-7xl font-bold mb-6 text-gray-800">
-            Ready to Transform Your
-            <br />
-            <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-              Campus Experience?
-            </span>
-          </h2>
-
-          <p className="text-xl md:text-2xl text-gray-600 mb-12 max-w-3xl mx-auto">
-            Join thousands of students already using CampusConnect to stay
-            connected, organized, and ahead
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
-            {!user ? (
-              <>
-                <Link to="/student-auth">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-5 px-12 rounded-full shadow-2xl text-lg"
+            {featureTiles.map((tile) => {
+              const Icon = tile.icon;
+              return (
+                <motion.article
+                  key={tile.title}
+                  variants={fadeInUp}
+                  whileHover={{ y: -6 }}
+                  className={`group rounded-3xl border border-slate-200 bg-gradient-to-br ${tile.bg} p-5 shadow-sm transition-all duration-300 hover:shadow-xl`}
+                >
+                  <div
+                    className={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${tile.accent} text-white shadow-md`}
                   >
-                    Get Started Free →
-                  </motion.button>
-                </Link>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="bg-white text-purple-600 font-bold py-5 px-12 rounded-full shadow-lg border-2 border-purple-200 hover:border-purple-300 text-lg"
-                >
-                  Schedule Demo
-                </motion.button>
-              </>
-            ) : (
-              <Link to="/student-dashboard">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-5 px-12 rounded-full shadow-2xl text-lg"
-                >
-                  Go to Your Dashboard →
-                </motion.button>
-              </Link>
-            )}
-          </div>
-
-          <div className="mt-12 flex justify-center items-center gap-8 text-sm text-gray-500">
-            <div className="flex items-center gap-2">
-              <FaCheckCircle className="text-green-500" />
-              <span>No credit card required</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <FaCheckCircle className="text-green-500" />
-              <span>Free forever</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <FaCheckCircle className="text-green-500" />
-              <span>Setup in 2 minutes</span>
-            </div>
-          </div>
-        </motion.div>
+                    <Icon className="h-6 w-6" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-slate-800">
+                    {tile.title}
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                    {tile.description}
+                  </p>
+                </motion.article>
+              );
+            })}
+          </motion.div>
+        </div>
       </section>
 
-      {/* Better Footer */}
-      <footer className="w-full bg-gradient-to-r from-gray-800 via-gray-900 to-indigo-900 text-white py-16 px-6 mt-auto">
-        <div className="max-w-6xl mx-auto grid md:grid-cols-4 gap-8 text-sm">
-          <div>
-            <h2 className="text-2xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
-              CampusConnect
-            </h2>
-            <p className="text-gray-300">
-              Empowering students with tools to collaborate, connect, and grow
-              together in a thriving campus community.
+      <section className="px-4 pb-20 sm:px-6 lg:px-8">
+        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.15fr_0.85fr]">
+          <motion.div
+            initial={{ opacity: 0, y: 22 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+            className="rounded-[2rem] border border-slate-200 bg-white p-7 shadow-sm sm:p-10"
+          >
+            <span className="inline-flex items-center gap-2 rounded-full bg-[#e6f4ff] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#1a6589]">
+              <CheckCircle2 className="h-4 w-4" />
+              Why It Works
+            </span>
+            <h3 className="mt-4 text-3xl font-bold text-slate-800 sm:text-4xl">
+              Purpose-built for campus velocity
+            </h3>
+            <p className="mt-3 text-slate-600">
+              From attendance intelligence to exam planning and instant academic
+              communication, CampusConnect compresses scattered systems into one
+              high-clarity platform.
             </p>
-          </div>
-          <div>
-            <h2 className="font-semibold mb-4 text-lg">Explore</h2>
-            <ul className="space-y-2">
-              <li>
-                <a
-                  href="/"
-                  className="text-gray-300 hover:text-white transition-colors"
+
+            <div className="mt-8 grid gap-4 sm:grid-cols-2">
+              {[
+                "Attendance by Face, QR, and biometric paths",
+                "Exam + academic schedule managed year-wise",
+                "Role-aware notifications and announcements",
+                "Live communication layer for students and faculty",
+              ].map((item) => (
+                <div
+                  key={item}
+                  className="rounded-2xl border border-slate-200 bg-[#fbfcff] px-4 py-3 text-sm font-medium text-slate-700"
                 >
-                  Home
-                </a>
-              </li>
-              <li>
-                <a
-                  href="/about"
-                  className="text-gray-300 hover:text-white transition-colors"
+                  {item}
+                </div>
+              ))}
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 22 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.05 }}
+            className="rounded-[2rem] border border-slate-200 bg-gradient-to-br from-[#0f4b67] via-[#1b6487] to-[#2f82ac] p-7 text-white shadow-sm sm:p-10"
+          >
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-white/90">
+              <Sparkles className="h-4 w-4" />
+              Ready to Launch
+            </span>
+            <h3 className="mt-4 text-3xl font-bold sm:text-4xl">
+              Bring your campus online in one flow
+            </h3>
+            <p className="mt-3 text-sm text-white/90">
+              Activate your account and move from fragmented processes to one
+              coherent student-first ecosystem.
+            </p>
+
+            <div className="mt-7 space-y-3">
+              {!user ? (
+                <Link
+                  to="/student-auth"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-[#0f4b67] transition hover:bg-[#f2f8ff]"
                 >
-                  About
-                </a>
-              </li>
-              <li>
-                <a
-                  href="/features"
-                  className="text-gray-300 hover:text-white transition-colors"
+                  Start With CampusConnect
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              ) : (
+                <Link
+                  to="/student-dashboard"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-[#0f4b67] transition hover:bg-[#f2f8ff]"
                 >
-                  Features
-                </a>
-              </li>
-            </ul>
-          </div>
-          <div>
-            <h2 className="font-semibold mb-4 text-lg">Community</h2>
-            <ul className="space-y-2">
-              <li>
-                <a
-                  href="/discussions"
-                  className="text-gray-300 hover:text-white transition-colors"
-                >
-                  Discussions
-                </a>
-              </li>
-              <li>
-                <a
-                  href="/notes"
-                  className="text-gray-300 hover:text-white transition-colors"
-                >
-                  Notes
-                </a>
-              </li>
-              <li>
-                <a
-                  href="/announcements"
-                  className="text-gray-300 hover:text-white transition-colors"
-                >
-                  Announcements
-                </a>
-              </li>
-            </ul>
-          </div>
-          <div>
-            <h2 className="font-semibold mb-4 text-lg">Connect</h2>
-            <ul className="space-y-2">
-              <li>
-                <a
-                  href="#"
-                  className="hover:underline flex items-center space-x-2"
-                >
-                  <i className="fab fa-linkedin"></i>
-                  <span>LinkedIn</span>
-                </a>
-              </li>
-              <li>
-                <a
-                  href="#"
-                  className="hover:underline flex items-center space-x-2"
-                >
-                  <i className="fab fa-github"></i>
-                  <span>GitHub</span>
-                </a>
-              </li>
-              <li>
-                <a
-                  href="#"
-                  className="hover:underline flex items-center space-x-2"
-                >
-                  <i className="fas fa-envelope"></i>
-                  <span>Contact Us</span>
-                </a>
-              </li>
-            </ul>
-          </div>
+                  Open Dashboard
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              )}
+            </div>
+          </motion.div>
         </div>
-        <div className="mt-10 text-center text-xs opacity-70">
-          © {new Date().getFullYear()} CampusConnect. All rights reserved.
-        </div>
-      </footer>
+      </section>
+      <Footer />
     </main>
   );
 }

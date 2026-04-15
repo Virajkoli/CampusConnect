@@ -2554,6 +2554,15 @@ const EXAM_TIMETABLE_FAST_GEMINI_MODELS = [
   "gemini-2.5-flash",
 ];
 
+const EXAM_REMINDER_ENABLED =
+  String(process.env.ENABLE_EXAM_REMINDER_NOTIFICATIONS || "true")
+    .trim()
+    .toLowerCase() !== "false";
+const EXAM_REMINDER_INTERVAL_MS = Math.max(
+  5 * 60 * 1000,
+  Number(process.env.EXAM_REMINDER_INTERVAL_MS || 60 * 60 * 1000),
+);
+
 const GEMINI_TRANSIENT_STATUS_CODES = new Set([429, 500, 503, 504]);
 
 const EXAM_TIMETABLE_DAY_PATTERN =
@@ -3088,6 +3097,259 @@ const parseExamTimetableDate = (rawDate = "") => {
 
   const parsed = new Date(normalizedValue);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const normalizeExamReminderYearToken = (value = "") =>
+  String(value || "").replace(/[^0-9]/g, "");
+
+const toDayStart = (value) => {
+  const current = value instanceof Date ? new Date(value) : new Date(value);
+  current.setHours(0, 0, 0, 0);
+  return current;
+};
+
+const formatExamReminderDisplayDate = (value) => {
+  const date = value instanceof Date ? value : new Date(value);
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const formatExamReminderLocalDateISO = (value) => {
+  const date = value instanceof Date ? value : new Date(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const findNextActiveExamDate = async (firestore) => {
+  const snapshot = await firestore.collection("examTimetable").get();
+  const todayStart = toDayStart(new Date());
+
+  let nextDate = null;
+  snapshot.docs.forEach((docSnap) => {
+    const exam = docSnap.data() || {};
+    if (exam.isActive === false) {
+      return;
+    }
+
+    const parsed = parseExamTimetableDate(exam.date || "");
+    if (!parsed) {
+      return;
+    }
+
+    const examStart = toDayStart(parsed);
+    if (examStart < todayStart) {
+      return;
+    }
+
+    if (!nextDate || examStart < nextDate) {
+      nextDate = examStart;
+    }
+  });
+
+  return nextDate;
+};
+
+const buildExamReminderMessage = ({
+  yearLabel = "",
+  displayDate = "",
+  rows = [],
+}) => {
+  const groupedByBranch = new Map();
+
+  rows.forEach((row) => {
+    const branchName =
+      String(row.branch || "All Branches").trim() || "All Branches";
+    if (!groupedByBranch.has(branchName)) {
+      groupedByBranch.set(branchName, []);
+    }
+    groupedByBranch.get(branchName).push(row);
+  });
+
+  const segments = [];
+  segments.push(
+    `Reminder: ${yearLabel || "Selected"} Year exam(s) are scheduled for tomorrow (${displayDate}).`,
+  );
+  segments.push(
+    "Please be present before reporting time with valid college ID.",
+  );
+  segments.push("");
+  segments.push("Exam Details:");
+
+  Array.from(groupedByBranch.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .forEach(([branchName, branchRows]) => {
+      segments.push(`- ${branchName}:`);
+
+      branchRows
+        .slice()
+        .sort((left, right) => {
+          const leftTime = getExamTimeStartMinutes(left.time || "");
+          const rightTime = getExamTimeStartMinutes(right.time || "");
+          if (leftTime !== rightTime) {
+            return leftTime - rightTime;
+          }
+
+          return String(left.courseCode || "").localeCompare(
+            String(right.courseCode || ""),
+          );
+        })
+        .forEach((exam) => {
+          segments.push(
+            `  • ${String(exam.time || "").trim() || "Time TBA"} | ${String(exam.courseCode || "").trim()} - ${String(exam.courseName || "").trim()}`,
+          );
+        });
+    });
+
+  return segments.join("\n");
+};
+
+const createTomorrowExamReminderAnnouncements = async (options = {}) => {
+  if (!EXAM_REMINDER_ENABLED) {
+    return { createdCount: 0, skippedCount: 0, reason: "disabled" };
+  }
+
+  const firestore = admin.firestore();
+  const now = new Date();
+  const todayStart = toDayStart(now);
+  const targetDateISO = String(options.targetDateISO || "").trim();
+
+  const tomorrowStart = new Date(todayStart);
+  tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+
+  let reminderDayStart = tomorrowStart;
+  if (targetDateISO) {
+    const parsedTargetDate = parseExamTimetableDate(targetDateISO);
+    if (!parsedTargetDate) {
+      throw new Error("Invalid targetDateISO. Use DD-MM-YYYY or YYYY-MM-DD.");
+    }
+
+    reminderDayStart = toDayStart(parsedTargetDate);
+  }
+
+  const dayAfterTomorrowStart = new Date(reminderDayStart);
+  dayAfterTomorrowStart.setDate(dayAfterTomorrowStart.getDate() + 1);
+
+  const reminderDateIso = formatExamReminderLocalDateISO(reminderDayStart);
+
+  const [examSnapshot, existingReminderSnapshot] = await Promise.all([
+    firestore.collection("examTimetable").get(),
+    firestore
+      .collection("announcements")
+      .where("reminderType", "==", "exam-day-1")
+      .where("reminderDateISO", "==", reminderDateIso)
+      .get(),
+  ]);
+
+  const existingYearKeys = new Set(
+    existingReminderSnapshot.docs.map((docSnap) => {
+      const payload = docSnap.data() || {};
+      return normalizeExamReminderYearToken(
+        payload.reminderYear || payload.year || "",
+      );
+    }),
+  );
+
+  const examsByYear = new Map();
+
+  examSnapshot.docs.forEach((docSnap) => {
+    const exam = docSnap.data() || {};
+    if (exam.isActive === false) {
+      return;
+    }
+
+    const parsedDate = parseExamTimetableDate(exam.date || "");
+    if (!parsedDate) {
+      return;
+    }
+
+    if (parsedDate < reminderDayStart || parsedDate >= dayAfterTomorrowStart) {
+      return;
+    }
+
+    const yearLabel = String(exam.year || "").trim();
+    const yearToken = normalizeExamReminderYearToken(yearLabel);
+    if (!yearToken) {
+      return;
+    }
+
+    if (!examsByYear.has(yearToken)) {
+      examsByYear.set(yearToken, {
+        yearLabel,
+        rows: [],
+      });
+    }
+
+    examsByYear.get(yearToken).rows.push({
+      branch: exam.branch || "",
+      time: exam.time || "",
+      courseCode: exam.courseCode || "",
+      courseName: exam.courseName || "",
+    });
+  });
+
+  if (examsByYear.size === 0) {
+    return {
+      createdCount: 0,
+      skippedCount: 0,
+      reason: targetDateISO ? "no-exams-on-target-date" : "no-exams-tomorrow",
+      reminderDateISO: reminderDateIso,
+    };
+  }
+
+  const batch = firestore.batch();
+  let createdCount = 0;
+  let skippedCount = 0;
+
+  examsByYear.forEach((group, yearToken) => {
+    if (existingYearKeys.has(yearToken)) {
+      skippedCount += 1;
+      return;
+    }
+
+    const displayDate = formatExamReminderDisplayDate(reminderDayStart);
+    const title = `Exam Reminder: ${group.yearLabel || `${yearToken}th`} Year (${displayDate})`;
+    const message = buildExamReminderMessage({
+      yearLabel: group.yearLabel || `${yearToken}th`,
+      displayDate,
+      rows: group.rows,
+    });
+
+    const reminderKey = `exam-reminder-${reminderDateIso}-${yearToken}`;
+    const docRef = firestore.collection("announcements").doc();
+    batch.set(docRef, {
+      title,
+      message,
+      type: "academic",
+      active: true,
+      readBy: [],
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      reminderType: "exam-day-1",
+      reminderDateISO: reminderDateIso,
+      reminderYear: group.yearLabel || `${yearToken}th`,
+      reminderYearToken: yearToken,
+      reminderKey,
+      audience: ["student", "teacher"],
+      source: "examReminderScheduler",
+    });
+
+    createdCount += 1;
+  });
+
+  if (createdCount > 0) {
+    await batch.commit();
+  }
+
+  return {
+    createdCount,
+    skippedCount,
+    reason: targetDateISO ? "ok-target-date" : "ok",
+    reminderDateISO: reminderDateIso,
+  };
 };
 
 const normalizeExamTimetableDate = (rawDate = "") => {
@@ -8737,6 +8999,60 @@ app.post(
   },
 );
 
+app.post("/api/notifications/exam-reminders/trigger", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res
+        .status(401)
+        .json({ message: "No authorization token provided" });
+    }
+
+    const token = authHeader.split("Bearer ")[1];
+    const decodedToken = await admin.auth().verifyIdToken(token);
+
+    const adminDoc = await admin
+      .firestore()
+      .collection("admins")
+      .doc(decodedToken.uid)
+      .get();
+    if (!adminDoc.exists) {
+      return res.status(403).json({
+        message: "Only admins can trigger exam reminders",
+      });
+    }
+
+    const requestedTargetDateISO = String(req.body?.targetDateISO || "").trim();
+    const useNextExamDate = Boolean(req.body?.useNextExamDate);
+
+    let targetDateISO = requestedTargetDateISO;
+    if (!targetDateISO && useNextExamDate) {
+      const nextDate = await findNextActiveExamDate(admin.firestore());
+      if (nextDate) {
+        targetDateISO = formatExamReminderLocalDateISO(nextDate);
+      }
+    }
+
+    const result = await createTomorrowExamReminderAnnouncements({
+      targetDateISO,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Exam reminder trigger completed",
+      mode: targetDateISO ? "target-date" : "tomorrow",
+      targetDateISO: targetDateISO || null,
+      ...result,
+    });
+  } catch (error) {
+    console.error("Exam reminder trigger failed:", error);
+    return res.status(500).json({
+      message: "Failed to trigger exam reminders",
+      error: error.message,
+    });
+  }
+});
+
 app.use((error, req, res, next) => {
   if (error instanceof multer.MulterError) {
     if (error.code === "LIMIT_FILE_SIZE") {
@@ -8774,6 +9090,38 @@ app.use((error, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
+
+let examReminderJobRunning = false;
+const runExamReminderJob = async () => {
+  if (examReminderJobRunning) {
+    return;
+  }
+
+  examReminderJobRunning = true;
+  try {
+    const result = await createTomorrowExamReminderAnnouncements();
+    if ((result?.createdCount || 0) > 0) {
+      console.log(
+        `Exam reminder job: created ${result.createdCount} reminder announcement(s) for ${result.reminderDateISO || "tomorrow"}`,
+      );
+    }
+  } catch (error) {
+    console.error("Exam reminder job failed:", error.message);
+  } finally {
+    examReminderJobRunning = false;
+  }
+};
+
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
+
+  if (EXAM_REMINDER_ENABLED) {
+    runExamReminderJob();
+    setInterval(runExamReminderJob, EXAM_REMINDER_INTERVAL_MS);
+    console.log(
+      `Exam reminder scheduler enabled (interval ${Math.round(EXAM_REMINDER_INTERVAL_MS / 1000)}s)`,
+    );
+  } else {
+    console.log("Exam reminder scheduler disabled by configuration.");
+  }
 });
