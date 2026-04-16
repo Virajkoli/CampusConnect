@@ -42,6 +42,70 @@ const normalizeAssignments = (teacherData) => {
   return [];
 };
 
+const getApiBaseUrl = () => {
+  const rawBase = String(import.meta.env.VITE_API_URL || "").trim();
+
+  if (!rawBase) {
+    if (import.meta.env.DEV) {
+      return "http://localhost:5000";
+    }
+
+    if (typeof window !== "undefined") {
+      // In production, keep requests off the SPA origin by defaulting to /api.
+      return `${window.location.origin}/api`;
+    }
+  }
+
+  return (rawBase || "http://localhost:5000").replace(/\/+$/, "");
+};
+
+const parseApiResponse = async (response) => {
+  const contentType = String(
+    response.headers.get("content-type") || "",
+  ).toLowerCase();
+  const bodyText = await response.text();
+
+  if (!bodyText) {
+    return {};
+  }
+
+  if (contentType.includes("application/json")) {
+    try {
+      return JSON.parse(bodyText);
+    } catch {
+      throw new Error("Received invalid JSON response from server.");
+    }
+  }
+
+  const trimmed = bodyText.trim();
+  if (
+    trimmed.startsWith("<!doctype") ||
+    trimmed.startsWith("<!DOCTYPE") ||
+    trimmed.startsWith("<html")
+  ) {
+    throw new Error(
+      "Backend API URL is misconfigured for deployment. Set VITE_API_URL to backend origin.",
+    );
+  }
+
+  try {
+    return JSON.parse(bodyText);
+  } catch {
+    throw new Error("Server returned a non-JSON response.");
+  }
+};
+
+const fetchJson = async (url, options) => {
+  const response = await fetch(url, options);
+  const data = await parseApiResponse(response);
+
+  if (!response.ok) {
+    throw new Error(data.message || data.error || "Request failed.");
+  }
+
+  return data;
+};
+
 export default function TeacherTimetablePage() {
   const navigate = useNavigate();
   const [teacher, setTeacher] = useState(null);
@@ -54,6 +118,7 @@ export default function TeacherTimetablePage() {
   const [loading, setLoading] = useState(true);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const apiBase = useMemo(() => getApiBaseUrl(), []);
 
   const branchOptions = useMemo(() => {
     return [...new Set(assignments.map((item) => item.branch).filter(Boolean))];
@@ -123,14 +188,9 @@ export default function TeacherTimetablePage() {
 
     const fetchClassTimetable = async () => {
       try {
-        const apiBase = import.meta.env.VITE_API_URL || "http://localhost:5000";
-        const response = await fetch(
+        const data = await fetchJson(
           `${apiBase}/timetable/${encodeURIComponent(branch)}/${encodeURIComponent(year)}/${encodeURIComponent(semester)}`,
         );
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.message || "Failed to load timetable.");
-        }
         setLectures(Array.isArray(data.lectures) ? data.lectures : []);
       } catch (error) {
         toast.error(error.message || "Failed to load timetable.");
@@ -138,7 +198,7 @@ export default function TeacherTimetablePage() {
     };
 
     fetchClassTimetable();
-  }, [branch, year, semester]);
+  }, [apiBase, branch, year, semester]);
 
   useEffect(() => {
     if (!branch || !year || !semester) {
@@ -155,14 +215,9 @@ export default function TeacherTimetablePage() {
 
     const loadSemesterSubjects = async () => {
       try {
-        const apiBase = import.meta.env.VITE_API_URL || "http://localhost:5000";
-        const response = await fetch(
+        const data = await fetchJson(
           `${apiBase}/api/subjects?department=${encodeURIComponent(branch)}&year=${encodeURIComponent(year)}&semester=${encodeURIComponent(semester)}`,
         );
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.message || "Failed to load subjects.");
-        }
 
         const semesterSubjects = Array.isArray(data.subjects)
           ? data.subjects
@@ -177,19 +232,14 @@ export default function TeacherTimetablePage() {
     };
 
     loadSemesterSubjects();
-  }, [assignments, branch, year, semester]);
+  }, [apiBase, assignments, branch, year, semester]);
 
   const refreshTimetable = async () => {
     if (!branch || !year || !semester) return;
 
-    const apiBase = import.meta.env.VITE_API_URL || "http://localhost:5000";
-    const response = await fetch(
+    const data = await fetchJson(
       `${apiBase}/timetable/${encodeURIComponent(branch)}/${encodeURIComponent(year)}/${encodeURIComponent(semester)}`,
     );
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.message || "Failed to refresh timetable.");
-    }
 
     setLectures(Array.isArray(data.lectures) ? data.lectures : []);
   };
@@ -200,9 +250,8 @@ export default function TeacherTimetablePage() {
     try {
       setIsSubmitting(true);
       const token = await auth.currentUser.getIdToken();
-      const apiBase = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-      const response = await fetch(`${apiBase}/timetable/add-lecture`, {
+      await fetchJson(`${apiBase}/timetable/add-lecture`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -210,11 +259,6 @@ export default function TeacherTimetablePage() {
         },
         body: JSON.stringify(lectureData),
       });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to add lecture.");
-      }
 
       toast.success("Lecture added successfully.");
       setIsAddOpen(false);
