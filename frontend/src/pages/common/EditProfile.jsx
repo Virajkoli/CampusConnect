@@ -188,7 +188,10 @@ function EditProfile() {
     try {
       const response = await fetchWithNetworkHint(
         `${API_URL}/api/upload-profile`,
-        formData,
+        {
+          method: "POST",
+          body: formData,
+        },
       );
       const data = await parseJsonResponse(response);
       return String(data.url || "").trim() || photoURL;

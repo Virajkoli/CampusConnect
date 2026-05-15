@@ -5,7 +5,9 @@ import { collection, getDocs } from "firebase/firestore";
 import { auth, firestore } from "../../firebase";
 import { BRANCHES, YEARS, SEMESTERS } from "../../utils/branchYearSubjects";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API_URL = String(import.meta.env.VITE_API_URL || "http://localhost:5000")
+  .trim()
+  .replace(/\/+$/, "");
 
 const getStudentPrn = (student) => {
   return String(student.prn || student.rollNo || student.rollNumber || "")
